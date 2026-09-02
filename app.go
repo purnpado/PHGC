@@ -312,6 +312,11 @@ func (a *App) ResetAllData() error {
 
 	// dataDir 다시 생성
 	os.MkdirAll(dataDir, 0755)
+	
+	// 테이블 다시 생성
+	if err := a.db.InitConfigDB(); err != nil {
+		return fmt.Errorf("DB 초기화 실패: %w", err)
+	}
 
 	return nil
 }
