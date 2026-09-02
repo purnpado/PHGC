@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,6 +15,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// 브릿지 서버 주소 (배포 환경에 맞게 수정)
+const BridgeServerURL = "http://localhost:8080"
 
 // App struct
 type App struct {
@@ -63,9 +70,10 @@ func (a *App) SetupApp(req SetupRequest) error {
 		return fmt.Errorf("비밀번호 암호화 실패: %w", err)
 	}
 
-	err = a.db.SaveSchoolConfig(req.SchoolName, req.ClassCount, string(hashedPwd), req.IsSmallSchool)
+	// DB에 설정 저장 (입학년도 포함)
+	err = a.db.SaveSchoolConfig(req.SchoolName, req.ClassCount, string(hashedPwd), req.IsSmallSchool, req.AdmissionYear)
 	if err != nil {
-		return err
+		return fmt.Errorf("설정 저장 실패: %w", err)
 	}
 
 	return nil
@@ -135,6 +143,116 @@ func (a *App) GetClassStatus(classCount int) map[int]int {
 		status[i] = a.db.GetClassStudentCount(i)
 	}
 	return status
+}
+
+// --- 고입 커트라인 관리 ---
+
+func (a *App) SaveCutoffs(cutoffs []CutoffInfo) error {
+	return a.db.SaveCutoffs(cutoffs)
+}
+
+func (a *App) GetCutoffs() ([]CutoffInfo, error) {
+	return a.db.GetCutoffs()
+}
+
+// --- 브릿지 서버(피드백 및 크라우드소싱) API ---
+
+func (a *App) SendCutoffsToBridge(year int) error {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return err
+	}
+	
+	cutoffs, err := a.db.GetCutoffs()
+	if err != nil {
+		return err
+	}
+
+	var yearData []CutoffInfo
+	for _, c := range cutoffs {
+		if c.Year == year {
+			yearData = append(yearData, c)
+		}
+	}
+
+	if len(yearData) == 0 {
+		return fmt.Errorf("해당 연도의 데이터가 없습니다")
+	}
+
+	payload := map[string]interface{}{
+		"schoolName": config.SchoolName,
+		"year":       year,
+		"data":       yearData,
+	}
+	
+	jsonBytes, _ := json.Marshal(payload)
+	resp, err := http.Post(BridgeServerURL+"/api/cutoff", "application/json", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return fmt.Errorf("서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("서버 오류: %s", string(b))
+	}
+	return nil
+}
+
+func (a *App) SubmitFeedback(title, content, email string) (int, error) {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return 0, err
+	}
+
+	payload := map[string]interface{}{
+		"schoolName": config.SchoolName,
+		"email":      email,
+		"title":      title,
+		"content":    content,
+	}
+
+	jsonBytes, _ := json.Marshal(payload)
+	resp, err := http.Post(BridgeServerURL+"/api/feedback", "application/json", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return 0, fmt.Errorf("서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("서버 오류: %s", string(b))
+	}
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+
+	issueID := int(result["issue_id"].(float64))
+	
+	// 로컬 DB에 기록 저장
+	a.db.SaveFeedbackIssue(issueID, title)
+
+	return issueID, nil
+}
+
+func (a *App) GetLocalFeedbacks() ([]FeedbackIssue, error) {
+	return a.db.GetFeedbackIssues()
+}
+
+func (a *App) GetFeedbackDetails(issueID int) (map[string]interface{}, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/api/feedback/%d", BridgeServerURL, issueID))
+	if err != nil {
+		return nil, fmt.Errorf("서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("이슈 정보를 가져올 수 없습니다 (상태코드: %d)", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	return result, nil
 }
 
 // GetClassGrades 특정 반의 내신 성적 가산출 결과 반환

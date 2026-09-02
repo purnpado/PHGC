@@ -15,6 +15,7 @@ type SchoolConfig struct {
 	SchoolName    string `json:"schoolName"`
 	ClassCount    int    `json:"classCount"`
 	IsSmallSchool bool   `json:"isSmallSchool"`
+	AdmissionYear int    `json:"admissionYear"`
 }
 
 // SetupRequest 초기 설정 요청
@@ -23,6 +24,18 @@ type SetupRequest struct {
 	ClassCount    int    `json:"classCount"`
 	AdminPassword string `json:"adminPassword"`
 	IsSmallSchool bool   `json:"isSmallSchool"`
+	AdmissionYear int    `json:"admissionYear"`
+}
+
+// CutoffInfo 고교 커트라인 정보 (연도 및 전형, 최고/최저점 포함)
+type CutoffInfo struct {
+	Year        int     `json:"year"`
+	SchoolName  string  `json:"schoolName"`
+	Department  string  `json:"department"` // 후기고는 빈 문자열
+	Track       string  `json:"track"`      // 마이스터고(일반), 마이스터고(특별), 특성화고(취업), 특성화고(일반), 일반계고
+	ScoreType   string  `json:"scoreType"`  // percentile 또는 total_score
+	MaxValue    float64 `json:"maxValue"`
+	MinValue    float64 `json:"minValue"`
 }
 
 // DB 매니저
@@ -78,10 +91,29 @@ func (dm *DBManager) InitConfigDB() error {
 			class_count    INTEGER NOT NULL,
 			admin_password TEXT NOT NULL DEFAULT '',
 			is_small_school BOOLEAN DEFAULT 0,
+			admission_year  INTEGER DEFAULT 2025,
 			grade       INTEGER DEFAULT 3,
 			created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-		)
+		);
+		CREATE TABLE IF NOT EXISTS highschool_cutoffs (
+			id INTEGER PRIMARY KEY,
+			year INTEGER NOT NULL,
+			school_name TEXT NOT NULL,
+			department TEXT NOT NULL,
+			track TEXT NOT NULL,
+			score_type TEXT NOT NULL,
+			max_value REAL,
+			min_value REAL,
+			UNIQUE(year, school_name, department, track)
+		);
+		CREATE TABLE IF NOT EXISTS feedback_issues (
+			id INTEGER PRIMARY KEY,
+			issue_id INTEGER NOT NULL UNIQUE,
+			title TEXT NOT NULL,
+			status TEXT DEFAULT 'open',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
 	`)
 	if err != nil {
 		return fmt.Errorf("config 테이블 생성 실패: %w", err)
@@ -89,8 +121,8 @@ func (dm *DBManager) InitConfigDB() error {
 	return nil
 }
 
-// SaveSchoolConfig 학교 설정 저장 (비밀번호 포함)
-func (dm *DBManager) SaveSchoolConfig(schoolName string, classCount int, adminPassword string, isSmallSchool bool) error {
+// SaveSchoolConfig 학교 설정 저장
+func (dm *DBManager) SaveSchoolConfig(schoolName string, classCount int, adminPassword string, isSmallSchool bool, admissionYear int) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
 	if err != nil {
 		return err
@@ -99,15 +131,16 @@ func (dm *DBManager) SaveSchoolConfig(schoolName string, classCount int, adminPa
 
 	// 기존 설정이 있으면 업데이트, 없으면 삽입
 	_, err = db.Exec(`
-		INSERT INTO school_config (id, school_name, class_count, admin_password, is_small_school, updated_at)
-		VALUES (1, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO school_config (id, school_name, class_count, admin_password, is_small_school, admission_year, updated_at)
+		VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 		ON CONFLICT(id) DO UPDATE SET
 			school_name    = excluded.school_name,
 			class_count    = excluded.class_count,
 			admin_password = excluded.admin_password,
 			is_small_school = excluded.is_small_school,
+			admission_year  = excluded.admission_year,
 			updated_at     = CURRENT_TIMESTAMP
-	`, schoolName, classCount, adminPassword, isSmallSchool)
+	`, schoolName, classCount, adminPassword, isSmallSchool, admissionYear)
 	if err != nil {
 		return fmt.Errorf("학교 설정 저장 실패: %w", err)
 	}
@@ -123,8 +156,8 @@ func (dm *DBManager) GetSchoolConfig() (*SchoolConfig, error) {
 	defer db.Close()
 
 	var config SchoolConfig
-	err = db.QueryRow("SELECT school_name, class_count, is_small_school FROM school_config WHERE id = 1").
-		Scan(&config.SchoolName, &config.ClassCount, &config.IsSmallSchool)
+	err = db.QueryRow("SELECT school_name, class_count, is_small_school, admission_year FROM school_config WHERE id = 1").
+		Scan(&config.SchoolName, &config.ClassCount, &config.IsSmallSchool, &config.AdmissionYear)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil // 설정이 없는 경우
@@ -157,6 +190,107 @@ func (dm *DBManager) VerifyAdminPassword(password string) (bool, error) {
 func (dm *DBManager) HasConfig() bool {
 	config, err := dm.GetSchoolConfig()
 	return err == nil && config != nil
+}
+
+// --- 고입 커트라인 관리 ---
+
+// SaveCutoffs 고교 커트라인 저장
+func (dm *DBManager) SaveCutoffs(cutoffs []CutoffInfo) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, c := range cutoffs {
+		_, err = tx.Exec(`
+			INSERT INTO highschool_cutoffs (year, school_name, department, track, score_type, max_value, min_value)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+			ON CONFLICT(year, school_name, department, track) DO UPDATE SET
+				score_type = excluded.score_type,
+				max_value = excluded.max_value,
+				min_value = excluded.min_value
+		`, c.Year, c.SchoolName, c.Department, c.Track, c.ScoreType, c.MaxValue, c.MinValue)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetCutoffs 커트라인 정보 반환
+func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT year, school_name, department, track, score_type, max_value, min_value FROM highschool_cutoffs")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cutoffs []CutoffInfo
+	for rows.Next() {
+		var c CutoffInfo
+		if err := rows.Scan(&c.Year, &c.SchoolName, &c.Department, &c.Track, &c.ScoreType, &c.MaxValue, &c.MinValue); err == nil {
+			cutoffs = append(cutoffs, c)
+		}
+	}
+	return cutoffs, nil
+}
+
+// ----------------------------------------------------
+// Feedback Issues
+// ----------------------------------------------------
+
+type FeedbackIssue struct {
+	IssueID   int    `json:"issue_id"`
+	Title     string `json:"title"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
+}
+
+func (dm *DBManager) SaveFeedbackIssue(issueID int, title string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("INSERT INTO feedback_issues (issue_id, title) VALUES (?, ?)", issueID, title)
+	return err
+}
+
+func (dm *DBManager) GetFeedbackIssues() ([]FeedbackIssue, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT issue_id, title, status, created_at FROM feedback_issues ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	issues := []FeedbackIssue{}
+	for rows.Next() {
+		var i FeedbackIssue
+		rows.Scan(&i.IssueID, &i.Title, &i.Status, &i.CreatedAt)
+		issues = append(issues, i)
+	}
+	return issues, nil
 }
 
 // --- 학급별 성적 DB 관리 ---

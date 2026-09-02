@@ -18,6 +18,18 @@ export function GetClassStatus(arg1) {
   return window['go']['main']['App']['GetClassStatus'](arg1);
 }
 
+export function GetCutoffs() {
+  return window['go']['main']['App']['GetCutoffs']();
+}
+
+export function GetFeedbackDetails(arg1) {
+  return window['go']['main']['App']['GetFeedbackDetails'](arg1);
+}
+
+export function GetLocalFeedbacks() {
+  return window['go']['main']['App']['GetLocalFeedbacks']();
+}
+
 export function GetSchoolConfig() {
   return window['go']['main']['App']['GetSchoolConfig']();
 }
@@ -34,8 +46,20 @@ export function ResetAllData() {
   return window['go']['main']['App']['ResetAllData']();
 }
 
+export function SaveCutoffs(arg1) {
+  return window['go']['main']['App']['SaveCutoffs'](arg1);
+}
+
+export function SendCutoffsToBridge(arg1) {
+  return window['go']['main']['App']['SendCutoffsToBridge'](arg1);
+}
+
 export function SetupApp(arg1) {
   return window['go']['main']['App']['SetupApp'](arg1);
+}
+
+export function SubmitFeedback(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SubmitFeedback'](arg1, arg2, arg3);
 }
 
 export function SyncWithServer() {

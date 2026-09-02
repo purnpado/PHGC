@@ -10,6 +10,12 @@ export function GetClassGrades(arg1:number):Promise<Array<main.StudentCalcResult
 
 export function GetClassStatus(arg1:number):Promise<Record<number, number>>;
 
+export function GetCutoffs():Promise<Array<main.CutoffInfo>>;
+
+export function GetFeedbackDetails(arg1:number):Promise<Record<string, any>>;
+
+export function GetLocalFeedbacks():Promise<Array<main.FeedbackIssue>>;
+
 export function GetSchoolConfig():Promise<main.SchoolConfig>;
 
 export function OpenExcelFile():Promise<string>;
@@ -18,7 +24,13 @@ export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ResetAllData():Promise<void>;
 
+export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
+
+export function SendCutoffsToBridge(arg1:number):Promise<void>;
+
 export function SetupApp(arg1:main.SetupRequest):Promise<void>;
+
+export function SubmitFeedback(arg1:string,arg2:string,arg3:string):Promise<number>;
 
 export function SyncWithServer():Promise<main.SyncResult>;
 
