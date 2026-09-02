@@ -199,17 +199,19 @@ func (a *App) SendCutoffsToBridge(year int) error {
 	return nil
 }
 
-func (a *App) SubmitFeedback(title, content, email string) (int, error) {
+func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB64 string) (int, error) {
 	config, err := a.db.GetSchoolConfig()
 	if err != nil {
 		return 0, err
 	}
 
 	payload := map[string]interface{}{
-		"schoolName": config.SchoolName,
-		"email":      email,
-		"title":      title,
-		"content":    content,
+		"schoolName":     config.SchoolName,
+		"email":          email,
+		"title":          title,
+		"content":        content,
+		"attachmentName": attachmentName,
+		"attachmentB64":  attachmentB64,
 	}
 
 	jsonBytes, _ := json.Marshal(payload)

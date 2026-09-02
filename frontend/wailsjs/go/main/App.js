@@ -58,8 +58,8 @@ export function SetupApp(arg1) {
   return window['go']['main']['App']['SetupApp'](arg1);
 }
 
-export function SubmitFeedback(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SubmitFeedback'](arg1, arg2, arg3);
+export function SubmitFeedback(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['SubmitFeedback'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function SyncWithServer() {

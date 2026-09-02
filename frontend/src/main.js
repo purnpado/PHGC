@@ -785,6 +785,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <label class="block text-sm text-text-muted mb-1">내용</label>
                             <textarea id="fbContent" class="input-field min-h-[150px] resize-none" placeholder="자세한 내용을 적어주세요..." required></textarea>
                         </div>
+                        <div>
+                            <label class="block text-sm text-text-muted mb-1">사진 첨부 (선택)</label>
+                            <input type="file" id="fbImage" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer">
+                        </div>
                         <button id="submitFeedbackBtn" class="btn-primary w-full mt-4">제출하기</button>
                     </div>
                 </div>
@@ -860,9 +864,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = document.getElementById('fbTitle').value.trim();
         const content = document.getElementById('fbContent').value.trim();
         const email = document.getElementById('fbEmail').value.trim();
+        const fileInput = document.getElementById('fbImage');
         
         if (!title || !content) {
             return alert('제목과 내용을 입력해주세요.');
+        }
+
+        let attachmentName = '';
+        let attachmentB64 = '';
+
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            attachmentName = file.name;
+            try {
+                attachmentB64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            } catch (err) {
+                return alert('이미지 첨부 오류: ' + err);
+            }
         }
 
         const btn = document.getElementById('submitFeedbackBtn');
@@ -870,10 +893,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = '<span class="spinner"></span> 전송 중...';
 
         try {
-            await window.go.main.App.SubmitFeedback(title, content, email);
+            await window.go.main.App.SubmitFeedback(title, content, email, attachmentName, attachmentB64);
             alert('피드백이 성공적으로 등록되었습니다.');
             document.getElementById('fbTitle').value = '';
             document.getElementById('fbContent').value = '';
+            if(fileInput) fileInput.value = '';
             document.getElementById('tabList').click();
         } catch(err) {
             alert('등록 실패: ' + err);

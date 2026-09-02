@@ -30,7 +30,7 @@ export function SendCutoffsToBridge(arg1:number):Promise<void>;
 
 export function SetupApp(arg1:main.SetupRequest):Promise<void>;
 
-export function SubmitFeedback(arg1:string,arg2:string,arg3:string):Promise<number>;
+export function SubmitFeedback(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<number>;
 
 export function SyncWithServer():Promise<main.SyncResult>;
 

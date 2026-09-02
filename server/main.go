@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/smtp"
 	"os"
@@ -138,10 +139,12 @@ func handleCutoff(c *gin.Context) {
 
 func handleFeedback(c *gin.Context) {
 	var payload struct {
-		SchoolName string `json:"schoolName"`
-		Email      string `json:"email"`
-		Title      string `json:"title"`
-		Content    string `json:"content"`
+		SchoolName      string `json:"schoolName"`
+		Email           string `json:"email"`
+		Title           string `json:"title"`
+		Content         string `json:"content"`
+		AttachmentName  string `json:"attachmentName"`
+		AttachmentB64   string `json:"attachmentB64"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -167,7 +170,8 @@ func handleFeedback(c *gin.Context) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode >= 400 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create issue"})
+		b, _ := io.ReadAll(resp.Body)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create issue: %s", string(b))})
 		return
 	}
 	defer resp.Body.Close()
@@ -176,6 +180,14 @@ func handleFeedback(c *gin.Context) {
 		Number int `json:"number"`
 	}
 	json.NewDecoder(resp.Body).Decode(&result)
+
+	// 이미지 첨부
+	if payload.AttachmentB64 != "" {
+		err = uploadIssueAttachment(result.Number, payload.AttachmentName, payload.AttachmentB64)
+		if err != nil {
+			log.Printf("Failed to upload attachment: %v\n", err)
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Feedback submitted",
@@ -330,5 +342,37 @@ func handleSyncFile(c *gin.Context) {
 	
 	body, _ := io.ReadAll(resp.Body)
 	c.Data(http.StatusOK, "application/json", body)
+}
+
+
+func uploadIssueAttachment(issueID int, filename, b64Data string) error {
+	decoded, err := base64.StdEncoding.DecodeString(b64Data)
+	if err != nil { return err }
+
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+	
+	fw, err := w.CreateFormFile("attachment", filename)
+	if err != nil { return err }
+	fw.Write(decoded)
+	w.Close()
+
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/assets", giteaURL, giteaOwner, giteaRepo, issueID)
+	req, err := http.NewRequest("POST", url, &b)
+	if err != nil { return err }
+	
+	req.Header.Set("Authorization", "token "+giteaToken)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil { return err }
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Upload failed: %s", string(body))
+	}
+	return nil
 }
 
