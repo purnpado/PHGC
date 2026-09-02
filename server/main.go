@@ -72,6 +72,7 @@ func main() {
 		api.POST("/cutoff", handleCutoff)
 		api.POST("/feedback", handleFeedback)
 		api.GET("/feedback/:id", handleGetFeedback)
+		api.GET("/sync/*filepath", handleSyncFile)
 		api.POST("/webhook/gitea", handleGiteaWebhook)
 	}
 
@@ -298,3 +299,36 @@ func sendEmail(to, issueTitle, commentBody string) error {
 
 	return err
 }
+
+func handleSyncFile(c *gin.Context) {
+	filepath := c.Param("filepath")
+	// Remove leading slash
+	if len(filepath) > 0 && filepath[0] == '/' {
+		filepath = filepath[1:]
+	}
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/raw/%s", giteaURL, giteaOwner, giteaRepo, filepath)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	req.Header.Set("Authorization", "token "+giteaToken)
+	
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(resp.StatusCode, gin.H{"error": "Failed to fetch file from Gitea"})
+		return
+	}
+	
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(http.StatusOK, "application/json", body)
+}
+

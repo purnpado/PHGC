@@ -17,7 +17,7 @@ import (
 )
 
 // 브릿지 서버 주소 (배포 환경에 맞게 수정)
-const BridgeServerURL = "http://localhost:8080"
+const BridgeServerURL = "https://go.gguk.link"
 
 // App struct
 type App struct {

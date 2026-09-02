@@ -81,10 +81,9 @@ func NewSyncManager(dataDir string) *SyncManager {
 	}
 }
 
-// getRawFileURL Gitea 저장소의 raw 파일 URL 생성
+// getRawFileURL 브릿지 서버 프록시 URL 생성
 func (sm *SyncManager) getRawFileURL(filePath string) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/%s/raw/%s/%s",
-		GiteaBaseURL, GiteaOwner, GiteaRepo, ServerDataPath, filePath)
+	return fmt.Sprintf("https://go.gguk.link/api/sync/server-data/%s", filePath)
 }
 
 // downloadFile Gitea에서 파일 다운로드
