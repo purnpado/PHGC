@@ -17,7 +17,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "PHGC",
+		Title:  "울산 특목고·특성화고 입시 분석기",
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{

@@ -209,7 +209,7 @@
 .watermark {
     position: fixed;
     bottom: 1rem;
-    right: 1.5rem;
+    left: 1.5rem;
     font-size: 0.75rem;
     color: rgba(148, 163, 184, 0.5); /* text-text-muted with opacity */
     pointer-events: none;

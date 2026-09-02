@@ -20,7 +20,7 @@ function renderSetupScreen(existingConfig = null) {
             <!-- 헤더 -->
             <div class="text-center mb-8">
                 <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🏫</div>
-                <h1 class="text-2xl font-bold text-white mb-2">PHGC 초기 설정</h1>
+                <h1 class="text-2xl font-bold text-white mb-2">울산 특목고·특성화고 입시 분석기 초기 설정</h1>
                 <p class="text-text-muted text-sm">관리자(학년부장)가 최초 1회 설정합니다</p>
             </div>
 
