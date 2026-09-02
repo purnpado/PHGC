@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* ===== 커스텀 폰트 ===== */
+@font-face {
+    font-family: "Nunito";
+    font-style: normal;
+    font-weight: 400;
+    src: local(""),
+    url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
+}
+
+/* ===== 기본 스타일 ===== */
+html {
+    background-color: #0f172a;
+    color: white;
+}
+
+body {
+    margin: 0;
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+#app {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===== Tailwind 커스텀 유틸리티 ===== */
+@theme {
+    --color-primary: #6366f1;
+    --color-primary-hover: #818cf8;
+    --color-primary-dark: #4f46e5;
+    --color-surface: #1e293b;
+    --color-surface-light: #334155;
+    --color-danger: #ef4444;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-text-muted: #94a3b8;
+}
