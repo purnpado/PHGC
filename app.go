@@ -441,7 +441,28 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 		return nil, fmt.Errorf("학생 정보를 찾을 수 없습니다: %w", err)
 	}
 
-	return parseStudentFullData(*s)
+	full, err := parseStudentFullData(*s)
+	if err != nil {
+		return nil, err
+	}
+
+	// 대시보드와 동일한 정확한 전교 석차 백분율 동기화
+	classGrades, _ := a.GetClassGrades(classNum)
+	for _, cg := range classGrades {
+		if cg.StudentNum == studentNum {
+			full.GeneralHSPercentile = cg.Percentile
+			if cg.Percentile <= 80 {
+				full.GeneralHSLevel = "상"
+			} else if cg.Percentile <= 90 {
+				full.GeneralHSLevel = "중"
+			} else {
+				full.GeneralHSLevel = "하"
+			}
+			break
+		}
+	}
+
+	return full, nil
 }
 
 // SaveStudentExtra 학생의 수기 가산점 및 추가 봉사시간 저장

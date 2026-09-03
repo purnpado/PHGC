@@ -1503,7 +1503,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
                 <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
                     <div class="text-xs text-text-muted mb-1">일반고 추정 백분율</div>
-                    <div class="text-xl font-bold text-success">${data.generalHSPercentile.toFixed(1)}%</div>
+                    <div class="text-xl font-bold ${data.generalHSPercentile <= 80 ? 'text-success' : (data.generalHSPercentile <= 90 ? 'text-warning' : 'text-danger')}">${data.generalHSPercentile.toFixed(1)}%</div>
                 </div>
             </div>
 

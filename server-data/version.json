@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.14",
+    "latestVersion":  "0.5.15",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.14 - 나이스 엑셀 연동 버튼 1-2-3단계 순서형 세로 풀사이즈 버튼화 및 상태 배지 구현",
+    "releaseNotes":  "v0.5.15 - 학생 상세 상담 모달의 일반고 추정 백분율을 전교 실제 석차백분율로 100% 동기화",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
