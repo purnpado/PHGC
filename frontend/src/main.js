@@ -785,7 +785,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     `;
 
     document.getElementById('backBtn').addEventListener('click', () => {
-        if (window.currentUser && window.currentUser.Role === 'homeroom') {
+        if (window.currentUser && (window.currentUser.Role === 'homeroom' || window.currentUser.Role === 'viewer')) {
             window.currentUser = null;
             renderLoginScreen(schoolName);
         } else {
@@ -1431,6 +1431,8 @@ function renderPasswordChangeScreen(username) {
             const config = await window.go.main.App.GetSchoolConfig();
             if (window.currentUser.Role === 'homeroom') {
                 renderTeacherScreen(config.schoolName, window.currentUser.ClassNum);
+            } else if (window.currentUser.Role === 'viewer') {
+                renderTeacherScreen(config.schoolName, null);
             } else {
                 renderAdminScreen(config.schoolName);
             }
