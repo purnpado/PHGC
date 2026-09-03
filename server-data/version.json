@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.12",
+    "latestVersion":  "0.5.13",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.12 ??학생 성적표 모달의 나이스 엑셀 공백 컬럼명 매칭 및 병합 셀 학년학기 계승 로직 완벽 수정",
+    "releaseNotes":  "v0.5.13 ??성적표 과목명/원점수 컬럼 분리 수정, 서버 커트라인 취합 다운로드 API 및 Gitea 업로드 보완, 릴리즈 태그 자동 생성",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }

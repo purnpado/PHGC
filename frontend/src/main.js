@@ -1135,11 +1135,17 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                     const cleanV = String(v || '').trim().replace(/["'\r\n]/g, '');
 
                     if (cleanK.includes('학년도')) continue;
-                    if (cleanK.includes('학년')) grade = cleanV;
-                    else if (cleanK.includes('학기')) sem = cleanV;
-                    else if (cleanK.includes('과목') || cleanK.includes('교과목')) subject = cleanV;
-                    else if (cleanK.includes('성취도')) achieve = cleanV;
-                    else if (cleanK.includes('원점수') || cleanK.includes('평균')) rawScore = cleanV;
+                    if (cleanK === '학년' || (cleanK.includes('학년') && !cleanK.includes('학기'))) {
+                        grade = cleanV;
+                    } else if (cleanK === '학기' || cleanK.includes('학기')) {
+                        sem = cleanV;
+                    } else if (cleanK.includes('성취도')) {
+                        achieve = cleanV;
+                    } else if (cleanK.includes('원점수') || cleanK.includes('과목평균') || cleanK.includes('평균')) {
+                        rawScore = cleanV;
+                    } else if (cleanK === '과목' || cleanK === '교과목' || cleanK.includes('과목명') || (cleanK.includes('과목') && !cleanK.includes('평균'))) {
+                        subject = cleanV;
+                    }
                 }
 
                 // 나이스 엑셀의 병합 셀 처리 (빈칸이면 직전 행의 학년/학기 계승)
@@ -1149,8 +1155,11 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                 if (sem) lastSem = sem;
                 else sem = lastSem;
 
-                // 유효한 과목 또는 성취도가 없는 행은 건너뜀
-                if (!subject || !achieve) return;
+                // 유효하지 않은 과목명 또는 잡음 행 필터링 (슬래시, 숫자만 있는 행, 학교명 등)
+                if (!subject || !achieve || subject === '/' || !isNaN(Number(subject)) || subject.length < 2) return;
+                // 성취도가 A, B, C, D, E, P 로 시작하지 않으면 건너뜀 (예: 수강자수 단독 행 등)
+                const firstChar = achieve[0].toUpperCase();
+                if (!['A', 'B', 'C', 'D', 'E', 'P'].includes(firstChar)) return;
 
                 let badgeColor = 'text-slate-300';
                 if (achieve.startsWith('A')) badgeColor = 'text-emerald-400 font-bold';

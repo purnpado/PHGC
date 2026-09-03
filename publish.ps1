@@ -48,12 +48,14 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# 7. Git 커밋 & 푸시
-Write-Host "📤 Git 푸시 실행 중..." -ForegroundColor Cyan
+# 7. Git 커밋 & 태그 & 푸시
+Write-Host "📤 Git 푸시 및 태그 릴리즈 생성 중..." -ForegroundColor Cyan
 git add .
 git commit -m "release: v$newVer — $Notes"
+git tag -a "v$newVer" -m "v$newVer — $Notes" -f
 git push
+git push origin "v$newVer" -f
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host "🎉 v$newVer 배포 및 푸시 완료!" -ForegroundColor Green
+Write-Host "🎉 v$newVer 배포, 태그 및 푸시 완료!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green

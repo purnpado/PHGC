@@ -71,6 +71,7 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.POST("/cutoff", handleCutoff)
+		api.GET("/cutoff", handleGetCutoffs)
 		api.POST("/feedback", handleFeedback)
 		api.GET("/feedback/:id", handleGetFeedback)
 		api.GET("/sync/*filepath", handleSyncFile)
@@ -89,6 +90,14 @@ func main() {
 // Handlers
 // ----------------------------------------------------
 
+func getDataRepo() string {
+	if giteaDataRepo != "" {
+		return giteaDataRepo
+	}
+	return giteaRepo
+}
+
+// handleCutoff 각 학교에서 업로드한 고교 커트라인 데이터를 Gitea에 저장
 func handleCutoff(c *gin.Context) {
 	var payload struct {
 		SchoolName string      `json:"schoolName"`
@@ -101,26 +110,47 @@ func handleCutoff(c *gin.Context) {
 		return
 	}
 
-	// Make JSON string and base64 encode for Gitea Content API
 	jsonData, _ := json.MarshalIndent(payload.Data, "", "  ")
 	b64Content := base64.StdEncoding.EncodeToString(jsonData)
 
-	fileName := fmt.Sprintf("data/%d_%s_%d.json", payload.Year, payload.SchoolName, time.Now().Unix())
-	
-	// Gitea Create File API
-	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, giteaDataRepo, fileName)
-	
+	fileName := fmt.Sprintf("server-data/cutoffs/%d_%s.json", payload.Year, payload.SchoolName)
+	targetRepo := getDataRepo()
+
+	// 1. 기존 파일이 있는지 확인하여 sha 확보 (덮어쓰기용)
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, targetRepo, fileName)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	var existingSHA string
+	chkReq, _ := http.NewRequest("GET", url, nil)
+	chkReq.Header.Set("Authorization", "token "+giteaToken)
+	if chkResp, chkErr := client.Do(chkReq); chkErr == nil && chkResp.StatusCode == 200 {
+		var fileInfo struct {
+			SHA string `json:"sha"`
+		}
+		_ = json.NewDecoder(chkResp.Body).Decode(&fileInfo)
+		existingSHA = fileInfo.SHA
+		chkResp.Body.Close()
+	}
+
+	// 2. 파일 생성 또는 수정 (PUT)
 	reqBody := map[string]interface{}{
 		"content": b64Content,
-		"message": fmt.Sprintf("Add cutoff data for %s (%d)", payload.SchoolName, payload.Year),
+		"message": fmt.Sprintf("Update cutoff data for %s (%d)", payload.SchoolName, payload.Year),
+	}
+	if existingSHA != "" {
+		reqBody["sha"] = existingSHA
 	}
 	reqJSON, _ := json.Marshal(reqBody)
 
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(reqJSON))
+	method := "POST"
+	if existingSHA != "" {
+		method = "PUT"
+	}
+
+	req, _ := http.NewRequest(method, url, bytes.NewBuffer(reqJSON))
 	req.Header.Set("Authorization", "token "+giteaToken)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode >= 400 {
 		var respStr string
@@ -129,12 +159,72 @@ func handleCutoff(c *gin.Context) {
 			respStr = string(b)
 		}
 		log.Printf("Gitea API error: %v, %s", err, respStr)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to upload to Gitea"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload to Gitea: %s", respStr)})
 		return
 	}
 	defer resp.Body.Close()
 
-	c.JSON(http.StatusOK, gin.H{"message": "Data successfully sent to central server"})
+	c.JSON(http.StatusOK, gin.H{"message": "커트라인 데이터가 중앙 서버에 성공적으로 등록되었습니다."})
+}
+
+// handleGetCutoffs 각 학교들이 보낸 커트라인 데이터를 취합하여 일괄 반환
+func handleGetCutoffs(c *gin.Context) {
+	yearStr := c.DefaultQuery("year", "2026")
+	targetRepo := getDataRepo()
+
+	// Gitea API로 server-data/cutoffs/ 디렉터리 내의 파일 목록 조회
+	dirURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/server-data/cutoffs", giteaURL, giteaOwner, targetRepo)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	req, _ := http.NewRequest("GET", dirURL, nil)
+	req.Header.Set("Authorization", "token "+giteaToken)
+
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode >= 400 {
+		// 폴더가 없거나 빈 경우 기본 빈 배열 반환
+		c.JSON(http.StatusOK, []interface{}{})
+		return
+	}
+	defer resp.Body.Close()
+
+	var fileList []struct {
+		Name        string `json:"name"`
+		DownloadURL string `json:"download_url"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&fileList)
+
+	// 각 학교별 커트라인 파일을 읽어 병합 (동일 학교/전형/학과인 경우 최신값 유지)
+	cutoffMap := make(map[string]map[string]interface{})
+
+	prefix := yearStr + "_"
+	for _, f := range fileList {
+		if !strings.HasPrefix(f.Name, prefix) || !strings.HasSuffix(f.Name, ".json") {
+			continue
+		}
+
+		rawURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/raw/server-data/cutoffs/%s", giteaURL, giteaOwner, targetRepo, f.Name)
+		fReq, _ := http.NewRequest("GET", rawURL, nil)
+		fReq.Header.Set("Authorization", "token "+giteaToken)
+
+		if fResp, fErr := client.Do(fReq); fErr == nil && fResp.StatusCode == 200 {
+			var schoolCutoffs []map[string]interface{}
+			if err := json.NewDecoder(fResp.Body).Decode(&schoolCutoffs); err == nil {
+				for _, item := range schoolCutoffs {
+					key := fmt.Sprintf("%v_%v_%v_%v", item["schoolName"], item["department"], item["track"], item["scoreType"])
+					cutoffMap[key] = item
+				}
+			}
+			fResp.Body.Close()
+		}
+	}
+
+	// 맵을 슬라이스로 변환
+	var mergedList []map[string]interface{}
+	for _, item := range cutoffMap {
+		mergedList = append(mergedList, item)
+	}
+
+	c.JSON(http.StatusOK, mergedList)
 }
 
 func handleFeedback(c *gin.Context) {
