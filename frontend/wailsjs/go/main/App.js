@@ -74,6 +74,10 @@ export function GetStudentFullDetail(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetStudentFullDetail'](arg1, arg2, arg3);
 }
 
+export function GetStudentTranscript(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetStudentTranscript'](arg1, arg2, arg3);
+}
+
 export function GetUsers() {
   return window['go']['main']['App']['GetUsers']();
 }

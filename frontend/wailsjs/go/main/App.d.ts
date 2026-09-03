@@ -38,6 +38,8 @@ export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;
 
 export function GetStudentFullDetail(arg1:number,arg2:string,arg3:string):Promise<main.StudentFullData>;
 
+export function GetStudentTranscript(arg1:number,arg2:string,arg3:string):Promise<main.StudentTranscriptData>;
+
 export function GetUsers():Promise<Array<main.User>>;
 
 export function OpenExcelFile():Promise<string>;

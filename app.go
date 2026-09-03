@@ -449,6 +449,64 @@ func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string)
 	return a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON)
 }
 
+// StudentTranscriptData 학생의 전학년 교과/비교과 전체 상세 성적표
+type StudentTranscriptData struct {
+	ClassNum       int                 `json:"classNum"`
+	StudentNum     string              `json:"studentNum"`
+	Name           string              `json:"name"`
+	SubjectRecords []map[string]string `json:"subjectRecords"`
+	AttendanceRaw  string              `json:"attendanceRaw"`
+	VolunteerRaw   string              `json:"volunteerRaw"`
+	AllAverage     float64             `json:"allAverage"`
+	Percentile     float64             `json:"percentile"`
+	Rank           int                 `json:"rank"`
+	TotalStudents  int                 `json:"totalStudents"`
+}
+
+// GetStudentTranscript 학생 1명의 전과목 전학년 성적과 출결/봉사 원시 데이터 일체 반환
+func (a *App) GetStudentTranscript(classNum int, studentNum, name string) (*StudentTranscriptData, error) {
+	s, err := a.db.GetStudent(classNum, studentNum, name)
+	if err != nil {
+		return nil, fmt.Errorf("학생 정보를 찾을 수 없습니다: %w", err)
+	}
+
+	res := &StudentTranscriptData{
+		ClassNum:      s.ClassNum,
+		StudentNum:    s.StudentNum,
+		Name:          s.Name,
+		AttendanceRaw: s.AttendanceData,
+		VolunteerRaw:  s.VolunteerData,
+	}
+
+	if s.RawData != "" {
+		_ = json.Unmarshal([]byte(s.RawData), &res.SubjectRecords)
+	}
+
+	// 평균 성취도 산출
+	if fullData, err := parseStudentFullData(*s); err == nil && fullData != nil {
+		res.AllAverage = fullData.AllAverage
+	}
+
+	// 전교 석차 및 백분율 정보 산출
+	config, _ := a.db.GetSchoolConfig()
+	if config != nil {
+		allStudents, _ := a.db.GetAllStudents(config.ClassCount)
+		if len(allStudents) > 0 {
+			calcResults, _ := CalculateGrades(allStudents, config.IsSmallSchool)
+			res.TotalStudents = len(calcResults)
+			for idx, cg := range calcResults {
+				if cg.ClassNum == classNum && cg.StudentNum == studentNum {
+					res.Rank = idx + 1
+					res.Percentile = cg.Percentile
+					break
+				}
+			}
+		}
+	}
+
+	return res, nil
+}
+
 // GetClassFullGrades 특정 반 전체 학생의 고교별 산출 결과 목록 반환 (신호등 매트릭스용)
 func (a *App) GetClassFullGrades(classNum int) ([]StudentFullData, error) {
 	students, err := a.db.GetClassStudents(classNum)

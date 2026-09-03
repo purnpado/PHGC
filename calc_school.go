@@ -30,41 +30,41 @@ type SchoolRule struct {
 
 // SchoolCalcResult 학교별 산출 결과
 type SchoolCalcResult struct {
-	SchoolName       string  `json:"schoolName"`
-	TrackName        string  `json:"trackName"`
-	TotalMax         float64 `json:"totalMax"`
-	AllSubjectScore  float64 `json:"allSubjectScore"`  // 전과목 점수
-	AllSubjectMax    float64 `json:"allSubjectMax"`     // 전과목 만점
-	WeightedScore    float64 `json:"weightedScore"`     // 가중치 점수 합계
-	WeightedMax      float64 `json:"weightedMax"`       // 가중치 만점 합계
-	WeightedDetails  map[string]float64 `json:"weightedDetails"` // 과목별 가중치 점수
-	AttendanceScore  float64 `json:"attendanceScore"`   // 출결 점수
-	AttendanceMax    float64 `json:"attendanceMax"`
-	VolunteerScore   float64 `json:"volunteerScore"`    // 봉사 점수
-	VolunteerMax     float64 `json:"volunteerMax"`
-	TotalScore       float64 `json:"totalScore"`        // 최종 합계
+	SchoolName       string             `json:"schoolName"`
+	TrackName        string             `json:"trackName"`
+	TotalMax         float64            `json:"totalMax"`
+	AllSubjectScore  float64            `json:"allSubjectScore"`  // 전과목 점수
+	AllSubjectMax    float64            `json:"allSubjectMax"`    // 전과목 만점
+	WeightedScore    float64            `json:"weightedScore"`    // 가중치 점수 합계
+	WeightedMax      float64            `json:"weightedMax"`      // 가중치 만점 합계
+	WeightedDetails  map[string]float64 `json:"weightedDetails"`  // 과목별 가중치 점수
+	AttendanceScore  float64            `json:"attendanceScore"`  // 출결 점수
+	AttendanceMax    float64            `json:"attendanceMax"`
+	VolunteerScore   float64            `json:"volunteerScore"`   // 봉사 점수
+	VolunteerMax     float64            `json:"volunteerMax"`
+	ExtraScore       float64            `json:"extraScore"`       // 창체/행발 가산점 합계
+	TotalScore       float64            `json:"totalScore"`       // 최종 합계 (가산점 포함)
 }
 
-// StudentRawData 학생의 원시 데이터 (프론트엔드에서 모달 렌더링용)
+// StudentFullData 학생 1명의 전과목/비교과/고교별 결과 종합 데이터
 type StudentFullData struct {
-	ClassNum        int                `json:"classNum"`
-	StudentNum      string             `json:"studentNum"`
-	Name            string             `json:"name"`
-
-	// 교과 성적 (학기별 과목별 성취도)
-	SemesterScores  map[string][]int   `json:"semesterScores"`  // "2_1" -> [5,4,5,3,...] 전과목
-	SubjectScores   map[string]map[string][]int `json:"subjectScores"` // "영어" -> {"2_1": [5], "2_2": [4], ...}
-	AllAverage      float64            `json:"allAverage"`      // 전과목 평균 성취도
-
-	// 비교과
-	AbsenceDays        int                `json:"absenceDays"`        // 미인정 결석 일수
-	VolunteerHours     int                `json:"volunteerHours"`     // 기본 봉사 시간
-	AddVolunteerHours  int                `json:"addVolunteerHours"`  // 수기 추가 봉사 시간
-	TotalVolunteerHours int               `json:"totalVolunteerHours"` // 최종 봉사 시간 (기본 + 추가)
+	ClassNum           int                         `json:"classNum"`
+	StudentNum         string                      `json:"studentNum"`
+	Name               string                      `json:"name"`
+	AllAverage         float64                     `json:"allAverage"`         // 전과목 평균 성취도
+	SemesterScores     map[string][]int            `json:"semesterScores"`     // 학기별 성취도 목록
+	SubjectScores      map[string]map[string][]int `json:"subjectScores"`      // [과목][학기]별 성취도
+	AbsenceDays        int                         `json:"absenceDays"`        // 미인정 결석 일수 (기본)
+	SeptAbsenceDays    int                         `json:"septAbsenceDays"`    // 9.30 기준 전기고(마이스터/특성화) 미인정 결석일수
+	HasSeptAbsence     bool                        `json:"hasSeptAbsence"`     // 9.30 출결 수기 입력 여부
+	VolunteerHours     int                         `json:"volunteerHours"`     // 기본 봉사 시간
+	AddVolunteerHours  int                         `json:"addVolunteerHours"`  // 수기 추가 봉사 시간
+	TotalVolunteerHours int                        `json:"totalVolunteerHours"` // 최종 봉사 시간 (기본 + 추가)
 
 	// 수기 입력 데이터
-	ExtraData       map[string]bool    `json:"extraData"`       // "창체_1": true 등
-	ExtraJSON       string             `json:"extraJSON"`       // 원본 JSON 문자열
+	ExtraData       map[string]bool `json:"extraData"`       // "창체_1": true 등
+	ExtraPoints     float64         `json:"extraPoints"`     // 창체/행발 가산점 총점
+	ExtraJSON       string          `json:"extraJSON"`       // 원본 JSON 문자열
 
 	// 일반고 참고 지표
 	GeneralHSPercentile float64        `json:"generalHSPercentile"` // 일반고 백분율
@@ -385,8 +385,9 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		result.VolunteerHours = volunteerMap["total_time"]
 	}
 
-	// 수기 입력 가산점 및 추가 봉사시간 파싱
+	// 수기 입력 가산점 및 추가 봉사시간, 9.30 전기고 출결 파싱
 	result.ExtraJSON = s.ExtraData
+	extraSum := 0.0
 	if s.ExtraData != "" {
 		var extraMap map[string]interface{}
 		if err := json.Unmarshal([]byte(s.ExtraData), &extraMap); err == nil {
@@ -395,12 +396,22 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 					if vf, ok := v.(float64); ok {
 						result.AddVolunteerHours = int(vf)
 					}
+				} else if k == "sept_absence" {
+					if vf, ok := v.(float64); ok {
+						result.SeptAbsenceDays = int(vf)
+						result.HasSeptAbsence = true
+					}
 				} else if vb, ok := v.(bool); ok {
 					result.ExtraData[k] = vb
+					// 창체 및 행발 가산점 항목당 1점 가산
+					if vb && (strings.HasPrefix(k, "changche") || strings.HasPrefix(k, "haengbal") || strings.Contains(k, "창체") || strings.Contains(k, "행발")) {
+						extraSum += 1.0
+					}
 				}
 			}
 		}
 	}
+	result.ExtraPoints = extraSum
 	result.TotalVolunteerHours = result.VolunteerHours + result.AddVolunteerHours
 
 	// 모든 학교에 대한 점수 산출
@@ -541,7 +552,12 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 	}
 
 	// === 3. 출결 점수 ===
-	result.AttendanceScore = math.Max(0, rule.AttendanceMax-float64(student.AbsenceDays)*rule.AbsencePenalty)
+	absenceDays := student.AbsenceDays
+	// 전기고(마이스터고 및 특성화고)의 경우 9.30 기준 결석 일수가 수기 입력되었으면 우선 적용
+	if student.HasSeptAbsence && (strings.Contains(rule.SchoolName, "마이스터") || strings.Contains(rule.SchoolName, "에너지") || strings.Contains(rule.SchoolName, "현대") || strings.Contains(rule.SchoolName, "고") || strings.Contains(rule.SchoolName, "상업") || strings.Contains(rule.SchoolName, "과학")) {
+		absenceDays = student.SeptAbsenceDays
+	}
+	result.AttendanceScore = math.Max(0, rule.AttendanceMax-float64(absenceDays)*rule.AbsencePenalty)
 	result.AttendanceScore = roundToTwoDecimals(result.AttendanceScore)
 
 	// === 4. 봉사 점수 ===
@@ -554,11 +570,14 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 		}
 	}
 
-	// === 5. 총점 합산 ===
-	result.TotalScore = roundToTwoDecimals(
-		result.AllSubjectScore + result.WeightedScore +
-		result.AttendanceScore + result.VolunteerScore,
-	)
+	// === 5. 가산점 및 총점 합산 ===
+	result.ExtraScore = student.ExtraPoints
+	calcTotal := result.AllSubjectScore + result.WeightedScore + result.AttendanceScore + result.VolunteerScore + result.ExtraScore
+	// 총점이 배점 만점을 초과할 수 없음
+	if rule.TotalMax > 0 && calcTotal > rule.TotalMax {
+		calcTotal = rule.TotalMax
+	}
+	result.TotalScore = roundToTwoDecimals(calcTotal)
 
 	return result
 }

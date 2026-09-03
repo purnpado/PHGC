@@ -74,9 +74,9 @@ function renderSetupScreen(existingConfig = null) {
             </form>
 
             ${isEdit ? `
-            <div class="text-center mt-4">
-                <button id="backToModeBtn" class="text-text-muted text-xs hover:text-primary transition-colors cursor-pointer bg-transparent border-none">
-                    ← 모드 선택으로 돌아가기
+            <div class="text-center mt-5">
+                <button id="backToModeBtn" type="button" class="btn-secondary text-xs px-4 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;">
+                    <span>↩️</span> 모드 선택으로 돌아가기
                 </button>
             </div>` : ''}
         </div>
@@ -580,8 +580,8 @@ async function renderAdminScreen(schoolName) {
                         전체 초기화
                     </button>
                     ` : ''}
-                    <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-xs px-3 py-2 rounded-lg hover:bg-slate-800">
-                        ← 로그아웃
+                    <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;">
+                        <span>🚪</span> 로그아웃
                     </button>
                 </div>
             </div>
@@ -649,7 +649,7 @@ async function renderAdminScreen(schoolName) {
                 <div class="md:col-span-2">
                     <h3 class="font-bold mb-4 flex items-center justify-between">
                         <span>학급별 데이터 현황</span>
-                        <button id="refreshBtn" class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded cursor-pointer transition-colors border-none text-white">새로고침</button>
+                        <button id="refreshBtn" class="btn-secondary text-xs px-3 py-1 font-bold inline-flex items-center gap-1" style="width: auto;"><span>🔄</span> 새로고침</button>
                     </h3>
                     <div class="grid grid-cols-2 gap-3" id="classGrid">
                         ${classCardsHTML}
@@ -1074,8 +1074,8 @@ function renderStudentList(students, classNum) {
         openMatrixModal(classNum);
     });
 
-    // 학생 상담 버튼 및 이름 클릭 이벤트 바인딩 (인라인 onclick 대신 안정적인 리스너 바인딩)
-    document.querySelectorAll('.btn-student-counsel, .text-student-name').forEach(el => {
+    // 1. 학생 고교별 진학 상담 버튼 클릭 이벤트 바인딩
+    document.querySelectorAll('.btn-student-counsel').forEach(el => {
         el.addEventListener('click', (e) => {
             const target = e.currentTarget;
             const cNum = parseInt(target.dataset.class);
@@ -1084,6 +1084,216 @@ function renderStudentList(students, classNum) {
             openStudentModal(cNum, sNum, sName);
         });
     });
+
+    // 2. 학생 이름 클릭 시: 전과목 전학년 교과/비교과 종합 성적표 모달 호출
+    document.querySelectorAll('.text-student-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const target = e.currentTarget;
+            const cNum = parseInt(target.dataset.class);
+            const sNum = target.dataset.num;
+            const sName = target.dataset.name;
+            openStudentTranscriptModal(cNum, sNum, sName);
+        });
+    });
+}
+
+// ===== 학생 전학년 전과목 교과/비교과 종합 성적표 모달 =====
+window.openStudentTranscriptModal = openStudentTranscriptModal;
+
+async function openStudentTranscriptModal(classNum, studentNum, name) {
+    document.getElementById('studentTranscriptModal')?.remove();
+
+    const modalEl = document.createElement('div');
+    modalEl.id = 'studentTranscriptModal';
+    modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modalEl.innerHTML = `
+        <div class="glass-card p-8 w-full max-w-4xl text-center">
+            <span class="spinner"></span> <span class="text-white ml-2">${name} 학생의 전학년 종합 성적표를 조회하는 중...</span>
+        </div>
+    `;
+    document.body.appendChild(modalEl);
+
+    try {
+        const data = await window.go.main.App.GetStudentTranscript(classNum, studentNum, name);
+        
+        // 1. 교과 성적 행(Tr) 생성
+        let subjectRows = '';
+        if (data.subjectRecords && data.subjectRecords.length > 0) {
+            data.subjectRecords.forEach(rec => {
+                let grade = '';
+                let sem = '';
+                let subject = '';
+                let achieve = '';
+                let rawScore = '';
+
+                for (const [k, v] of Object.entries(rec)) {
+                    const cleanK = k.trim();
+                    const cleanV = String(v).trim().replace(/"/g, '');
+                    if (cleanK.includes('학년도')) continue;
+                    if (cleanK.includes('학년')) grade = cleanV;
+                    else if (cleanK.includes('학기')) sem = cleanV;
+                    else if (cleanK.includes('과목')) subject = cleanV;
+                    else if (cleanK.includes('성취도')) achieve = cleanV;
+                    else if (cleanK.includes('원점수') || cleanK.includes('평균')) rawScore = cleanV;
+                }
+
+                if (!grade || !subject) return;
+
+                let badgeColor = 'text-slate-300';
+                if (achieve.startsWith('A')) badgeColor = 'text-emerald-400 font-bold';
+                else if (achieve.startsWith('B')) badgeColor = 'text-sky-400 font-bold';
+                else if (achieve.startsWith('C')) badgeColor = 'text-amber-400 font-bold';
+                else if (achieve.startsWith('D')) badgeColor = 'text-orange-400 font-bold';
+                else if (achieve.startsWith('E')) badgeColor = 'text-rose-400 font-bold';
+                else if (achieve.startsWith('P')) badgeColor = 'text-indigo-300 font-semibold';
+
+                subjectRows += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-700/40 text-center">
+                        <td class="p-2 text-slate-400">${grade}학년</td>
+                        <td class="p-2 text-slate-400">${sem}학기</td>
+                        <td class="p-2 font-bold text-white text-left pl-4">${subject}</td>
+                        <td class="p-2 ${badgeColor}">${achieve}</td>
+                        <td class="p-2 text-slate-400 text-xs font-mono">${rawScore || '-'}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            subjectRows = `<tr><td colspan="5" class="p-6 text-center text-text-muted">업로드된 교과 성적 원시 데이터가 없습니다.</td></tr>`;
+        }
+
+        // 2. 출결 및 봉사 파싱
+        let attObj = {};
+        if (data.attendanceRaw) {
+            try { attObj = JSON.parse(data.attendanceRaw); } catch(e){}
+        }
+        let volObj = {};
+        if (data.volunteerRaw) {
+            try { volObj = JSON.parse(data.volunteerRaw); } catch(e){}
+        }
+
+        modalEl.innerHTML = `
+            <div class="glass-card p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto space-y-6">
+                <!-- 헤더 -->
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+                            <span>📄</span> ${classNum}반 ${studentNum}번 <span class="text-primary font-bold">${name}</span> 종합 성적표
+                        </h2>
+                        <p class="text-xs text-text-muted mt-1">나이스 생활기록부 교과 성적(전학년) 및 출결·봉사활동 상세 내역</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="printTranscriptBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1">
+                            <span>🖨️</span> 성적표 인쇄
+                        </button>
+                        <button id="closeTranscriptBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
+                    </div>
+                </div>
+
+                <!-- 1. 종합 내신 지표 카드 -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                        <div class="text-xs text-text-muted mb-1">전과목 평균 성취도</div>
+                        <div class="text-xl font-bold text-primary">${data.allAverage.toFixed(2)} <span class="text-xs text-slate-400 font-normal">/ 5.0</span></div>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                        <div class="text-xs text-text-muted mb-1">전교 석차</div>
+                        <div class="text-xl font-bold text-white">${data.rank}등 <span class="text-xs text-slate-400 font-normal">/ ${data.totalStudents}명</span></div>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                        <div class="text-xs text-text-muted mb-1">석차 백분율</div>
+                        <div class="text-xl font-bold text-indigo-300">${data.percentile.toFixed(2)}%</div>
+                    </div>
+                    <div class="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/50 text-center">
+                        <div class="text-xs text-text-muted mb-1">후기 일반고 판정</div>
+                        <div class="text-sm font-bold ${data.percentile <= 80 ? 'text-success' : (data.percentile <= 90 ? 'text-warning' : 'text-danger')}">
+                            ${data.percentile <= 80 ? '🟢 합격 안정' : (data.percentile <= 90 ? '🟡 경계선' : '🔴 지원 주의')}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 전학년 전과목 교과 성적표 -->
+                <div class="space-y-2">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                        <span>📚</span> 전학년 학기별 과목 성적 상세 내역
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-900/40 max-h-72 custom-scrollbar">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead class="sticky top-0 bg-slate-800 border-b border-slate-700/70 text-text-muted text-center z-10">
+                                <tr>
+                                    <th class="p-2.5 w-16">학년</th>
+                                    <th class="p-2.5 w-16">학기</th>
+                                    <th class="p-2.5 text-left pl-4">교과목명</th>
+                                    <th class="p-2.5 w-24">성취도</th>
+                                    <th class="p-2.5 w-44">원점수/평균(표준편차)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${subjectRows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 3. 비교과 (출결 및 봉사) 요약 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 space-y-2">
+                        <h4 class="font-bold text-indigo-300 flex items-center gap-1">
+                            <span>📅</span> 출결 상황 요약
+                        </h4>
+                        <div class="grid grid-cols-4 gap-2 text-center pt-2">
+                            <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
+                                <div class="text-[10px] text-text-muted">미인정 결석</div>
+                                <div class="text-sm font-bold text-danger mt-1">${attObj['absence'] || attObj['absent'] || 0}일</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
+                                <div class="text-[10px] text-text-muted">미인정 지각</div>
+                                <div class="text-sm font-bold text-warning mt-1">${attObj['late'] || 0}회</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
+                                <div class="text-[10px] text-text-muted">미인정 조퇴</div>
+                                <div class="text-sm font-bold text-warning mt-1">${attObj['early'] || 0}회</div>
+                            </div>
+                            <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
+                                <div class="text-[10px] text-text-muted">미인정 결과</div>
+                                <div class="text-sm font-bold text-warning mt-1">${attObj['result'] || 0}회</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 space-y-2">
+                        <h4 class="font-bold text-emerald-300 flex items-center gap-1">
+                            <span>🕒</span> 봉사활동 실적 요약
+                        </h4>
+                        <div class="flex items-center justify-between p-3 rounded bg-slate-900/60 border border-slate-700/40 mt-2">
+                            <div>
+                                <div class="text-xs text-text-muted">나이스 인정 총 봉사시간</div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">학교 교육계획 및 개인봉사 합산</div>
+                            </div>
+                            <div class="text-xl font-black text-emerald-300">
+                                ${volObj['total_time'] || 0} <span class="text-xs font-normal text-slate-400">시간</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('closeTranscriptBtn').addEventListener('click', () => modalEl.remove());
+        document.getElementById('printTranscriptBtn').addEventListener('click', () => window.print());
+        modalEl.addEventListener('click', (e) => {
+            if (e.target === modalEl) modalEl.remove();
+        });
+
+    } catch (err) {
+        modalEl.innerHTML = `
+            <div class="glass-card p-8 w-full max-w-md text-center">
+                <div class="text-danger text-4xl mb-3">⚠️</div>
+                <div class="text-white font-bold mb-4">성적표를 불러오지 못했습니다</div>
+                <div class="text-text-muted text-sm mb-6">${err}</div>
+                <button class="btn-secondary w-full" onclick="document.getElementById('studentTranscriptModal').remove()">닫기</button>
+            </div>
+        `;
+    }
 }
 
 // ===== 학생 개인 진학상담 종합 모달 =====
@@ -1249,57 +1459,82 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             </div>
 
             <!-- 2. 수기 입력 가산점 영역 (담임용) -->
-            <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
-                <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
-                        ✏️ 9/30까지 추가사항 및 비교과 가산점 수기 입력 (담임 체크)
-                    </h3>
-                    <button id="saveExtraBtn" class="btn-primary text-xs px-3 py-1.5 font-bold no-print">
-                        💾 저장 후 재계산
-                    </button>
+            ${(() => {
+                const isViewer = window.currentUser && window.currentUser.Role === 'viewer';
+                return `
+                <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
+                            <span>✏️</span> 9/30 기준 비교과(출결·봉사) 및 가산점 수기 확인
+                            ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 뷰어는 조회 전용 모드입니다.</span>' : ''}
+                        </h3>
+                        ${!isViewer ? `
+                        <button id="saveExtraBtn" class="btn-primary text-xs px-3 py-1.5 font-bold no-print">
+                            💾 저장 후 재계산
+                        </button>
+                        ` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
+                        <!-- 1) 9/30 기준 전기고(마이스터/특성화) 결석 일수 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+                            <label class="block text-indigo-200 font-bold mb-1">📅 전기고 9/30 출결</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field text-center py-1 font-bold text-indigo-200"
+                                       value="${data.hasSeptAbsence ? data.septAbsenceDays : data.absenceDays}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
+                                <span class="text-slate-300">일 미인정결석</span>
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-1">마이스터/특성화 산출 반영</div>
+                        </div>
+
+                        <!-- 2) 추가 봉사시간 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+                            <label class="block text-slate-300 font-bold mb-1">🕒 추가 봉사시간</label>
+                            <div class="flex items-center gap-1.5">
+                                <input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field text-center py-1 font-bold"
+                                       value="${data.addVolunteerHours || 0}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
+                                <span class="text-slate-300">시간 추가</span>
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-1">9/30까지 추가 인정분</div>
+                        </div>
+
+                        <!-- 3) 창의적체험활동 (임원 등) 가산점 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+                            <label class="block text-slate-300 font-bold mb-1">🏅 창체 가산점 (+1점씩)</label>
+                            <div class="flex items-center gap-2.5 pt-1">
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkChangche1" ${extra['changche_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
+                                </label>
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkChangche2" ${extra['changche_2'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 2년
+                                </label>
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkChangche3" ${extra['changche_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
+                                </label>
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-1">학생회/반장 등 임원</div>
+                        </div>
+
+                        <!-- 4) 행동특성및종합의견 (표창 등) 가산점 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+                            <label class="block text-slate-300 font-bold mb-1">🎖️ 행발 가산점 (+1점씩)</label>
+                            <div class="flex items-center gap-2.5 pt-1">
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkHaengbal1" ${extra['haengbal_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
+                                </label>
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkHaengbal2" ${extra['haengbal_2'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 2년
+                                </label>
+                                <label class="flex items-center gap-1 cursor-pointer">
+                                    <input type="checkbox" id="checkHaengbal3" ${extra['haengbal_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
+                                </label>
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-1">모범상/표창장 등</div>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                    <div>
-                        <label class="block text-slate-400 mb-1">추가 봉사시간 (9/30까지)</label>
-                        <div class="flex items-center gap-1.5">
-                            <input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field text-center py-1.5"
-                                   value="${data.addVolunteerHours || 0}" style="width: 80px;" />
-                            <span class="text-slate-300">시간 추가</span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1">창의적체험활동 (임원/반장)</label>
-                        <div class="flex items-center gap-3 pt-1">
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkChangche1" ${extra['changche_1'] ? 'checked' : ''} /> 1학년
-                            </label>
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkChangche2" ${extra['changche_2'] ? 'checked' : ''} /> 2학년
-                            </label>
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkChangche3" ${extra['changche_3'] ? 'checked' : ''} /> 3학년
-                            </label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1">행동발달상황 (학교장 표창)</label>
-                        <div class="flex items-center gap-3 pt-1">
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkHaengbal1" ${extra['haengbal_1'] ? 'checked' : ''} /> 1학년
-                            </label>
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkHaengbal2" ${extra['haengbal_2'] ? 'checked' : ''} /> 2학년
-                            </label>
-                            <label class="flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" id="checkHaengbal3" ${extra['haengbal_3'] ? 'checked' : ''} /> 3학년
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                `;
+            })()}
 
             <!-- 3. 학교별 합격 가능성 리스트 -->
             <div class="space-y-3">
@@ -1324,34 +1559,37 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         if (e.target === modalEl) modalEl.remove();
     });
 
-    // 수기 가산점 저장
-    document.getElementById('saveExtraBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('saveExtraBtn');
-        btn.disabled = true;
-        btn.textContent = '저장 중...';
+    // 수기 가산점 저장 (담임 및 관리자만 가능)
+    const saveBtn = document.getElementById('saveExtraBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = '저장 중...';
 
-        const addVol = parseInt(document.getElementById('inputAddVolunteer').value) || 0;
-        const newExtra = {
-            add_volunteer: addVol,
-            changche_1: document.getElementById('checkChangche1').checked,
-            changche_2: document.getElementById('checkChangche2').checked,
-            changche_3: document.getElementById('checkChangche3').checked,
-            haengbal_1: document.getElementById('checkHaengbal1').checked,
-            haengbal_2: document.getElementById('checkHaengbal2').checked,
-            haengbal_3: document.getElementById('checkHaengbal3').checked,
-        };
+            const addVol = parseInt(document.getElementById('inputAddVolunteer').value) || 0;
+            const septAbsence = parseInt(document.getElementById('inputSeptAbsence').value) || 0;
+            const newExtra = {
+                add_volunteer: addVol,
+                sept_absence: septAbsence,
+                changche_1: document.getElementById('checkChangche1').checked,
+                changche_2: document.getElementById('checkChangche2').checked,
+                changche_3: document.getElementById('checkChangche3').checked,
+                haengbal_1: document.getElementById('checkHaengbal1').checked,
+                haengbal_2: document.getElementById('checkHaengbal2').checked,
+                haengbal_3: document.getElementById('checkHaengbal3').checked,
+            };
 
-        try {
-            await window.go.main.App.SaveStudentExtra(classNum, studentNum, name, JSON.stringify(newExtra));
-            // 새로고침하여 재계산된 모달 띄우기
-            const updated = await window.go.main.App.GetStudentFullDetail(classNum, studentNum, name);
-            renderStudentModalContent(modalEl, classNum, studentNum, name, updated, cutoffs);
-        } catch (err) {
-            alert('저장 실패: ' + err);
-            btn.disabled = false;
-            btn.textContent = '💾 저장 후 재계산';
-        }
-    });
+            try {
+                await window.go.main.App.SaveStudentExtra(classNum, studentNum, name, JSON.stringify(newExtra));
+                const updatedData = await window.go.main.App.GetStudentFullDetail(classNum, studentNum, name);
+                renderStudentModalContent(modalEl, classNum, studentNum, name, updatedData, cutoffs);
+            } catch (err) {
+                alert('저장 실패: ' + err);
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 저장 후 재계산';
+            }
+        });
+    }
 
     // 인쇄/PDF 저장
     document.getElementById('printReportBtn').addEventListener('click', () => {
@@ -2236,7 +2474,7 @@ export async function renderLoginScreen(schoolName) {
                 <!-- 현재 설치된 버전 및 업데이트 확인 영역 -->
                 <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs text-text-muted">
                     <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
-                    <button id="manualUpdateCheckBtn" type="button" class="text-primary hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1 font-bold text-xs">
+                    <button id="manualUpdateCheckBtn" type="button" class="btn-secondary text-xs px-2.5 py-1 font-bold inline-flex items-center gap-1" style="width: auto;">
                         <span>🔄</span> 업데이트 확인
                     </button>
                 </div>
@@ -2251,7 +2489,8 @@ export async function renderLoginScreen(schoolName) {
                 if (res && res.hasUpdate) {
                     showStartupUpdateModal(res);
                 } else {
-                    alert(`현재 최신 버전(v${localVer})을 사용하고 계십니다!`);
+                    const serverVer = res && res.latestVersion ? res.latestVersion : localVer;
+                    alert(`현재 설치된 버전(v${localVer})은 최신 상태입니다!\n(중앙 서버 최신 버전: v${serverVer})`);
                 }
             } catch (err) {
                 alert('업데이트 확인 실패: ' + err);

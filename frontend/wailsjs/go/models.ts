@@ -107,6 +107,7 @@ export namespace main {
 	    attendanceMax: number;
 	    volunteerScore: number;
 	    volunteerMax: number;
+	    extraScore: number;
 	    totalScore: number;
 	
 	    static createFrom(source: any = {}) {
@@ -127,6 +128,7 @@ export namespace main {
 	        this.attendanceMax = source["attendanceMax"];
 	        this.volunteerScore = source["volunteerScore"];
 	        this.volunteerMax = source["volunteerMax"];
+	        this.extraScore = source["extraScore"];
 	        this.totalScore = source["totalScore"];
 	    }
 	}
@@ -204,14 +206,17 @@ export namespace main {
 	    classNum: number;
 	    studentNum: string;
 	    name: string;
+	    allAverage: number;
 	    semesterScores: Record<string, Array<number>>;
 	    subjectScores: Record<string, any>;
-	    allAverage: number;
 	    absenceDays: number;
+	    septAbsenceDays: number;
+	    hasSeptAbsence: boolean;
 	    volunteerHours: number;
 	    addVolunteerHours: number;
 	    totalVolunteerHours: number;
 	    extraData: Record<string, boolean>;
+	    extraPoints: number;
 	    extraJSON: string;
 	    generalHSPercentile: number;
 	    generalHSLevel: string;
@@ -226,14 +231,17 @@ export namespace main {
 	        this.classNum = source["classNum"];
 	        this.studentNum = source["studentNum"];
 	        this.name = source["name"];
+	        this.allAverage = source["allAverage"];
 	        this.semesterScores = source["semesterScores"];
 	        this.subjectScores = source["subjectScores"];
-	        this.allAverage = source["allAverage"];
 	        this.absenceDays = source["absenceDays"];
+	        this.septAbsenceDays = source["septAbsenceDays"];
+	        this.hasSeptAbsence = source["hasSeptAbsence"];
 	        this.volunteerHours = source["volunteerHours"];
 	        this.addVolunteerHours = source["addVolunteerHours"];
 	        this.totalVolunteerHours = source["totalVolunteerHours"];
 	        this.extraData = source["extraData"];
+	        this.extraPoints = source["extraPoints"];
 	        this.extraJSON = source["extraJSON"];
 	        this.generalHSPercentile = source["generalHSPercentile"];
 	        this.generalHSLevel = source["generalHSLevel"];
@@ -257,6 +265,36 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class StudentTranscriptData {
+	    classNum: number;
+	    studentNum: string;
+	    name: string;
+	    subjectRecords: any[];
+	    attendanceRaw: string;
+	    volunteerRaw: string;
+	    allAverage: number;
+	    percentile: number;
+	    rank: number;
+	    totalStudents: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudentTranscriptData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.classNum = source["classNum"];
+	        this.studentNum = source["studentNum"];
+	        this.name = source["name"];
+	        this.subjectRecords = source["subjectRecords"];
+	        this.attendanceRaw = source["attendanceRaw"];
+	        this.volunteerRaw = source["volunteerRaw"];
+	        this.allAverage = source["allAverage"];
+	        this.percentile = source["percentile"];
+	        this.rank = source["rank"];
+	        this.totalStudents = source["totalStudents"];
+	    }
 	}
 	export class SyncResult {
 	    success: boolean;

@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.8",
+    "latestVersion":  "0.5.10",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.8 ??실기고사 비중이 큰 학교(울산애니원고 등) 매트릭스 산출 대상에서 제외",
+    "releaseNotes":  "v0.5.10 ??창체/행발 가산점 실점수 합산, 9.30 전기고 출결 수기입력란 추가, 뷰어 저장권한 제한, 학생 이름 클릭 시 전학년 종합성적표 모달 구현, 모든 액션 요소 버튼화",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
