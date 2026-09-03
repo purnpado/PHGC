@@ -400,3 +400,96 @@ func (a *App) ResetAllData() error {
 	return nil
 }
 
+// GetStudentFullDetail 학생 1명의 10개 고교별 산출 결과 및 상세 내역 반환
+func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*StudentFullData, error) {
+	s, err := a.db.GetStudent(classNum, studentNum, name)
+	if err != nil {
+		return nil, fmt.Errorf("학생 정보를 찾을 수 없습니다: %w", err)
+	}
+
+	return parseStudentFullData(*s)
+}
+
+// SaveStudentExtra 학생의 수기 가산점 및 추가 봉사시간 저장
+func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string) error {
+	return a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON)
+}
+
+// GetClassFullGrades 특정 반 전체 학생의 고교별 산출 결과 목록 반환 (신호등 매트릭스용)
+func (a *App) GetClassFullGrades(classNum int) ([]StudentFullData, error) {
+	students, err := a.db.GetClassStudents(classNum)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []StudentFullData
+	for _, s := range students {
+		full, err := parseStudentFullData(s)
+		if err == nil {
+			results = append(results, *full)
+		}
+	}
+
+	// 번호순 정렬
+	sort.Slice(results, func(i, j int) bool {
+		numI, errI := strconv.Atoi(results[i].StudentNum)
+		numJ, errJ := strconv.Atoi(results[j].StudentNum)
+		if errI == nil && errJ == nil {
+			return numI < numJ
+		}
+		return results[i].StudentNum < results[j].StudentNum
+	})
+
+	return results, nil
+}
+
+// ResetAcademicYear 입시년도 전환 시 커트라인을 제외한 모든 학급 데이터 삭제
+func (a *App) ResetAcademicYear(newYear int) error {
+	return a.db.ResetAcademicYear(newYear)
+}
+
+// GetDataUpdateStatus 교과, 출결, 봉사 데이터의 저장 상태 반환
+func (a *App) GetDataUpdateStatus() map[string]interface{} {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return map[string]interface{}{"error": err.Error()}
+	}
+
+	totalStudents := 0
+	attendanceCount := 0
+	volunteerCount := 0
+
+	for i := 1; i <= config.ClassCount; i++ {
+		students, err := a.db.GetClassStudents(i)
+		if err == nil {
+			totalStudents += len(students)
+			for _, s := range students {
+				if s.AttendanceData != "" {
+					attendanceCount++
+				}
+				if s.VolunteerData != "" {
+					volunteerCount++
+				}
+			}
+		}
+	}
+
+	return map[string]interface{}{
+		"totalStudents":   totalStudents,
+		"hasGrades":       totalStudents > 0,
+		"attendanceCount": attendanceCount,
+		"hasAttendance":   attendanceCount > 0,
+		"volunteerCount":  volunteerCount,
+		"hasVolunteer":    volunteerCount > 0,
+		"classCount":      config.ClassCount,
+		"schoolName":      config.SchoolName,
+		"admissionYear":   config.AdmissionYear,
+	}
+}
+
+// GetSchoolRuleList 지원 고교 및 전형 목록 반환
+func (a *App) GetSchoolRuleList() []map[string]string {
+	return GetAllSchoolRuleNames()
+}
+
+

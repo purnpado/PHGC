@@ -25,6 +25,7 @@ type StudentExcelData struct {
 	RawData        string // 교과 성적 JSON
 	AttendanceData string // 출결 데이터 JSON
 	VolunteerData  string // 봉사 데이터 JSON
+	ExtraData      string // 수기 가산점 및 추가봉사 JSON
 }
 
 // ParseExcel 나이스 엑셀 또는 CSV 파일을 읽어 학급별로 분류하여 반환

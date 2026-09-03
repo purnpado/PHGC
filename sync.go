@@ -12,7 +12,7 @@ import (
 
 const (
 	// 현재 앱 버전
-	AppVersion = "0.1.0"
+	AppVersion = "0.2.0"
 
 	// Gitea 서버 정보
 	GiteaBaseURL = "https://gitea.gguk.link"

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
@@ -45,15 +46,37 @@ type DBManager struct {
 
 // NewDBManager 데이터 디렉토리를 초기화하고 매니저를 반환
 func NewDBManager() *DBManager {
-	// 실행파일 위치 기준으로 data 폴더 생성
+	// 1차: 실행파일 위치 기준으로 data 폴더 시도
 	exePath, err := os.Executable()
 	if err != nil {
 		exePath = "."
 	}
 	dataDir := filepath.Join(filepath.Dir(exePath), "data")
-	os.MkdirAll(dataDir, 0755)
 
+	// 공유폴더(UNC 경로) 또는 쓰기 불가능한 경로인 경우
+	// 사용자 로컬 AppData 폴더에 데이터 저장
+	if strings.HasPrefix(dataDir, `\\`) || !isWritable(dataDir) {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			dataDir = filepath.Join(homeDir, ".neoeodigallae", "data")
+		}
+	}
+
+	os.MkdirAll(dataDir, 0755)
 	return &DBManager{dataDir: dataDir}
+}
+
+// isWritable 디렉토리 쓰기 가능 여부 확인
+func isWritable(dir string) bool {
+	os.MkdirAll(dir, 0755)
+	testFile := filepath.Join(dir, ".write_test")
+	f, err := os.Create(testFile)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	os.Remove(testFile)
+	return true
 }
 
 // getConfigDBPath config.db 경로 반환
@@ -326,13 +349,15 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			name TEXT NOT NULL,
 			grades_json TEXT,
 			attendance_json TEXT DEFAULT '',
-			volunteer_json TEXT DEFAULT ''
+			volunteer_json TEXT DEFAULT '',
+			extra_json TEXT DEFAULT ''
 		);
 	`)
 	
 	// 기존 테이블에 컬럼 추가 (오류 무시 - 이미 존재할 경우)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN attendance_json TEXT DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN volunteer_json TEXT DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN extra_json TEXT DEFAULT ''`)
 
 	if err != nil {
 		return fmt.Errorf("학급 DB 초기화 실패: %w", err)
@@ -367,8 +392,8 @@ func (dm *DBManager) SaveClassStudents(classNum int, students []StudentExcelData
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO students (student_num, name, grades_json, attendance_json, volunteer_json)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO students (student_num, name, grades_json, attendance_json, volunteer_json, extra_json)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		tx.Rollback()
@@ -377,7 +402,7 @@ func (dm *DBManager) SaveClassStudents(classNum int, students []StudentExcelData
 	defer stmt.Close()
 
 	for _, s := range students {
-		_, err = stmt.Exec(s.StudentNum, s.Name, s.RawData, s.AttendanceData, s.VolunteerData)
+		_, err = stmt.Exec(s.StudentNum, s.Name, s.RawData, s.AttendanceData, s.VolunteerData, s.ExtraData)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -449,6 +474,41 @@ func (dm *DBManager) UpdateStudentVolunteer(classNum int, students []StudentExce
 	return tx.Commit()
 }
 
+// UpdateStudentExtra 수기 입력 가산점 및 추가사항 업데이트
+func (dm *DBManager) UpdateStudentExtra(classNum int, studentNum, name, extraJSON string) error {
+	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
+	db, err := dm.openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("UPDATE students SET extra_json = ? WHERE name = ? AND student_num = ?", extraJSON, name, studentNum)
+	return err
+}
+
+// ResetAcademicYear 입시년도 전환 시 커트라인 데이터(highschool_cutoffs)를 제외한 모든 학급 데이터 삭제
+func (dm *DBManager) ResetAcademicYear(newYear int) error {
+	// 1. 모든 class_*.db 파일 삭제
+	files, err := filepath.Glob(filepath.Join(dm.dataDir, "class_*.db"))
+	if err == nil {
+		for _, f := range files {
+			_ = os.Remove(f)
+		}
+	}
+
+	// 2. config.db의 admissionYear 업데이트
+	configDBPath := dm.getConfigDBPath()
+	db, err := dm.openDB(configDBPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec("UPDATE school_config SET admission_year = ? WHERE id = 1", newYear)
+	return err
+}
+
 // GetClassStudentCount 학급 DB의 학생 수 반환
 func (dm *DBManager) GetClassStudentCount(classNum int) int {
 	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
@@ -477,7 +537,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 			continue // 해당 반 데이터가 없으면 무시
 		}
 		
-		rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, '') FROM students")
+		rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students")
 		if err != nil {
 			db.Close()
 			continue
@@ -487,7 +547,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 		for rows.Next() {
 			var s StudentExcelData
 			s.ClassNum = i
-			err := rows.Scan(&s.StudentNum, &s.Name, &s.RawData, &s.AttendanceData, &s.VolunteerData)
+			err := rows.Scan(&s.StudentNum, &s.Name, &s.RawData, &s.AttendanceData, &s.VolunteerData, &s.ExtraData)
 			if err == nil {
 				students = append(students, s)
 			}
@@ -658,3 +718,49 @@ func (dm *DBManager) ChangeUserPassword(username, newPassword string) error {
 	_, err = db.Exec("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = ?", string(hash), username)
 	return err
 }
+
+// GetClassStudents 특정 학급의 전체 학생 목록 반환
+func (dm *DBManager) GetClassStudents(classNum int) ([]StudentExcelData, error) {
+	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
+	db, err := dm.openDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []StudentExcelData
+	for rows.Next() {
+		var s StudentExcelData
+		s.ClassNum = classNum
+		if err := rows.Scan(&s.StudentNum, &s.Name, &s.RawData, &s.AttendanceData, &s.VolunteerData, &s.ExtraData); err == nil {
+			list = append(list, s)
+		}
+	}
+	return list, nil
+}
+
+// GetStudent 특정 학급의 학생 1명 조회
+func (dm *DBManager) GetStudent(classNum int, studentNum, name string) (*StudentExcelData, error) {
+	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
+	db, err := dm.openDB(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var s StudentExcelData
+	s.ClassNum = classNum
+	err = db.QueryRow("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students WHERE name = ? AND student_num = ?", name, studentNum).
+		Scan(&s.StudentNum, &s.Name, &s.RawData, &s.AttendanceData, &s.VolunteerData, &s.ExtraData)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+

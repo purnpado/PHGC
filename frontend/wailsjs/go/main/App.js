@@ -18,6 +18,10 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetClassFullGrades(arg1) {
+  return window['go']['main']['App']['GetClassFullGrades'](arg1);
+}
+
 export function GetClassGrades(arg1) {
   return window['go']['main']['App']['GetClassGrades'](arg1);
 }
@@ -30,6 +34,10 @@ export function GetCutoffs() {
   return window['go']['main']['App']['GetCutoffs']();
 }
 
+export function GetDataUpdateStatus() {
+  return window['go']['main']['App']['GetDataUpdateStatus']();
+}
+
 export function GetFeedbackDetails(arg1) {
   return window['go']['main']['App']['GetFeedbackDetails'](arg1);
 }
@@ -40,6 +48,14 @@ export function GetLocalFeedbacks() {
 
 export function GetSchoolConfig() {
   return window['go']['main']['App']['GetSchoolConfig']();
+}
+
+export function GetSchoolRuleList() {
+  return window['go']['main']['App']['GetSchoolRuleList']();
+}
+
+export function GetStudentFullDetail(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetStudentFullDetail'](arg1, arg2, arg3);
 }
 
 export function GetUsers() {
@@ -62,12 +78,20 @@ export function ProcessVolunteerExcel(arg1) {
   return window['go']['main']['App']['ProcessVolunteerExcel'](arg1);
 }
 
+export function ResetAcademicYear(arg1) {
+  return window['go']['main']['App']['ResetAcademicYear'](arg1);
+}
+
 export function ResetAllData() {
   return window['go']['main']['App']['ResetAllData']();
 }
 
 export function SaveCutoffs(arg1) {
   return window['go']['main']['App']['SaveCutoffs'](arg1);
+}
+
+export function SaveStudentExtra(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveStudentExtra'](arg1, arg2, arg3, arg4);
 }
 
 export function SendCutoffsToBridge(arg1) {

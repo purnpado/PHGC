@@ -218,3 +218,41 @@
     letter-spacing: 0.05em;
     font-weight: 500;
 }
+
+/* ===== 인쇄 전용 스타일 ===== */
+@media print {
+    body, html {
+        background: white !important;
+        color: black !important;
+    }
+    .watermark, .no-print, header, nav {
+        display: none !important;
+    }
+    .glass-card {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+    .print-modal {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    .print-modal * {
+        color: black !important;
+        border-color: #ccc !important;
+    }
+    .print-modal .gauge-bg {
+        background: #eee !important;
+    }
+    .print-modal .gauge-fill {
+        background: #4f46e5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

@@ -23,7 +23,7 @@ function renderSetupScreen(existingConfig = null) {
             <!-- 헤더 -->
             <div class="text-center mb-8">
                 <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🏫</div>
-                <h1 class="text-2xl font-bold text-white mb-2">울산 특목고·특성화고 입시 분석기 초기 설정</h1>
+                <h1 class="text-2xl font-bold text-white mb-2">그래서? 넌 어디갈래? 🏫 초기 설정</h1>
                 <p class="text-text-muted text-sm">관리자(학년부장)가 최초 1회 설정합니다</p>
             </div>
 
@@ -482,8 +482,12 @@ async function renderAdminScreen(schoolName) {
 
     // 2. 현재 저장된 학급별 데이터 상태 가져오기
     let status = {};
+    let updateStatus = {};
     try {
         status = await GetClassStatus(classCount);
+        if (window.go?.main?.App?.GetDataUpdateStatus) {
+            updateStatus = await window.go.main.App.GetDataUpdateStatus();
+        }
     } catch (e) {
         console.error("상태 불러오기 실패:", e);
     }
@@ -507,31 +511,55 @@ async function renderAdminScreen(schoolName) {
         `;
     }
 
+    // 데이터 연동 상태 바
+    const totalStd = updateStatus.totalStudents || 0;
+    const attCount = updateStatus.attendanceCount || 0;
+    const volCount = updateStatus.volunteerCount || 0;
+
     app.innerHTML = `
         <div class="glass-card p-10 w-full max-w-4xl fade-in" style="margin: 2rem;">
             <!-- 헤더 영역 -->
-            <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-700/50">
+            <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50">
                 <div>
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3">
                         👔 관리자 대시보드
                     </h1>
-                    <p class="text-text-muted text-sm mt-2">${schoolName} (총 ${classCount}학급)</p>
+                    <p class="text-text-muted text-sm mt-1">${schoolName} (총 ${classCount}학급)</p>
                 </div>
-                <div class="flex gap-3">
+                <div class="flex gap-2.5 flex-wrap justify-end">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
-                    <button id="goToTeacherBtn" class="btn-secondary px-4 py-2 rounded-lg font-bold text-sm" style="width: auto;">
-                        👩‍🏫 진학 상담(담임) 모드
+                    <button id="goToTeacherBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
+                        👩‍🏫 진학 상담 모드
                     </button>
-                    <button id="syncBtn" class="btn-primary px-4 py-2 rounded-lg font-bold text-sm" style="width: auto;">
+                    <button id="syncBtn" class="btn-primary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
                         🔄 서버 동기화
                     </button>
-                    <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-sm px-4 py-2 rounded-lg font-bold" style="width: auto;">
-                        데이터 완전 초기화
+                    <button id="resetYearBtn" class="text-warning border border-warning/30 hover:bg-warning/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;" title="커트라인은 유지하고 학생 데이터만 삭제">
+                        📅 새 입시년도 전환
+                    </button>
+                    <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;">
+                        전체 초기화
                     </button>
                     ` : ''}
-                    <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-sm px-4 py-2 rounded-lg hover:bg-slate-800">
+                    <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-xs px-3 py-2 rounded-lg hover:bg-slate-800">
                         ← 로그아웃
                     </button>
+                </div>
+            </div>
+
+            <!-- 데이터 연동 현황 바 -->
+            <div class="mb-6 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="font-bold text-slate-300">📊 데이터 연동 현황:</div>
+                <div class="flex items-center gap-4 flex-wrap">
+                    <span class="inline-flex items-center gap-1.5 ${totalStd > 0 ? 'text-success' : 'text-slate-400'}">
+                        ${totalStd > 0 ? '✅' : '⚪'} 교과성적: <strong>${totalStd}명</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 ${attCount > 0 ? 'text-success' : 'text-slate-400'}">
+                        ${attCount > 0 ? '✅' : '⚪'} 출결: <strong>${attCount}명</strong>
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 ${volCount > 0 ? 'text-success' : 'text-slate-400'}">
+                        ${volCount > 0 ? '✅' : '⚪'} 봉사: <strong>${volCount}명</strong>
+                    </span>
                 </div>
             </div>
 
@@ -602,7 +630,22 @@ async function renderAdminScreen(schoolName) {
         renderTeacherScreen(schoolName, null);
     });
 
-    document.getElementById('resetDataBtn').addEventListener('click', async () => {
+    document.getElementById('resetYearBtn')?.addEventListener('click', async () => {
+        const nextYear = prompt("새 입시학년도를 입력하세요 (예: 2028):", new Date().getFullYear() + 1);
+        if (!nextYear) return;
+
+        if (confirm(`입시년도를 [${nextYear}학년도]로 전환하시겠습니까?\n\n※ 고교별 커트라인 데이터는 안전하게 보존되며, 학생들의 성적/출결/봉사 데이터만 깔끔하게 초기화됩니다.`)) {
+            try {
+                await window.go.main.App.ResetAcademicYear(parseInt(nextYear));
+                alert(`${nextYear}학년도로 성공적으로 전환되었습니다!`);
+                renderAdminScreen(schoolName);
+            } catch (err) {
+                alert("입시년도 전환 실패: " + err);
+            }
+        }
+    });
+
+    document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
         if (confirm("정말 모든 데이터를 완전 초기화하시겠습니까?\n학교 설정과 업로드된 모든 성적 파일이 삭제되며 되돌릴 수 없습니다.")) {
             try {
                 await window.go.main.App.ResetAllData();
@@ -831,30 +874,50 @@ function renderStudentList(students, classNum) {
     }
 
     let tbody = '';
-    students.forEach((s, idx) => {
+    students.forEach((s) => {
+        // 일반고 보수적 판별 지표 (80% 내외 기준)
+        let generalBadge = '';
+        if (s.Percentile <= 80) {
+            generalBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${s.Percentile.toFixed(1)}%)</span>`;
+        } else if (s.Percentile <= 90) {
+            generalBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 일반고 경계 (${s.Percentile.toFixed(1)}%)</span>`;
+        } else {
+            generalBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 일반고 불안 (${s.Percentile.toFixed(1)}%)</span>`;
+        }
+
         tbody += `
-            <tr class="hover:bg-slate-800/50 transition-colors cursor-pointer" onclick="openStudentModal('${s.Name}', ${s.FinalScore}, ${s.Percentile})">
-                <td class="p-4 border-b border-slate-700/50 text-center">${s.StudentNum || '-'}</td>
-                <td class="p-4 border-b border-slate-700/50 font-bold text-white text-center">${s.Name}</td>
-                <td class="p-4 border-b border-slate-700/50 text-center text-primary font-medium">${s.TotalSubjectScore.toFixed(2)}</td>
-                <td class="p-4 border-b border-slate-700/50 text-center text-success font-bold">${s.Percentile.toFixed(2)}%</td>
-                <td class="p-4 border-b border-slate-700/50 text-center text-info font-medium">${s.FinalScore.toFixed(2)}</td>
-                <td class="p-4 border-b border-slate-700/50 text-center font-bold text-lg">${(s.FinalScore + 40).toFixed(2)} <span class="text-xs text-text-muted font-normal">(+비교과 40)</span></td>
+            <tr class="hover:bg-slate-800/60 transition-colors border-b border-slate-700/50">
+                <td class="p-4 text-center font-medium text-slate-400">${s.StudentNum || '-'}</td>
+                <td class="p-4 font-bold text-white text-center text-lg">${s.Name}</td>
+                <td class="p-4 text-center">${generalBadge}</td>
+                <td class="p-4 text-center">
+                    <button class="btn-primary text-xs px-4 py-2 font-bold flex items-center justify-center gap-1.5 mx-auto"
+                            onclick="openStudentModal(${classNum}, '${s.StudentNum}', '${s.Name}')">
+                        🎯 고교별 진학상담
+                    </button>
+                </td>
             </tr>
         `;
     });
 
     document.getElementById('teacherContent').innerHTML = `
-        <div class="overflow-x-auto">
+        <div class="flex items-center justify-between mb-4">
+            <div class="text-sm text-text-muted">
+                총 <span class="font-bold text-white">${students.length}</span>명 (학생 개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다)
+            </div>
+            <button id="openMatrixBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">
+                📊 우리 반 고교별 신호등 매트릭스
+            </button>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-slate-800/50 text-text-muted text-sm">
-                        <th class="p-4 font-semibold text-center rounded-tl-lg">번호</th>
-                        <th class="p-4 font-semibold text-center">성명</th>
-                        <th class="p-4 font-semibold text-center">5개 학기 합산 점수</th>
-                        <th class="p-4 font-semibold text-center">가산출 백분율(%)</th>
-                        <th class="p-4 font-semibold text-center">교과내신총점(160점)</th>
-                        <th class="p-4 font-semibold text-center rounded-tr-lg">예상 내신 총점(200점)</th>
+                    <tr class="bg-slate-800/80 text-text-muted text-sm border-b border-slate-700/70">
+                        <th class="p-4 font-semibold text-center w-20">번호</th>
+                        <th class="p-4 font-semibold text-center w-36">성명</th>
+                        <th class="p-4 font-semibold text-center">일반계고 지원 가이드</th>
+                        <th class="p-4 font-semibold text-center w-44">진학 상담</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -863,16 +926,402 @@ function renderStudentList(students, classNum) {
             </table>
         </div>
         <div class="mt-4 text-xs text-text-muted text-right">
-            * 3학년 2학기 성적은 3학년 1학기 점수를 미러링하여 계산되었습니다.<br>
-            * 비교과 성적은 현재 만점(40점)으로 일괄 가산되어 표시됩니다. (클릭 시 진학상담)
+            * 일반고 지표는 3학년 1학기 성적 기준 간이 참고치이며, 정식 일반고 내신은 교육청 프로그램을 따릅니다.
         </div>
     `;
+
+    document.getElementById('openMatrixBtn').addEventListener('click', () => {
+        openMatrixModal(classNum);
+    });
 }
 
-// 진학 상담 모달 (플레이스홀더)
-function openStudentModal(name, finalScore, percentile) {
-    alert(`👨‍🎓 ${name} 학생 진학 상담\n\n예상 내신 점수: ${(finalScore + 40).toFixed(2)}점 / 200점\n가산출 백분율: ${percentile.toFixed(2)}%\n\n* 다음 업데이트에서 고교별 커트라인 시각화 게이지가 제공됩니다.`);
+// ===== 학생 개인 진학상담 종합 모달 =====
+async function openStudentModal(classNum, studentNum, name) {
+    // 기존 모달 제거
+    document.getElementById('studentDetailModal')?.remove();
+
+    // 로딩 모달 표시
+    const modalEl = document.createElement('div');
+    modalEl.id = 'studentDetailModal';
+    modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modalEl.innerHTML = `
+        <div class="glass-card p-8 w-full max-w-4xl text-center">
+            <span class="spinner"></span> <span class="text-white ml-2">${name} 학생의 고교별 산출 데이터를 분석하는 중...</span>
+        </div>
+    `;
+    document.body.appendChild(modalEl);
+
+    try {
+        const fullData = await window.go.main.App.GetStudentFullDetail(classNum, studentNum, name);
+        const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
+
+        renderStudentModalContent(modalEl, classNum, studentNum, name, fullData, cutoffs);
+    } catch (err) {
+        modalEl.innerHTML = `
+            <div class="glass-card p-8 w-full max-w-md text-center">
+                <div class="text-danger text-4xl mb-3">⚠️</div>
+                <div class="text-white font-bold mb-4">데이터를 불러오지 못했습니다</div>
+                <div class="text-text-muted text-sm mb-6">${err}</div>
+                <button class="btn-secondary w-full" onclick="document.getElementById('studentDetailModal').remove()">닫기</button>
+            </div>
+        `;
+    }
 }
+
+// 모달 내용 렌더링
+function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs) {
+    // 학교별 합격 가능성 카드 목록 생성
+    let cardsHTML = '';
+    
+    data.schoolResults.forEach(r => {
+        // 커트라인 찾기
+        let cutoffMin = null;
+        let cutoffMax = null;
+        if (cutoffs && cutoffs.length > 0) {
+            const found = cutoffs.find(c => c.schoolName.includes(r.schoolName.substring(0, 4)) && c.track.includes(r.trackName));
+            if (found) {
+                cutoffMin = found.minValue;
+                cutoffMax = found.maxValue;
+            }
+        }
+
+        // 합격 가능성 판단
+        let statusBadge = '';
+        let gaugeColor = 'bg-primary';
+        let pct = (r.totalScore / r.totalMax) * 100;
+        
+        if (cutoffMin && cutoffMin > 0) {
+            if (r.totalScore >= cutoffMin + 5) {
+                statusBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 안정권</span>';
+                gaugeColor = 'bg-success';
+            } else if (r.totalScore >= cutoffMin) {
+                statusBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 적정/경계</span>';
+                gaugeColor = 'bg-warning';
+            } else {
+                statusBadge = '<span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 소신/주의</span>';
+                gaugeColor = 'bg-danger';
+            }
+        } else {
+            // 커트라인 데이터가 아직 없으면 점수 비율로 표시
+            statusBadge = `<span class="text-xs text-text-muted">만점의 ${pct.toFixed(1)}%</span>`;
+        }
+
+        // 가중치 과목 상세 텍스트
+        let weightDetailText = '';
+        if (r.weightedDetails && Object.keys(r.weightedDetails).length > 0) {
+            const parts = [];
+            for (let [sub, pts] of Object.entries(r.weightedDetails)) {
+                parts.push(`${sub} ${pts.toFixed(1)}점`);
+            }
+            weightDetailText = `<span class="text-slate-400 text-xs">(${parts.join(', ')})</span>`;
+        }
+
+        cardsHTML += `
+            <div class="p-4 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-2">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-white text-base">${r.schoolName}</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">${r.trackName}전형</span>
+                    </div>
+                    <div>${statusBadge}</div>
+                </div>
+
+                <div class="flex items-baseline justify-between">
+                    <div class="text-xs text-text-muted">
+                        교과 ${r.allSubjectScore.toFixed(1)}${r.weightedScore > 0 ? ` + 가중치 ${r.weightedScore.toFixed(1)}` : ''} 
+                        | 출결 ${r.attendanceScore.toFixed(1)} | 봉사 ${r.volunteerScore.toFixed(1)}
+                        ${weightDetailText}
+                    </div>
+                    <div class="text-lg font-black text-white">
+                        ${r.totalScore.toFixed(2)} <span class="text-xs text-slate-400 font-normal">/ ${r.totalMax}점</span>
+                    </div>
+                </div>
+
+                <!-- 게이지 바 -->
+                <div class="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                    <div class="${gaugeColor} h-2.5 rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(5, pct))}%;"></div>
+                </div>
+
+                ${cutoffMin ? `
+                <div class="flex justify-between text-[11px] text-slate-400 pt-0.5">
+                    <span>최근 커트라인: ${cutoffMin}점 ~ ${cutoffMax}점</span>
+                    <span>차이: <strong class="${r.totalScore >= cutoffMin ? 'text-success' : 'text-danger'}">${(r.totalScore - cutoffMin) >= 0 ? '+' : ''}${(r.totalScore - cutoffMin).toFixed(2)}점</strong></span>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    const extra = data.extraData || {};
+
+    modalEl.innerHTML = `
+        <div class="glass-card p-6 md:p-8 w-full max-w-4xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
+            <!-- 모달 헤더 (인쇄 제외 버튼 포함) -->
+            <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                <div>
+                    <h2 class="text-2xl font-black text-white flex items-center gap-2">
+                        👨‍🎓 ${name} <span class="text-base text-slate-400 font-normal">(${classNum}반 ${studentNum}번)</span>
+                    </h2>
+                    <p class="text-xs text-text-muted mt-1">울산 특목·마이스터·특성화고 진학 상담 분석표 (3-1 누적)</p>
+                </div>
+                <div class="flex items-center gap-2 no-print">
+                    <button id="printReportBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1">
+                        🖨️ 인쇄 / PDF
+                    </button>
+                    <button id="closeModalBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">
+                        ✕
+                    </button>
+                </div>
+            </div>
+
+            <!-- 1. 기본 성적 요약 카드 -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
+                    <div class="text-xs text-text-muted mb-1">전과목 평균 성취도</div>
+                    <div class="text-xl font-bold text-primary">${data.allAverage.toFixed(2)} <span class="text-xs text-slate-400 font-normal">/ 5.0</span></div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
+                    <div class="text-xs text-text-muted mb-1">미인정 결석</div>
+                    <div class="text-xl font-bold ${data.absenceDays > 0 ? 'text-danger' : 'text-success'}">${data.absenceDays}일</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
+                    <div class="text-xs text-text-muted mb-1">인정 봉사시간</div>
+                    <div class="text-xl font-bold text-white">${data.totalVolunteerHours}시간 <span class="text-[11px] text-slate-400 font-normal">(기본${data.volunteerHours}+추가${data.addVolunteerHours})</span></div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
+                    <div class="text-xs text-text-muted mb-1">일반고 추정 백분율</div>
+                    <div class="text-xl font-bold text-success">${data.generalHSPercentile.toFixed(1)}%</div>
+                </div>
+            </div>
+
+            <!-- 2. 수기 입력 가산점 영역 (담임용) -->
+            <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
+                        ✏️ 9/30까지 추가사항 및 비교과 가산점 수기 입력 (담임 체크)
+                    </h3>
+                    <button id="saveExtraBtn" class="btn-primary text-xs px-3 py-1.5 font-bold no-print">
+                        💾 저장 후 재계산
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                    <div>
+                        <label class="block text-slate-400 mb-1">추가 봉사시간 (9/30까지)</label>
+                        <div class="flex items-center gap-1.5">
+                            <input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field text-center py-1.5"
+                                   value="${data.addVolunteerHours || 0}" style="width: 80px;" />
+                            <span class="text-slate-300">시간 추가</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">창의적체험활동 (임원/반장)</label>
+                        <div class="flex items-center gap-3 pt-1">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkChangche1" ${extra['changche_1'] ? 'checked' : ''} /> 1학년
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkChangche2" ${extra['changche_2'] ? 'checked' : ''} /> 2학년
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkChangche3" ${extra['changche_3'] ? 'checked' : ''} /> 3학년
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-slate-400 mb-1">행동발달상황 (학교장 표창)</label>
+                        <div class="flex items-center gap-3 pt-1">
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkHaengbal1" ${extra['haengbal_1'] ? 'checked' : ''} /> 1학년
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkHaengbal2" ${extra['haengbal_2'] ? 'checked' : ''} /> 2학년
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" id="checkHaengbal3" ${extra['haengbal_3'] ? 'checked' : ''} /> 3학년
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. 학교별 합격 가능성 리스트 -->
+            <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-bold text-sm text-white">🏫 목표 고교별 산출 점수 및 합격 가능성</h3>
+                    <span class="text-xs text-text-muted">* 면접 점수를 제외한 1차 서류 전형 기준</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${cardsHTML}
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 닫기 이벤트
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+        modalEl.remove();
+    });
+
+    // 배경 클릭 시 닫기
+    modalEl.addEventListener('click', (e) => {
+        if (e.target === modalEl) modalEl.remove();
+    });
+
+    // 수기 가산점 저장
+    document.getElementById('saveExtraBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('saveExtraBtn');
+        btn.disabled = true;
+        btn.textContent = '저장 중...';
+
+        const addVol = parseInt(document.getElementById('inputAddVolunteer').value) || 0;
+        const newExtra = {
+            add_volunteer: addVol,
+            changche_1: document.getElementById('checkChangche1').checked,
+            changche_2: document.getElementById('checkChangche2').checked,
+            changche_3: document.getElementById('checkChangche3').checked,
+            haengbal_1: document.getElementById('checkHaengbal1').checked,
+            haengbal_2: document.getElementById('checkHaengbal2').checked,
+            haengbal_3: document.getElementById('checkHaengbal3').checked,
+        };
+
+        try {
+            await window.go.main.App.SaveStudentExtra(classNum, studentNum, name, JSON.stringify(newExtra));
+            // 새로고침하여 재계산된 모달 띄우기
+            const updated = await window.go.main.App.GetStudentFullDetail(classNum, studentNum, name);
+            renderStudentModalContent(modalEl, classNum, studentNum, name, updated, cutoffs);
+        } catch (err) {
+            alert('저장 실패: ' + err);
+            btn.disabled = false;
+            btn.textContent = '💾 저장 후 재계산';
+        }
+    });
+
+    // 인쇄/PDF 저장
+    document.getElementById('printReportBtn').addEventListener('click', () => {
+        window.print();
+    });
+}
+
+// ===== 우리 반 전체 고교 신호등 매트릭스 모달 =====
+async function openMatrixModal(classNum) {
+    document.getElementById('matrixModal')?.remove();
+
+    const modalEl = document.createElement('div');
+    modalEl.id = 'matrixModal';
+    modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modalEl.innerHTML = `
+        <div class="glass-card p-8 w-full max-w-6xl text-center">
+            <span class="spinner"></span> <span class="text-white ml-2">${classNum}반 학생들의 신호등 매트릭스를 구성하는 중...</span>
+        </div>
+    `;
+    document.body.appendChild(modalEl);
+
+    try {
+        const fullGrades = await window.go.main.App.GetClassFullGrades(classNum);
+        const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
+
+        let matrixRows = '';
+        fullGrades.forEach(s => {
+            // 주요 학교별 배지 생성
+            const getBadge = (schoolSubstr, track) => {
+                const r = s.schoolResults.find(x => x.schoolName.includes(schoolSubstr) && x.trackName.includes(track));
+                if (!r) return '-';
+                
+                let foundCutoff = null;
+                if (cutoffs) {
+                    foundCutoff = cutoffs.find(c => c.schoolName.includes(schoolSubstr) && c.track.includes(track));
+                }
+
+                if (foundCutoff && foundCutoff.minValue > 0) {
+                    if (r.totalScore >= foundCutoff.minValue + 5) {
+                        return `<span class="text-success font-bold" title="${r.totalScore}점 (안정)">🟢 ${r.totalScore.toFixed(0)}</span>`;
+                    } else if (r.totalScore >= foundCutoff.minValue) {
+                        return `<span class="text-warning font-bold" title="${r.totalScore}점 (경계)">🟡 ${r.totalScore.toFixed(0)}</span>`;
+                    } else {
+                        return `<span class="text-danger font-bold" title="${r.totalScore}점 (주의)">🔴 ${r.totalScore.toFixed(0)}</span>`;
+                    }
+                }
+                return `<span class="text-slate-300">${r.totalScore.toFixed(0)}점</span>`;
+            };
+
+            const meister = getBadge('마이스터', '일반');
+            const energy = getBadge('에너지', '일반');
+            const hyundai = getBadge('현대', '일반');
+            const sangop = getBadge('상업고', '일반');
+            const general = s.generalHSPercentile <= 80 ? '🟢 안정' : (s.generalHSPercentile <= 90 ? '🟡 경계' : '🔴 주의');
+
+            matrixRows += `
+                <tr class="hover:bg-slate-800/60 border-b border-slate-700/50 text-center">
+                    <td class="p-3 text-slate-400">${s.studentNum}</td>
+                    <td class="p-3 font-bold text-white cursor-pointer hover:underline"
+                        onclick="document.getElementById('matrixModal').remove(); openStudentModal(${classNum}, '${s.studentNum}', '${s.Name || s.name}')">
+                        ${s.name}
+                    </td>
+                    <td class="p-3 text-primary font-medium">${s.allAverage.toFixed(2)}</td>
+                    <td class="p-3">${meister}</td>
+                    <td class="p-3">${energy}</td>
+                    <td class="p-3">${hyundai}</td>
+                    <td class="p-3">${sangop}</td>
+                    <td class="p-3 font-bold">${general} <span class="text-xs text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
+                </tr>
+            `;
+        });
+
+        modalEl.innerHTML = `
+            <div class="glass-card p-6 md:p-8 w-full max-w-6xl max-h-[90vh] overflow-y-auto space-y-6">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                    <div>
+                        <h2 class="text-2xl font-black text-white flex items-center gap-2">
+                            📊 ${classNum}반 전체 고교별 진학 신호등 매트릭스
+                        </h2>
+                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 바로 이동합니다.</p>
+                    </div>
+                    <button id="closeMatrixBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
+                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                        <thead>
+                            <tr class="bg-slate-800/80 text-text-muted border-b border-slate-700/70 text-center">
+                                <th class="p-3 w-14">번호</th>
+                                <th class="p-3 w-24">성명</th>
+                                <th class="p-3 w-20">평균성취도</th>
+                                <th class="p-3">울산마이스터고</th>
+                                <th class="p-3">울산에너지고</th>
+                                <th class="p-3">현대공업고</th>
+                                <th class="p-3">울산상업고</th>
+                                <th class="p-3">후기 일반계고</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${matrixRows}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex justify-between items-center text-xs text-text-muted">
+                    <span>* 🟢 안정권 / 🟡 적정경계 / 🔴 소신지원 (커트라인 대비)</span>
+                    <button class="btn-secondary text-xs px-4 py-2" onclick="document.getElementById('matrixModal').remove()">닫기</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('closeMatrixBtn').addEventListener('click', () => modalEl.remove());
+        modalEl.addEventListener('click', (e) => { if (e.target === modalEl) modalEl.remove(); });
+    } catch (err) {
+        modalEl.innerHTML = `
+            <div class="glass-card p-8 w-full max-w-md text-center">
+                <div class="text-danger text-4xl mb-3">⚠️</div>
+                <div class="text-white font-bold mb-4">매트릭스를 불러오지 못했습니다</div>
+                <div class="text-text-muted text-sm mb-6">${err}</div>
+                <button class="btn-secondary w-full" onclick="document.getElementById('matrixModal').remove()">닫기</button>
+            </div>
+        `;
+    }
+}
+
 
 // ===== 유틸리티 =====
 function delay(ms) {
@@ -1313,7 +1762,7 @@ export async function renderLoginScreen(schoolName) {
             <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
                 <div class="text-center mb-8">
                     <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🔐</div>
-                    <h1 class="text-2xl font-bold text-white mb-2">울산 특목고·특성화고 입시 분석기</h1>
+                    <h1 class="text-2xl font-bold text-white mb-2">그래서? 넌 어디갈래? 🏫</h1>
                     <p class="text-text-muted text-sm">${schoolName}</p>
                 </div>
                 <form id="loginForm" class="space-y-5">

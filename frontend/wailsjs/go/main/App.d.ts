@@ -10,17 +10,25 @@ export function CheckSetupComplete():Promise<boolean>;
 
 export function GetAppVersion():Promise<string>;
 
+export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;
+
 export function GetClassGrades(arg1:number):Promise<Array<main.StudentCalcResult>>;
 
 export function GetClassStatus(arg1:number):Promise<Record<number, number>>;
 
 export function GetCutoffs():Promise<Array<main.CutoffInfo>>;
 
+export function GetDataUpdateStatus():Promise<Record<string, any>>;
+
 export function GetFeedbackDetails(arg1:number):Promise<Record<string, any>>;
 
 export function GetLocalFeedbacks():Promise<Array<main.FeedbackIssue>>;
 
 export function GetSchoolConfig():Promise<main.SchoolConfig>;
+
+export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;
+
+export function GetStudentFullDetail(arg1:number,arg2:string,arg3:string):Promise<main.StudentFullData>;
 
 export function GetUsers():Promise<Array<main.User>>;
 
@@ -32,9 +40,13 @@ export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number>>;
 
+export function ResetAcademicYear(arg1:number):Promise<void>;
+
 export function ResetAllData():Promise<void>;
 
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
+
+export function SaveStudentExtra(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function SendCutoffsToBridge(arg1:number):Promise<void>;
 
