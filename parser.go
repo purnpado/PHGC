@@ -1,12 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/xuri/excelize/v2"
+	"golang.org/x/text/encoding/korean"
+	"golang.org/x/text/transform"
 )
 
 // StudentExcelData 엑셀에서 파싱된 학생 한 명의 데이터
@@ -17,27 +25,15 @@ type StudentExcelData struct {
 	RawData    string // 나머지 모든 컬럼 데이터를 JSON으로 저장
 }
 
-// ParseExcel 나이스 엑셀 파일을 읽어 학급별로 분류하여 반환
+// ParseExcel 나이스 엑셀 또는 CSV 파일을 읽어 학급별로 분류하여 반환
 func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
-	f, err := excelize.OpenFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("엑셀 파일 열기 실패: %w", err)
-	}
-	defer f.Close()
-
-	sheets := f.GetSheetList()
-	if len(sheets) == 0 {
-		return nil, fmt.Errorf("엑셀 파일에 시트가 없습니다")
-	}
-	sheetName := sheets[0]
-
-	rows, err := f.GetRows(sheetName)
+	rows, err := readRows(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("데이터 읽기 실패: %w", err)
 	}
 
 	if len(rows) < 2 {
-		return nil, fmt.Errorf("데이터가 부족합니다")
+		return nil, fmt.Errorf("데이터가 부족합니다 (최소 헤더와 데이터 1줄 필요)")
 	}
 
 	result := make(map[int][]StudentExcelData)
@@ -176,4 +172,52 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 	}
 
 	return result, nil
+}
+
+// readRows 파일 확장자에 따라 엑셀 또는 CSV 파일을 읽어 2차원 문자열 배열로 반환
+func readRows(filePath string) ([][]string, error) {
+	ext := strings.ToLower(filepath.Ext(filePath))
+	
+	if ext == ".csv" {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("CSV 파일 읽기 실패: %w", err)
+		}
+		
+		var reader io.Reader
+		// 간단한 인코딩 판별: UTF-8이 아니면 CP949(EUC-KR)로 간주
+		if utf8.Valid(data) {
+			// BOM 제거 (UTF-8)
+			if bytes.HasPrefix(data, []byte("\xef\xbb\xbf")) {
+				data = data[3:]
+			}
+			reader = bytes.NewReader(data)
+		} else {
+			reader = transform.NewReader(bytes.NewReader(data), korean.EUCKR.NewDecoder())
+		}
+		
+		csvReader := csv.NewReader(reader)
+		csvReader.FieldsPerRecord = -1 // 필드 개수 가변 허용
+		csvReader.LazyQuotes = true
+		
+		rows, err := csvReader.ReadAll()
+		if err != nil {
+			return nil, fmt.Errorf("CSV 파싱 실패: %w", err)
+		}
+		return rows, nil
+	}
+	
+	// 기본은 엑셀(.xlsx, .xls) 처리
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("엑셀 파일 열기 실패: %w", err)
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return nil, fmt.Errorf("엑셀 파일에 시트가 없습니다")
+	}
+	
+	return f.GetRows(sheets[0])
 }

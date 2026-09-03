@@ -135,8 +135,8 @@ func (a *App) OpenExcelFile() (string, error) {
 		Title: "나이스 성적 엑셀 파일 선택",
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Excel Files (*.xlsx, *.xls)",
-				Pattern:     "*.xlsx;*.xls",
+				DisplayName: "Data Files (*.xlsx, *.xls, *.csv)",
+				Pattern:     "*.xlsx;*.xls;*.csv",
 			},
 		},
 	})

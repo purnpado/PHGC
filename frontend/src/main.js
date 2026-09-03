@@ -129,12 +129,8 @@ async function handleSetupSubmit(isEdit = false) {
             admissionYear: admissionYear
         });
 
-        if (isEdit) {
-            renderLoginScreen(schoolName);
-        } else {
-            // 최초 설정 → 서버 동기화
-            renderSyncScreen(schoolName);
-        }
+        // 설정 후 무조건 로그인 화면으로 이동
+        renderLoginScreen(schoolName);
     } catch (err) {
         const generalError = document.getElementById('generalError');
         generalError.textContent = err;
@@ -335,7 +331,15 @@ function showSyncFailed(container, schoolName, errorMsg) {
         renderSyncScreen(schoolName);
     });
     document.getElementById('skipBtn').addEventListener('click', () => {
-        renderModeSelectScreen(schoolName);
+        if (window.currentUser) {
+            if (window.currentUser.Role === 'master' || window.currentUser.Role === 'viewer') {
+                renderAdminScreen(schoolName);
+            } else {
+                renderTeacherScreen(schoolName, window.currentUser.ClassNum);
+            }
+        } else {
+            renderLoginScreen(schoolName);
+        }
     });
 }
 
@@ -515,12 +519,15 @@ async function renderAdminScreen(schoolName) {
                 </div>
                 <div class="flex gap-3">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
+                    <button id="syncBtn" class="btn-primary px-4 py-2 rounded-lg font-bold text-sm">
+                        🔄 서버 동기화
+                    </button>
                     <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-sm px-4 py-2 rounded-lg font-bold">
                         데이터 완전 초기화
                     </button>
                     ` : ''}
                     <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-sm px-4 py-2 rounded-lg hover:bg-slate-800">
-                        ← 모드 선택
+                        ← 로그아웃
                     </button>
                 </div>
             </div>
@@ -639,6 +646,10 @@ async function renderAdminScreen(schoolName) {
     
     document.getElementById('userManagementBtn')?.addEventListener('click', () => {
         renderUserManagementScreen(schoolName);
+    });
+
+    document.getElementById('syncBtn')?.addEventListener('click', () => {
+        renderSyncScreen(schoolName);
     });
 }
 
