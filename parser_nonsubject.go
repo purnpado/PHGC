@@ -72,34 +72,31 @@ func ParseAttendanceExcel(filePath string) (map[int][]StudentExcelData, error) {
 				continue
 			}
 		}
-
 		if nameColIdx != -1 && nameColIdx < len(row) {
-			name := strings.TrimSpace(row[nameColIdx])
-			if name == "" {
-				name = lastName
-			} else {
-				lastName = name
-			}
-			if name == "" {
-				continue
-			}
-
-			if currentClassNum == -1 {
-				currentClassNum = 1
-			}
-
-			studentNum := ""
+			rawName := strings.TrimSpace(row[nameColIdx])
+			rawNum := ""
 			if studentNumColIdx != -1 && studentNumColIdx < len(row) {
-				studentNum = strings.TrimSpace(row[studentNumColIdx])
+				rawNum = strings.TrimSpace(row[studentNumColIdx])
 			}
-			if studentNum == "" {
-				studentNum = lastStudentNum
+
+			if rawName == "" && rawNum == "" {
+				rawName = lastName
+				rawNum = lastStudentNum
 			} else {
-				if _, err := strconv.Atoi(studentNum); err != nil {
+				// 번호가 숫자가 아니면(예: "번 호", "합계") 유효하지 않은 행
+				if _, err := strconv.Atoi(rawNum); err != nil {
 					continue
 				}
-				lastStudentNum = studentNum
+				lastName = rawName
+				lastStudentNum = rawNum
 			}
+
+			if rawName == "" || rawNum == "" {
+				continue
+			}
+			
+			name := rawName
+			studentNum := rawNum
 
 			studentKey := fmt.Sprintf("%s_%s", studentNum, name)
 			if studentMap[currentClassNum] == nil {
@@ -202,13 +199,24 @@ func ParseVolunteerExcel(filePath string) (map[int][]StudentExcelData, error) {
 		}
 
 		if nameColIdx != -1 && nameColIdx < len(row) {
-			name := strings.TrimSpace(row[nameColIdx])
-			if name == "" {
-				name = lastName
-			} else {
-				lastName = name
+			rawName := strings.TrimSpace(row[nameColIdx])
+			rawNum := ""
+			if studentNumColIdx != -1 && studentNumColIdx < len(row) {
+				rawNum = strings.TrimSpace(row[studentNumColIdx])
 			}
-			if name == "" {
+
+			if rawName == "" && rawNum == "" {
+				rawName = lastName
+				rawNum = lastStudentNum
+			} else {
+				if _, err := strconv.Atoi(rawNum); err != nil {
+					continue
+				}
+				lastName = rawName
+				lastStudentNum = rawNum
+			}
+
+			if rawName == "" || rawNum == "" {
 				continue
 			}
 
@@ -216,18 +224,8 @@ func ParseVolunteerExcel(filePath string) (map[int][]StudentExcelData, error) {
 				currentClassNum = 1
 			}
 
-			studentNum := ""
-			if studentNumColIdx != -1 && studentNumColIdx < len(row) {
-				studentNum = strings.TrimSpace(row[studentNumColIdx])
-			}
-			if studentNum == "" {
-				studentNum = lastStudentNum
-			} else {
-				if _, err := strconv.Atoi(studentNum); err != nil {
-					continue
-				}
-				lastStudentNum = studentNum
-			}
+			name := rawName
+			studentNum := rawNum
 
 			studentKey := fmt.Sprintf("%s_%s", studentNum, name)
 			if studentMap[currentClassNum] == nil {
