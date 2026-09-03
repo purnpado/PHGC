@@ -125,40 +125,16 @@ if ($giteaToken) {
         $releaseId = $release.id
         Write-Host ">>> Gitea Release 생성 완료 (ID: $releaseId)" -ForegroundColor Green
 
-        # 8-3. exe Asset 업로드
+        # 8-3. exe Asset 업로드 (curl.exe 활용)
         Write-Host ">>> PHGC.exe Asset 업로드 중..." -ForegroundColor Cyan
         $uploadUrl = "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$releaseId/assets?name=PHGC.exe"
+        $absExe = (Get-Item $exePath).FullName
 
-        # multipart/form-data 로 파일 업로드
-        $filePath = (Resolve-Path $exePath).Path
-        $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
-        $boundary = [System.Guid]::NewGuid().ToString()
+        & curl.exe -s -S -X POST "$uploadUrl" `
+            -H "Authorization: token $giteaToken" `
+            -H "Accept: application/json" `
+            -F "attachment=@$absExe" > $null
 
-        $LF = "`r`n"
-        $bodyLines = @(
-            "--$boundary",
-            "Content-Disposition: form-data; name=`"attachment`"; filename=`"PHGC.exe`"",
-            "Content-Type: application/octet-stream",
-            "",
-            ""
-        ) -join $LF
-
-        $bodyEnd = "$LF--$boundary--$LF"
-
-        $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($bodyLines)
-        $endBytes = [System.Text.Encoding]::UTF8.GetBytes($bodyEnd)
-
-        $totalBytes = New-Object byte[] ($headerBytes.Length + $fileBytes.Length + $endBytes.Length)
-        [System.Buffer]::BlockCopy($headerBytes, 0, $totalBytes, 0, $headerBytes.Length)
-        [System.Buffer]::BlockCopy($fileBytes, 0, $totalBytes, $headerBytes.Length, $fileBytes.Length)
-        [System.Buffer]::BlockCopy($endBytes, 0, $totalBytes, $headerBytes.Length + $fileBytes.Length, $endBytes.Length)
-
-        $uploadHeaders = @{
-            "Authorization" = "token $giteaToken"
-            "Content-Type"  = "multipart/form-data; boundary=$boundary"
-        }
-
-        Invoke-RestMethod -Uri $uploadUrl -Headers $uploadHeaders -Method Post -Body $totalBytes
         Write-Host ">>> PHGC.exe Asset 업로드 완료!" -ForegroundColor Green
     } catch {
         Write-Host ">>> Gitea Release/Asset 오류: $_" -ForegroundColor Red
