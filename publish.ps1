@@ -4,6 +4,8 @@ param (
 )
 
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 # 1. 현재 버전 읽기
 $versionFile = "server-data/version.json"
@@ -26,7 +28,7 @@ Write-Host "==========================================" -ForegroundColor Cyan
 
 # 3. server-data/version.json 업데이트
 $json.latestVersion = $newVer
-$json.releaseNotes = "v$newVer — $Notes"
+$json.releaseNotes = "v$newVer - $Notes"
 $json | ConvertTo-Json -Depth 4 | Set-Content $versionFile -Encoding UTF8
 
 # 4. sync.go 업데이트
@@ -51,8 +53,8 @@ if ($LASTEXITCODE -ne 0) {
 # 7. Git 커밋 & 태그 & 푸시
 Write-Host "📤 Git 푸시 및 태그 릴리즈 생성 중..." -ForegroundColor Cyan
 git add .
-git commit -m "release: v$newVer — $Notes"
-git tag -a "v$newVer" -m "v$newVer — $Notes" -f
+git commit -m "release: v$newVer - $Notes"
+git tag -a "v$newVer" -m "v$newVer - $Notes" -f
 git push
 git push origin "v$newVer" -f
 

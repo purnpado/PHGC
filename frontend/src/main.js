@@ -607,22 +607,41 @@ async function renderAdminScreen(schoolName) {
                 <div class="space-y-4">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
                     <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                        <h3 class="font-bold mb-2">📥 나이스 엑셀 데이터 연동</h3>
-                        <p class="text-xs text-text-muted mb-4 line-clamp-3">
-                            교과 성적, 출결, 봉사 파일을 각각 업로드하세요. 프로그램이 자동으로 '반'을 인식하여 쪼개어 저장합니다.
+                        <h3 class="font-bold mb-1.5 flex items-center gap-2">
+                            <span>📥</span> 나이스 엑셀 데이터 연동
+                        </h3>
+                        <p class="text-xs text-text-muted mb-4 leading-relaxed">
+                            순서대로 1 ➡️ 2 ➡️ 3단계 파일을 업로드하세요. 프로그램이 자동으로 학급을 인식하여 분류 저장합니다.
                         </p>
-                        <div class="flex flex-col gap-2">
-                            <button id="uploadExcelBtn" class="btn-primary w-full flex justify-center items-center gap-2 text-sm">
-                                <span>교과성적 불러오기</span>
+                        <div class="space-y-2.5">
+                            <!-- 1단계: 교과 성적 -->
+                            <button id="uploadExcelBtn" class="btn-primary w-full py-3 px-4 flex items-center justify-between text-xs font-bold shadow-md hover:brightness-110 transition-all rounded-xl border border-indigo-400/40 cursor-pointer">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">1</span>
+                                    <span class="text-sm">📚 교과 성적 엑셀 불러오기</span>
+                                </div>
+                                <span class="text-[11px] font-semibold ${totalStd > 0 ? 'text-emerald-300' : 'text-indigo-200'}">${totalStd > 0 ? '✅ 연동됨' : '필수'}</span>
                             </button>
-                            <div class="flex gap-2">
-                                <button id="uploadAttendanceBtn" class="btn-secondary w-full flex justify-center items-center gap-1 text-xs">
-                                    <span>출결 불러오기</span>
-                                </button>
-                                <button id="uploadVolunteerBtn" class="btn-secondary w-full flex justify-center items-center gap-1 text-xs">
-                                    <span>봉사 불러오기</span>
-                                </button>
-                            </div>
+
+                            <!-- 2단계: 출결 현황 -->
+                            <button id="uploadAttendanceBtn" class="w-full py-3 px-4 flex items-center justify-between text-xs font-bold shadow-md hover:brightness-110 transition-all rounded-xl border border-sky-500/40 cursor-pointer text-white"
+                                    style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">2</span>
+                                    <span class="text-sm">📅 출결 현황 엑셀 불러오기</span>
+                                </div>
+                                <span class="text-[11px] font-semibold ${attCount > 0 ? 'text-emerald-300' : 'text-sky-200'}">${attCount > 0 ? '✅ 연동됨' : '비교과'}</span>
+                            </button>
+
+                            <!-- 3단계: 봉사활동 실적 -->
+                            <button id="uploadVolunteerBtn" class="w-full py-3 px-4 flex items-center justify-between text-xs font-bold shadow-md hover:brightness-110 transition-all rounded-xl border border-emerald-500/40 cursor-pointer text-white"
+                                    style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">3</span>
+                                    <span class="text-sm">🕒 봉사활동 엑셀 불러오기</span>
+                                </div>
+                                <span class="text-[11px] font-semibold ${volCount > 0 ? 'text-emerald-300' : 'text-emerald-200'}">${volCount > 0 ? '✅ 연동됨' : '비교과'}</span>
+                            </button>
                         </div>
                         <div id="uploadStatus" class="mt-3 text-xs text-center hidden"></div>
                     </div>
