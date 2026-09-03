@@ -1119,6 +1119,9 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         // 1. 교과 성적 행(Tr) 생성
         let subjectRows = '';
         if (data.subjectRecords && data.subjectRecords.length > 0) {
+            let lastGrade = '1';
+            let lastSem = '1';
+
             data.subjectRecords.forEach(rec => {
                 let grade = '';
                 let sem = '';
@@ -1127,17 +1130,27 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                 let rawScore = '';
 
                 for (const [k, v] of Object.entries(rec)) {
-                    const cleanK = k.trim();
-                    const cleanV = String(v).trim().replace(/"/g, '');
+                    // 키와 값의 공백('과 목' -> '과목', '학 년' -> '학년')을 완전히 제거하여 매칭
+                    const cleanK = k.replace(/\s+/g, '').replace(/["'\r\n]/g, '');
+                    const cleanV = String(v || '').trim().replace(/["'\r\n]/g, '');
+
                     if (cleanK.includes('학년도')) continue;
                     if (cleanK.includes('학년')) grade = cleanV;
                     else if (cleanK.includes('학기')) sem = cleanV;
-                    else if (cleanK.includes('과목')) subject = cleanV;
+                    else if (cleanK.includes('과목') || cleanK.includes('교과목')) subject = cleanV;
                     else if (cleanK.includes('성취도')) achieve = cleanV;
                     else if (cleanK.includes('원점수') || cleanK.includes('평균')) rawScore = cleanV;
                 }
 
-                if (!grade || !subject) return;
+                // 나이스 엑셀의 병합 셀 처리 (빈칸이면 직전 행의 학년/학기 계승)
+                if (grade) lastGrade = grade;
+                else grade = lastGrade;
+
+                if (sem) lastSem = sem;
+                else sem = lastSem;
+
+                // 유효한 과목 또는 성취도가 없는 행은 건너뜀
+                if (!subject || !achieve) return;
 
                 let badgeColor = 'text-slate-300';
                 if (achieve.startsWith('A')) badgeColor = 'text-emerald-400 font-bold';
@@ -1157,8 +1170,10 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                     </tr>
                 `;
             });
-        } else {
-            subjectRows = `<tr><td colspan="5" class="p-6 text-center text-text-muted">업로드된 교과 성적 원시 데이터가 없습니다.</td></tr>`;
+        }
+        
+        if (!subjectRows) {
+            subjectRows = `<tr><td colspan="5" class="p-8 text-center text-text-muted">업로드된 교과 성적 데이터가 없거나 파싱할 과목이 없습니다.</td></tr>`;
         }
 
         // 2. 출결 및 봉사 파싱
@@ -1170,6 +1185,12 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         if (data.volunteerRaw) {
             try { volObj = JSON.parse(data.volunteerRaw); } catch(e){}
         }
+
+        // 출결 일수 종합 집계
+        let totalAbsence = attObj['absence'] || attObj['absent'] || (Number(attObj['1_absence']||0) + Number(attObj['2_absence']||0) + Number(attObj['3_absence']||0));
+        let totalLate = attObj['late'] || (Number(attObj['1_late']||0) + Number(attObj['2_late']||0) + Number(attObj['3_late']||0));
+        let totalEarly = attObj['early'] || (Number(attObj['1_early']||0) + Number(attObj['2_early']||0) + Number(attObj['3_early']||0));
+        let totalResult = attObj['result'] || (Number(attObj['1_result']||0) + Number(attObj['2_result']||0) + Number(attObj['3_result']||0));
 
         modalEl.innerHTML = `
             <div class="glass-card p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto space-y-6">
@@ -1243,19 +1264,19 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                         <div class="grid grid-cols-4 gap-2 text-center pt-2">
                             <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
                                 <div class="text-[10px] text-text-muted">미인정 결석</div>
-                                <div class="text-sm font-bold text-danger mt-1">${attObj['absence'] || attObj['absent'] || 0}일</div>
+                                <div class="text-sm font-bold text-danger mt-1">${totalAbsence}일</div>
                             </div>
                             <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
                                 <div class="text-[10px] text-text-muted">미인정 지각</div>
-                                <div class="text-sm font-bold text-warning mt-1">${attObj['late'] || 0}회</div>
+                                <div class="text-sm font-bold text-warning mt-1">${totalLate}회</div>
                             </div>
                             <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
                                 <div class="text-[10px] text-text-muted">미인정 조퇴</div>
-                                <div class="text-sm font-bold text-warning mt-1">${attObj['early'] || 0}회</div>
+                                <div class="text-sm font-bold text-warning mt-1">${totalEarly}회</div>
                             </div>
                             <div class="p-2 rounded bg-slate-900/60 border border-slate-700/40">
                                 <div class="text-[10px] text-text-muted">미인정 결과</div>
-                                <div class="text-sm font-bold text-warning mt-1">${attObj['result'] || 0}회</div>
+                                <div class="text-sm font-bold text-warning mt-1">${totalResult}회</div>
                             </div>
                         </div>
                     </div>
