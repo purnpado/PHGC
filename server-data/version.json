@@ -1,6 +1,6 @@
-{
-  "latestVersion": "0.5.0",
-  "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.0 — '그래서? 넌 어디갈래?' 5개 특목/마이스터/특성화고 통합 산출 엔진 및 진학상담 모달 적용",
-  "downloadUrl": "https://gitea.gguk.link/purnpadosori/PHGC/releases"
+﻿{
+    "latestVersion":  "0.5.2",
+    "minVersion":  "0.5.0",
+    "releaseNotes":  "v0.5.2 ??커트라인 마이스터/특성화/일반고 탭 분류 및 시작 시 자동 업데이트 모달 적용",
+    "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
