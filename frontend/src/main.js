@@ -721,12 +721,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     const classSelector = document.getElementById('classSelector');
     
-    // 타겟 학급이 있으면 자동 선택 및 로드
-    if (targetClassNum) {
-        classSelector.value = targetClassNum;
-        setTimeout(() => loadClassData(targetClassNum), 100);
-    }
-
     classSelector.addEventListener('change', async (e) => {
         const classNum = parseInt(e.target.value);
         if (!classNum) {
@@ -737,12 +731,18 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
         
         try {
-            const students = await GetClassGrades(classNum);
+            const students = await window.go.main.App.GetClassGrades(classNum);
             renderStudentList(students, classNum);
         } catch (err) {
             document.getElementById('teacherContent').innerHTML = `<div class="text-danger py-20 text-center font-bold">오류 발생: ${err}</div>`;
         }
     });
+
+    // 타겟 학급이 있으면 자동 선택 및 로드 (이벤트 강제 발생)
+    if (targetClassNum) {
+        classSelector.value = targetClassNum;
+        classSelector.dispatchEvent(new Event('change'));
+    }
 }
 
 function renderStudentList(students, classNum) {
@@ -1396,7 +1396,9 @@ export async function renderUserManagementScreen(schoolName) {
                             <label class="block text-xs text-text-muted mb-1">초기 비밀번호</label>
                             <input type="password" id="newViewerPw" class="input-field py-2" required />
                         </div>
-                        <button type="submit" id="addViewerBtn" class="btn-primary py-2 px-6 whitespace-nowrap">추가하기</button>
+                        <div class="flex-none pb-1">
+                            <button type="submit" id="addViewerBtn" class="btn-primary py-2 px-6 rounded-lg font-bold shadow whitespace-nowrap" style="width: auto;">추가하기</button>
+                        </div>
                     </form>
                     <div id="addViewerError" class="mt-2 text-sm text-danger hidden"></div>
                 </div>
@@ -1409,7 +1411,9 @@ export async function renderUserManagementScreen(schoolName) {
                             <label class="block text-xs text-text-muted mb-1">모든 담임(1반~N반) 공통 초기 비밀번호</label>
                             <input type="password" id="bulkPw" class="input-field py-2" required />
                         </div>
-                        <button type="submit" id="bulkPwBtn" class="btn-primary py-2 px-6 whitespace-nowrap">일괄 적용하기</button>
+                        <div class="flex-none pb-1">
+                            <button type="submit" id="bulkPwBtn" class="btn-primary py-2 px-6 rounded-lg font-bold shadow whitespace-nowrap" style="width: auto;">일괄 적용하기</button>
+                        </div>
                     </form>
                     <div id="bulkPwError" class="mt-2 text-sm text-danger hidden"></div>
                 </div>
@@ -1524,7 +1528,7 @@ export async function renderUserManagementScreen(schoolName) {
                     <td class="p-4 text-right">
                         <div class="flex items-center justify-end gap-2">
                             <input type="password" id="pw_${u.Username}" class="input-field py-1 px-3 text-xs w-32" placeholder="새 비밀번호" />
-                            <button class="btn-secondary py-1 px-3 text-xs whitespace-nowrap" onclick="updateUserPassword('${u.Username}')">
+                            <button class="btn-primary py-1 px-3 text-xs whitespace-nowrap rounded" style="width: auto; min-width: 80px;" onclick="updateUserPassword('${u.Username}')">
                                 ${isInitial ? '비번 설정' : '비번 초기화'}
                             </button>
                         </div>
