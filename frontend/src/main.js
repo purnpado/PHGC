@@ -1816,109 +1816,107 @@ async function loadCutoffForm(selectedCategory = 'all') {
             <div class="space-y-6">
         `;
 
-        // 학교 카드 렌더링 헬퍼 함수 (학교 공통 최저선 우선 + 학과별 세부입력 토글)
+        // 학교 카드 렌더링 헬퍼 함수 (원서대장 맞춤형: 학교 공통행 + 학과별 행 정규 테이블)
         const renderSchoolCard = (school, tracks) => {
             const depts = school.departments && school.departments.length > 0 ? school.departments : ["공통"];
-            const schoolSafeId = school.name.replace(/[^a-zA-Z0-9가-힣]/g, '_');
 
             let cardHtml = `
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 space-y-3">
-                    <div class="flex items-center justify-between">
+                <div class="bg-slate-800/60 p-4 sm:p-5 rounded-xl border border-slate-700/60 space-y-3">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-700/40">
                         <h4 class="font-bold text-white text-base flex items-center gap-2">
                             ${school.name}
-                            <span class="text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded font-normal">${school.type}</span>
+                            <span class="text-[11px] text-primary bg-primary/15 px-2.5 py-0.5 rounded-full font-semibold border border-primary/30">${school.type}</span>
                         </h4>
-                        <span class="text-xs text-slate-400">${school.area || ''}</span>
+                        <span class="text-xs text-slate-400 font-medium">${school.area || ''}</span>
                     </div>
-                    <div class="space-y-2">
             `;
 
             if (school.type === '일반계고') {
                 const key = `${school.name}_공통_일반계고`;
                 const saved = savedMap[key] || savedMap[`${school.name}_공통_일반`] || { minValue: '' };
                 cardHtml += `
-                    <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-700/40">
+                    <div class="flex items-center justify-between bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/40">
                         <div>
-                            <div class="font-bold text-sm text-indigo-300">📌 후기 일반계고 합격선 전망치(%)</div>
-                            <div class="text-[11px] text-text-muted mt-0.5">학교/담임 전망치 입력 (예: 85.0% - 낮을수록 상위권)</div>
+                            <div class="font-bold text-sm text-emerald-300">📌 후기 일반계고 합격선 전망치(%)</div>
+                            <div class="text-[11px] text-text-muted mt-0.5">중학교 원서대장 및 진학 전망치 입력 (예: 85.0% - 낮을수록 상위권)</div>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="text-xs text-text-muted">합격선(%)</span>
-                            <input type="number" step="0.1" min="0" max="100" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm text-white focus:ring-1 focus:ring-primary outline-none" placeholder="예: 85.0" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="일반계고" data-type="percentile">
+                            <span class="text-xs text-text-muted font-bold">합격선(%)</span>
+                            <input type="number" step="0.1" min="0" max="100" class="cutoff-input w-28 text-right bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white font-bold focus:ring-1 focus:ring-primary outline-none" placeholder="예: 85.0" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="일반계고" data-type="percentile">
                         </div>
                     </div>
                 `;
             } else {
-                // 1) 📌 학교 전체 공통 최저선 (가장 우선적이고 유연한 입력란)
+                // 마이스터고 및 특성화고: 학교 공통 + 학과별 정규 테이블
                 cardHtml += `
-                    <div class="bg-slate-900/70 p-3 rounded-lg border border-indigo-500/30 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                                <span>📌</span> 학교 전체 공통 최저 합격선 (원서대장 / 학교 발표치)
-                            </div>
-                            <span class="text-[10px] text-slate-400">과 구분 없이 학교 전체 기준</span>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div class="overflow-x-auto rounded-lg border border-slate-700/50 bg-slate-900/40">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-800/90 text-text-muted border-b border-slate-700/70">
+                                    <th class="p-2.5 font-bold text-slate-300 w-44">학과 구분</th>
+                `;
+
+                tracks.forEach(track => {
+                    const isEmployment = track.includes('취업');
+                    const isSpecial = track.includes('특별');
+                    let trackBadgeColor = 'text-slate-300';
+                    if (isEmployment) trackBadgeColor = 'text-emerald-400';
+                    else if (isSpecial) trackBadgeColor = 'text-amber-400';
+
+                    cardHtml += `<th class="p-2.5 font-bold text-center ${trackBadgeColor}">${track} 최저점</th>`;
+                });
+
+                cardHtml += `
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <!-- 1) 학교 전체 공통 행 (원서대장에 과 구분이 없을 때) -->
+                                <tr class="bg-indigo-950/20 hover:bg-indigo-950/40 transition-colors">
+                                    <td class="p-2.5 font-bold text-indigo-300 flex items-center gap-1.5">
+                                        <span>📌</span> 학교 전체 공통 (과 미구분 시)
+                                    </td>
                 `;
 
                 tracks.forEach(track => {
                     const commonKey = `${school.name}_공통_${track}`;
                     const saved = savedMap[commonKey] || { minValue: '' };
-                    const isEmployment = track.includes('취업');
-                    const isSpecial = track.includes('특별');
-                    let trackBadgeColor = 'bg-slate-800 text-slate-300';
-                    if (isEmployment) trackBadgeColor = 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/50';
-                    else if (isSpecial) trackBadgeColor = 'bg-amber-950/70 text-amber-300 border border-amber-700/50';
-
                     cardHtml += `
-                        <div class="flex items-center justify-between bg-slate-800/80 p-2 rounded border border-slate-700/40">
-                            <span class="text-xs font-bold px-2 py-0.5 rounded ${trackBadgeColor}">${track}</span>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[11px] text-text-muted">최저점:</span>
-                                <input type="number" step="0.01" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="예: 215.8" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="${track}" data-type="total_score">
-                            </div>
-                        </div>
+                        <td class="p-2 text-center">
+                            <input type="number" step="0.01" class="cutoff-input w-28 text-right bg-slate-800 border border-indigo-500/40 rounded px-2 py-1 text-xs text-indigo-200 font-bold focus:ring-1 focus:ring-primary outline-none inline-block" placeholder="학교최저점" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="${track}" data-type="total_score">
+                        </td>
                     `;
                 });
 
-                cardHtml += `
-                        </div>
-                    </div>
-                `;
+                cardHtml += `</tr>`;
 
-                // 2) 학과별 세부 입력 (토글 접이식)
-                cardHtml += `
-                    <div class="pt-1">
-                        <button type="button" class="dept-toggle-btn text-[11px] text-slate-400 hover:text-indigo-300 flex items-center gap-1 transition-colors bg-transparent border-none cursor-pointer py-1" data-target="dept_${schoolSafeId}">
-                            <span>▶</span> 학과별 세부 커트라인 입력 (선택 사항)
-                        </button>
-                        <div id="dept_${schoolSafeId}" class="hidden space-y-2 mt-2 pt-2 border-t border-slate-700/40">
-                `;
-
+                // 2) 학과별 세부 행 (원서대장에 학과가 명시되어 있을 때)
                 depts.forEach(dept => {
+                    cardHtml += `
+                        <tr class="hover:bg-slate-800/40 transition-colors">
+                            <td class="p-2.5 font-semibold text-slate-200">${dept}</td>
+                    `;
+
                     tracks.forEach(track => {
                         const key = `${school.name}_${dept}_${track}`;
                         const saved = savedMap[key] || { minValue: '' };
-
                         cardHtml += `
-                            <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-lg border border-slate-700/30">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-medium text-xs text-slate-300">${dept}</span>
-                                    <span class="text-[10px] text-slate-500">${track}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-text-muted">학과 최저:</span>
-                                    <input type="number" step="0.01" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="선택입력" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
-                                </div>
-                            </div>
+                            <td class="p-2 text-center">
+                                <input type="number" step="0.01" class="cutoff-input w-28 text-right bg-slate-700/80 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none inline-block" placeholder="학과최저점" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
+                            </td>
                         `;
                     });
+
+                    cardHtml += `</tr>`;
                 });
 
-                cardHtml += `</div></div>`;
+                cardHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
             }
 
-            cardHtml += `</div></div>`;
+            cardHtml += `</div>`;
             return cardHtml;
         };
 
@@ -1969,19 +1967,6 @@ async function loadCutoffForm(selectedCategory = 'all') {
             btn.addEventListener('click', (e) => {
                 const cat = e.target.dataset.category;
                 loadCutoffForm(cat);
-            });
-        });
-
-        // 학과별 세부입력 토글 버튼 이벤트 바인딩
-        document.querySelectorAll('.dept-toggle-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const targetId = btn.dataset.target;
-                const targetEl = document.getElementById(targetId);
-                if (targetEl) {
-                    const isHidden = targetEl.classList.toggle('hidden');
-                    const icon = btn.querySelector('span');
-                    if (icon) icon.textContent = isHidden ? '▶' : '▼';
-                }
             });
         });
 

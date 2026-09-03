@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.4",
+    "latestVersion":  "0.5.5",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.4 ??와이드 레이아웃 적용, 매트릭스 전교교 노출, 학교 공통 최저선 우선 입력, 스마트 권한 관리, 진학상담 버튼 활성화",
+    "releaseNotes":  "v0.5.5 ??중학교 고입원서대장 맞춤형 학교별/학과별/전형별 커트라인 정규 테이블 UI 전면 개편",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
