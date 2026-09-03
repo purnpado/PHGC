@@ -814,8 +814,7 @@ async function init() {
             renderSetupScreen();
         }
     } catch (err) {
-        console.error('초기화 오류:', err);
-        renderSetupScreen();
+        app.innerHTML = `<div class="p-10 text-center text-danger font-bold">계정 정보를 불러올 수 없습니다.<br>${err}</div>`;
     }
 }
 
@@ -1216,13 +1215,23 @@ async function handleExportCutoff() {
 // ===== 로그인 화면 =====
 
 // ===== 로그인 화면 =====
-export function renderLoginScreen(schoolName) {
-    window.go.main.App.GetSchoolConfig().then(config => {
-        const classCount = config.classCount || 10;
-        let classOptions = '';
-        for (let i = 1; i <= classCount; i++) {
-            classOptions += `<option value="${i}반">${i}반 담임</option>`;
-        }
+export async function renderLoginScreen(schoolName) {
+    try {
+        const users = await window.go.main.App.GetUsers();
+        
+        let adminOptions = '';
+        let viewerOptions = '';
+        let teacherOptions = '';
+
+        users.forEach(u => {
+            if (u.Role === 'master') {
+                adminOptions += `<option value="${u.Username}">마스터 (${u.Username})</option>`;
+            } else if (u.Role === 'viewer') {
+                viewerOptions += `<option value="${u.Username}">뷰어 (${u.Username})</option>`;
+            } else if (u.Role === 'homeroom') {
+                teacherOptions += `<option value="${u.Username}">${u.ClassNum}반 담임</option>`;
+            }
+        });
 
         app.innerHTML = `
             <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
@@ -1235,10 +1244,14 @@ export function renderLoginScreen(schoolName) {
                     <div>
                         <label class="block text-sm font-semibold text-text-muted mb-2">로그인 계정 선택</label>
                         <select id="loginUsername" class="input-field cursor-pointer">
-                            <option value="admin">마스터 (학년부장)</option>
-                            <option value="viewer">뷰어 (진로부장 등)</option>
+                            <optgroup label="관리자">
+                                ${adminOptions}
+                            </optgroup>
+                            <optgroup label="뷰어(조회 전용)">
+                                ${viewerOptions}
+                            </optgroup>
                             <optgroup label="담임 교사">
-                                ${classOptions}
+                                ${teacherOptions}
                             </optgroup>
                         </select>
                     </div>
@@ -1286,9 +1299,9 @@ export function renderLoginScreen(schoolName) {
                 btn.innerHTML = '로그인';
             }
         });
-    }).catch(err => {
-        app.innerHTML = `<div class="text-danger py-10 text-center">학교 설정을 불러오지 못했습니다.</div>`;
-    });
+    } catch (err) {
+        app.innerHTML = `<div class="text-danger py-10 text-center">계정 정보를 불러오지 못했습니다. 데이터베이스를 확인해주세요.<br>${err}</div>`;
+    }
 }
 
 // ===== 비밀번호 변경 화면 =====
