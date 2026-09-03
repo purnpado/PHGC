@@ -654,7 +654,7 @@ async function renderAdminScreen(schoolName) {
                     <div class="mode-card" id="userManagementBtn">
                         <span class="icon">👥</span>
                         <div class="title">사용자 및 권한 관리</div>
-                        <div class="desc">담임 및 뷰어 계정 비밀번호 설정</div>
+                        <div class="desc">담임 및 진로부장 계정 비밀번호 설정</div>
                     </div>
                     ` : `
                     <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center text-text-muted py-10">
@@ -1515,7 +1515,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     <div class="flex items-center justify-between">
                         <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
                             <span>✏️</span> 9/30 기준 비교과(출결·봉사) 및 가산점 수기 확인
-                            ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 뷰어는 조회 전용 모드입니다.</span>' : ''}
+                            ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 진로부장은 조회 전용 모드입니다.</span>' : ''}
                         </h3>
                         ${!isViewer ? `
                         <button id="saveExtraBtn" class="btn-primary text-xs px-3 py-1.5 font-bold no-print">
@@ -2564,9 +2564,9 @@ export async function renderLoginScreen(schoolName) {
 
         users.forEach(u => {
             if (u.Role === 'master') {
-                adminOptions += `<option value="${u.Username}">마스터 (${u.Username})</option>`;
+                adminOptions += `<option value="${u.Username}">학년부장 (${u.Username})</option>`;
             } else if (u.Role === 'viewer') {
-                viewerOptions += `<option value="${u.Username}">뷰어 (${u.Username})</option>`;
+                viewerOptions += `<option value="${u.Username}">진로부장 (${u.Username})</option>`;
             } else if (u.Role === 'homeroom') {
                 teacherOptions += `<option value="${u.Username}">${u.ClassNum}반 담임</option>`;
             }
@@ -2583,10 +2583,10 @@ export async function renderLoginScreen(schoolName) {
                     <div>
                         <label class="block text-xs font-semibold text-text-muted mb-1.5">로그인 계정 선택</label>
                         <select id="loginUsername" class="input-field cursor-pointer py-2 text-xs">
-                            <optgroup label="관리자">
+                            <optgroup label="학년부장">
                                 ${adminOptions}
                             </optgroup>
-                            <optgroup label="뷰어(조회 전용)">
+                            <optgroup label="진로부장 (조회전용)">
                                 ${viewerOptions}
                             </optgroup>
                             <optgroup label="담임 교사">
@@ -2946,9 +2946,9 @@ export async function renderUserManagementScreen(schoolName) {
             
             users.forEach(u => {
                 const isInitial = u.MustChangePassword;
-                let roleLabel = '관리자';
+                let roleLabel = '학년부장 (관리자)';
                 if (u.Role === 'homeroom') roleLabel = `${u.ClassNum}반 담임`;
-                else if (u.Role === 'viewer') roleLabel = '진학/학년부장 (뷰어)';
+                else if (u.Role === 'viewer') roleLabel = '진로부장 (조회전용)';
 
                 let statusBadge = isInitial 
                     ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-warning/20 text-warning border border-warning/30">초기 상태</span>`
