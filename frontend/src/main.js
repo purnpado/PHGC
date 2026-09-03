@@ -658,6 +658,70 @@ async function renderAdminScreen(schoolName) {
         }
     });
 
+    document.getElementById('uploadAttendanceBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('uploadAttendanceBtn');
+        const statusDiv = document.getElementById('uploadStatus');
+        
+        try {
+            const filePath = await window.go.main.App.OpenExcelFile();
+            if (!filePath) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> <span>처리 중...</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-warning';
+            statusDiv.textContent = '출결 데이터를 분석하는 중입니다...';
+            statusDiv.classList.remove('hidden');
+
+            const result = await window.go.main.App.ProcessAttendanceExcel(filePath);
+            
+            let processedClasses = Object.keys(result).length;
+            let totalStudents = Object.values(result).reduce((a, b) => a + b, 0);
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>출결 불러오기</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-success font-bold';
+            statusDiv.textContent = `성공: ${processedClasses}개 학급, 총 ${totalStudents}명 출결 연동 완료!`;
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>출결 불러오기</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-danger font-bold break-all';
+            statusDiv.textContent = `출결 오류: ${err}`;
+            statusDiv.classList.remove('hidden');
+        }
+    });
+
+    document.getElementById('uploadVolunteerBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('uploadVolunteerBtn');
+        const statusDiv = document.getElementById('uploadStatus');
+        
+        try {
+            const filePath = await window.go.main.App.OpenExcelFile();
+            if (!filePath) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> <span>처리 중...</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-warning';
+            statusDiv.textContent = '봉사 데이터를 분석하는 중입니다...';
+            statusDiv.classList.remove('hidden');
+
+            const result = await window.go.main.App.ProcessVolunteerExcel(filePath);
+            
+            let processedClasses = Object.keys(result).length;
+            let totalStudents = Object.values(result).reduce((a, b) => a + b, 0);
+
+            btn.disabled = false;
+            btn.innerHTML = '<span>봉사 불러오기</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-success font-bold';
+            statusDiv.textContent = `성공: ${processedClasses}개 학급, 총 ${totalStudents}명 봉사 연동 완료!`;
+        } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>봉사 불러오기</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-danger font-bold break-all';
+            statusDiv.textContent = `봉사 오류: ${err}`;
+            statusDiv.classList.remove('hidden');
+        }
+    });
+
     document.getElementById('cutoffBtn')?.addEventListener('click', () => {
         renderCutoffScreen(schoolName);
     });
