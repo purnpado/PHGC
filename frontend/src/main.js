@@ -838,6 +838,7 @@ function renderStudentList(students, classNum) {
                 <td class="p-4 border-b border-slate-700/50 font-bold text-white text-center">${s.Name}</td>
                 <td class="p-4 border-b border-slate-700/50 text-center text-primary font-medium">${s.TotalSubjectScore.toFixed(2)}</td>
                 <td class="p-4 border-b border-slate-700/50 text-center text-success font-bold">${s.Percentile.toFixed(2)}%</td>
+                <td class="p-4 border-b border-slate-700/50 text-center text-info font-medium">${s.FinalScore.toFixed(2)}</td>
                 <td class="p-4 border-b border-slate-700/50 text-center font-bold text-lg">${(s.FinalScore + 40).toFixed(2)} <span class="text-xs text-text-muted font-normal">(+비교과 40)</span></td>
             </tr>
         `;
@@ -852,6 +853,7 @@ function renderStudentList(students, classNum) {
                         <th class="p-4 font-semibold text-center">성명</th>
                         <th class="p-4 font-semibold text-center">5개 학기 합산 점수</th>
                         <th class="p-4 font-semibold text-center">가산출 백분율(%)</th>
+                        <th class="p-4 font-semibold text-center">교과내신총점(160점)</th>
                         <th class="p-4 font-semibold text-center rounded-tr-lg">예상 내신 총점(200점)</th>
                     </tr>
                 </thead>
@@ -1362,6 +1364,8 @@ export async function renderLoginScreen(schoolName) {
                 } else {
                     if (user.Role === 'homeroom') {
                         renderTeacherScreen(schoolName, user.ClassNum);
+                    } else if (user.Role === 'viewer') {
+                        renderTeacherScreen(schoolName, null);
                     } else {
                         renderAdminScreen(schoolName);
                     }
