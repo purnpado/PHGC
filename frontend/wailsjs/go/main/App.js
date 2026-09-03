@@ -66,6 +66,10 @@ export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
 }
 
+export function PerformAutoUpdate(arg1) {
+  return window['go']['main']['App']['PerformAutoUpdate'](arg1);
+}
+
 export function ProcessAttendanceExcel(arg1) {
   return window['go']['main']['App']['ProcessAttendanceExcel'](arg1);
 }
