@@ -492,4 +492,10 @@ func (a *App) GetSchoolRuleList() []map[string]string {
 	return GetAllSchoolRuleNames()
 }
 
+// PerformAutoUpdate 원클릭 자동 업데이트 실행
+func (a *App) PerformAutoUpdate(downloadURL string) error {
+	return DownloadAndApplyUpdate(downloadURL)
+}
+
+
 

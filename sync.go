@@ -176,8 +176,8 @@ func (sm *SyncManager) FullSync() *SyncResult {
 	result.ReleaseNotes = versionInfo.ReleaseNotes
 	result.DownloadURL = versionInfo.DownloadURL
 
-	// 버전 비교 (단순 문자열 비교)
-	if versionInfo.LatestVersion != AppVersion {
+	// 버전 비교 (원격 버전이 로컬 버전보다 높을 때만 업데이트 알림)
+	if isNewerVersion(versionInfo.LatestVersion, AppVersion) {
 		result.HasUpdate = true
 		result.Message = fmt.Sprintf("새 버전 %s 사용 가능!", versionInfo.LatestVersion)
 	} else {
@@ -188,7 +188,32 @@ func (sm *SyncManager) FullSync() *SyncResult {
 	return result
 }
 
+// isNewerVersion 원격 버전이 현재 버전보다 높은지 비교 (예: "0.5.0" > "0.2.0")
+func isNewerVersion(remote, local string) bool {
+	remote = strings.TrimPrefix(strings.TrimSpace(remote), "v")
+	local = strings.TrimPrefix(strings.TrimSpace(local), "v")
+
+	rParts := strings.Split(remote, ".")
+	lParts := strings.Split(local, ".")
+
+	for i := 0; i < len(rParts) && i < len(lParts); i++ {
+		rNum := 0
+		lNum := 0
+		fmt.Sscanf(rParts[i], "%d", &rNum)
+		fmt.Sscanf(lParts[i], "%d", &lNum)
+
+		if rNum > lNum {
+			return true
+		} else if rNum < lNum {
+			return false
+		}
+	}
+
+	return len(rParts) > len(lParts)
+}
+
 // GetCurrentVersion 현재 앱 버전 반환
 func (sm *SyncManager) GetCurrentVersion() string {
 	return AppVersion
 }
+

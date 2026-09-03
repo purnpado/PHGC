@@ -276,13 +276,22 @@ function showSyncComplete(container, schoolName, result) {
     let updateNotice = '';
     if (result.hasUpdate) {
         updateNotice = `
-            <div class="p-3 rounded-lg bg-warning/10 border border-warning/30 mb-4 text-sm">
-                <div class="font-semibold text-warning mb-1">⬆️ 업데이트 안내</div>
-                <div class="text-text-muted text-xs">${result.releaseNotes}</div>
-                <a href="${result.downloadUrl}" target="_blank"
-                   class="inline-block mt-2 text-xs text-primary hover:text-primary-hover transition-colors">
-                    다운로드 페이지 열기 →
-                </a>
+            <div class="p-4 rounded-xl bg-warning/10 border border-warning/30 mb-4 text-sm space-y-3 text-left">
+                <div class="font-bold text-warning flex items-center justify-between text-base">
+                    <span>⬆️ 새 버전 업데이트 발견 (${result.latestVersion})</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-warning/20 text-warning">v${result.latestVersion}</span>
+                </div>
+                <div class="text-text-muted text-xs leading-relaxed">${result.releaseNotes}</div>
+                <div class="flex items-center gap-3 pt-1">
+                    <button id="autoUpdateBtn" class="btn-primary text-xs px-4 py-2.5 font-bold flex items-center gap-2" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: auto;">
+                        🚀 원클릭 자동 업데이트 실행
+                    </button>
+                    <a href="${result.downloadUrl}" target="_blank"
+                       class="text-xs text-text-muted hover:text-slate-200 transition-colors underline">
+                        수동 다운로드
+                    </a>
+                </div>
+                <div id="updateStatusMsg" class="text-xs font-bold text-warning hidden"></div>
             </div>
         `;
     }
@@ -296,6 +305,26 @@ function showSyncComplete(container, schoolName, result) {
         </div>
     `;
     container.classList.remove('hidden');
+
+    // 원클릭 자동 업데이트 버튼 이벤트
+    document.getElementById('autoUpdateBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('autoUpdateBtn');
+        const statusMsg = document.getElementById('updateStatusMsg');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> <span>최신 파일 다운로드 중...</span>';
+        statusMsg.className = 'text-xs font-bold text-warning';
+        statusMsg.textContent = '최신 업데이트 파일을 다운로드하고 있습니다. 다운로드가 완료되면 프로그램이 자동으로 재시작됩니다...';
+        statusMsg.classList.remove('hidden');
+
+        try {
+            await window.go.main.App.PerformAutoUpdate(result.downloadUrl);
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = '🚀 다시 시도';
+            statusMsg.className = 'text-xs font-bold text-danger';
+            statusMsg.textContent = '자동 업데이트 실패: ' + err + ' (수동 다운로드를 이용해 주세요)';
+        }
+    });
 
     document.getElementById('continueBtn').addEventListener('click', () => {
         renderModeSelectScreen(schoolName);
