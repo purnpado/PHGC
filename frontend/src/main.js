@@ -6,6 +6,9 @@ import middleSchools from './assets/middleschools.json';
 
 const app = document.querySelector('#app');
 
+// 현재 로그인한 사용자 세션 (role, classNum, username 등 저장)
+window.currentUser = null;
+
 // ===== 화면 렌더링 함수들 =====
 
 // 초기 설정 화면 (관리자 전용)
@@ -49,10 +52,17 @@ function renderSetupScreen(existingConfig = null) {
                 </div>
 
                 <div>
-                    <label class="block text-sm font-semibold text-text-muted mb-2">관리자 비밀번호</label>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">마스터(학년부장) 비밀번호</label>
                     <input type="password" id="adminPassword" class="input-field"
-                        placeholder="관리자 모드 진입 시 사용됩니다" autocomplete="off" required />
+                        placeholder="마스터 계정 (admin) 진입 시 사용됩니다" autocomplete="off" required />
                     <div id="passwordError" class="error-msg">비밀번호를 입력해 주세요.</div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">교사(담임/뷰어) 초기 비밀번호</label>
+                    <input type="password" id="defaultPassword" class="input-field"
+                        placeholder="선생님들께 최초로 알려드릴 공통 비밀번호" autocomplete="off" required />
+                    <div id="defaultPasswordError" class="error-msg">비밀번호를 입력해 주세요.</div>
                 </div>
 
                 <div>
@@ -96,11 +106,12 @@ async function handleSetupSubmit(isEdit = false) {
     const classCount = parseInt(document.getElementById('classCount').value, 10);
     const password = document.getElementById('adminPassword').value;
     const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
+    const defaultPassword = document.getElementById('defaultPassword').value;
     const isSmallSchool = document.getElementById('isSmallSchool').checked;
     const saveBtn = document.getElementById('saveBtn');
 
     // 에러 초기화
-    ['schoolNameError', 'classCountError', 'passwordError', 'passwordConfirmError', 'generalError']
+    ['schoolNameError', 'classCountError', 'passwordError', 'defaultPasswordError', 'passwordConfirmError', 'generalError']
         .forEach(id => document.getElementById(id).classList.remove('show'));
 
     // 유효성 검사
@@ -108,6 +119,7 @@ async function handleSetupSubmit(isEdit = false) {
     if (!schoolName) { document.getElementById('schoolNameError').classList.add('show'); hasError = true; }
     if (!classCount || classCount < 1 || classCount > 30) { document.getElementById('classCountError').classList.add('show'); hasError = true; }
     if (!password) { document.getElementById('passwordError').classList.add('show'); hasError = true; }
+    if (!defaultPassword) { document.getElementById('defaultPasswordError').classList.add('show'); hasError = true; }
     if (password !== passwordConfirm) { document.getElementById('passwordConfirmError').classList.add('show'); hasError = true; }
     if (hasError) return;
 
@@ -115,18 +127,18 @@ async function handleSetupSubmit(isEdit = false) {
     saveBtn.innerHTML = '<span class="spinner"></span>저장 중...';
 
     try {
-        // App.SetupApp(req) 호출하도록 wails에서 생성한 SetupApp API 사용 (wailsjs/go/main/App 에 바인딩 되어있어야 함)
-        // 하지만 기존 코드가 SaveSchoolConfig를 직접 바인딩하여 썼다면, Go에서 SetupApp(SetupRequest)로 바꿨으므로 여기서도 맞춰줘야 함.
-        const req = {
+        const admissionYear = new Date().getFullYear();
+        await window.go.main.App.SetupApp({
             schoolName: schoolName,
             classCount: classCount,
             adminPassword: password,
-            isSmallSchool: isSmallSchool
-        };
-        await window.go.main.App.SetupApp(req); // SetupApp 바인딩 직접 호출
+            defaultPassword: defaultPassword,
+            isSmallSchool: isSmallSchool,
+            admissionYear: admissionYear
+        });
 
         if (isEdit) {
-            renderModeSelectScreen(schoolName);
+            renderLoginScreen(schoolName);
         } else {
             // 최초 설정 → 서버 동기화
             renderSyncScreen(schoolName);
@@ -504,9 +516,11 @@ async function renderAdminScreen(schoolName) {
                     <p class="text-text-muted text-sm mt-2">${schoolName} (총 ${classCount}학급)</p>
                 </div>
                 <div class="flex gap-3">
+                    ${window.currentUser && window.currentUser.Role === 'master' ? `
                     <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-sm px-4 py-2 rounded-lg font-bold">
                         데이터 완전 초기화
                     </button>
+                    ` : ''}
                     <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-sm px-4 py-2 rounded-lg hover:bg-slate-800">
                         ← 모드 선택
                     </button>
@@ -516,6 +530,7 @@ async function renderAdminScreen(schoolName) {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- 왼쪽 패널 (액션) -->
                 <div class="space-y-4">
+                    ${window.currentUser && window.currentUser.Role === 'master' ? `
                     <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50">
                         <h3 class="font-bold mb-2">📥 나이스 엑셀 데이터 연동</h3>
                         <p class="text-xs text-text-muted mb-4 line-clamp-3">
@@ -526,6 +541,12 @@ async function renderAdminScreen(schoolName) {
                         </button>
                         <div id="uploadStatus" class="mt-3 text-xs text-center hidden"></div>
                     </div>
+                    ` : `
+                    <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center text-text-muted py-10">
+                        <span class="text-2xl block mb-2">👁️</span>
+                        조회 전용 계정입니다.
+                    </div>
+                    `}
 
                     <div class="mode-card" id="cutoffBtn">
                         <span class="icon">🎯</span>
@@ -611,7 +632,7 @@ async function renderAdminScreen(schoolName) {
 }
 
 // ===== 담임 교사 모드 화면 =====
-async function renderTeacherScreen(schoolName) {
+async function renderTeacherScreen(schoolName, targetClassNum = null) {
     let classCount = 8;
     try {
         const config = await GetSchoolConfig();
@@ -635,12 +656,12 @@ async function renderTeacherScreen(schoolName) {
                     <p class="text-text-muted text-sm mt-2">${schoolName}</p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <select id="classSelector" class="input-field" style="width: auto;">
+                    <select id="classSelector" class="input-field" style="width: auto;" ${targetClassNum ? 'disabled' : ''}>
                         <option value="">-- 담당 학급 선택 --</option>
                         ${classOptions}
                     </select>
-                    <button id="backBtn" class="text-text-muted hover:text-white transition-colors cursor-pointer bg-transparent border-none text-sm px-4 py-2 rounded-lg hover:bg-slate-800">
-                        ← 모드 선택
+                    <button id="backBtn" class="btn-secondary whitespace-nowrap">
+                        ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
                 </div>
             </div>
@@ -652,10 +673,23 @@ async function renderTeacherScreen(schoolName) {
     `;
 
     document.getElementById('backBtn').addEventListener('click', () => {
-        renderModeSelectScreen(schoolName);
+        if (window.currentUser && window.currentUser.Role === 'homeroom') {
+            window.currentUser = null;
+            renderLoginScreen(schoolName);
+        } else {
+            renderAdminScreen(schoolName);
+        }
     });
 
-    document.getElementById('classSelector').addEventListener('change', async (e) => {
+    const classSelector = document.getElementById('classSelector');
+    
+    // 타겟 학급이 있으면 자동 선택 및 로드
+    if (targetClassNum) {
+        classSelector.value = targetClassNum;
+        setTimeout(() => loadClassData(targetClassNum), 100);
+    }
+
+    classSelector.addEventListener('change', async (e) => {
         const classNum = parseInt(e.target.value);
         if (!classNum) {
             document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20 text-text-muted">상단에서 담당 학급을 선택해 주세요.</div>';
@@ -737,7 +771,7 @@ async function init() {
         const isSetup = await CheckSetupComplete();
         if (isSetup) {
             const config = await GetSchoolConfig();
-            renderModeSelectScreen(config.schoolName);
+            renderLoginScreen(config.schoolName);
         } else {
             renderSetupScreen();
         }
@@ -1139,4 +1173,143 @@ async function handleExportCutoff() {
         btn.disabled = false;
         btn.innerHTML = '<span>📤</span> 중앙 서버로 전송하기';
     }
+}
+
+// ===== 로그인 화면 =====
+
+// ===== 로그인 화면 =====
+export function renderLoginScreen(schoolName) {
+    window.go.main.App.GetSchoolConfig().then(config => {
+        const classCount = config.classCount || 10;
+        let classOptions = '';
+        for (let i = 1; i <= classCount; i++) {
+            classOptions += `<option value="${i}반">${i}반 담임</option>`;
+        }
+
+        app.innerHTML = `
+            <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
+                <div class="text-center mb-8">
+                    <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🔐</div>
+                    <h1 class="text-2xl font-bold text-white mb-2">울산 특목고·특성화고 입시 분석기</h1>
+                    <p class="text-text-muted text-sm">${schoolName}</p>
+                </div>
+                <form id="loginForm" class="space-y-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-text-muted mb-2">로그인 계정 선택</label>
+                        <select id="loginUsername" class="input-field cursor-pointer">
+                            <option value="admin">마스터 (학년부장)</option>
+                            <option value="viewer">뷰어 (진로부장 등)</option>
+                            <optgroup label="담임 교사">
+                                ${classOptions}
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-text-muted mb-2">비밀번호</label>
+                        <input type="password" id="loginPassword" class="input-field" placeholder="비밀번호 입력" required />
+                    </div>
+                    <div class="pt-3">
+                        <button type="submit" id="loginBtn" class="btn-primary">로그인</button>
+                    </div>
+                    <div id="loginError" class="error-msg text-center"></div>
+                </form>
+            </div>
+        `;
+
+        document.getElementById('loginPassword').focus();
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('loginBtn');
+            const errorDiv = document.getElementById('loginError');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>확인 중...';
+            errorDiv.classList.remove('show');
+
+            try {
+                const user = await window.go.main.App.VerifyUserLogin(username, password);
+                window.currentUser = user;
+
+                if (user.MustChangePassword) {
+                    renderPasswordChangeScreen(username);
+                } else {
+                    if (user.Role === 'homeroom') {
+                        renderTeacherScreen(schoolName, user.ClassNum);
+                    } else {
+                        renderAdminScreen(schoolName);
+                    }
+                }
+            } catch (err) {
+                errorDiv.textContent = err;
+                errorDiv.classList.add('show');
+                btn.disabled = false;
+                btn.innerHTML = '로그인';
+            }
+        });
+    }).catch(err => {
+        app.innerHTML = `<div class="text-danger py-10 text-center">학교 설정을 불러오지 못했습니다.</div>`;
+    });
+}
+
+// ===== 비밀번호 변경 화면 =====
+function renderPasswordChangeScreen(username) {
+    app.innerHTML = `
+        <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
+            <div class="text-center mb-8">
+                <div class="text-5xl mb-4">🔑</div>
+                <h1 class="text-2xl font-bold text-white mb-2">초기 비밀번호 변경</h1>
+                <p class="text-text-muted text-sm">보안을 위해 비밀번호를 새로 설정해주세요.</p>
+            </div>
+            <form id="pwChangeForm" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">새 비밀번호</label>
+                    <input type="password" id="newPassword" class="input-field" required />
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">새 비밀번호 확인</label>
+                    <input type="password" id="newPasswordConfirm" class="input-field" required />
+                </div>
+                <div class="pt-3">
+                    <button type="submit" id="pwChangeBtn" class="btn-primary">변경 완료 및 시작</button>
+                </div>
+                <div id="pwChangeError" class="error-msg text-center"></div>
+            </form>
+        </div>
+    `;
+
+    document.getElementById('newPassword').focus();
+    document.getElementById('pwChangeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('newPassword').value;
+        const pwC = document.getElementById('newPasswordConfirm').value;
+        const btn = document.getElementById('pwChangeBtn');
+        const err = document.getElementById('pwChangeError');
+        
+        if (pw !== pwC) {
+            err.textContent = "비밀번호가 일치하지 않습니다.";
+            err.classList.add('show');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>변경 중...';
+        
+        try {
+            await window.go.main.App.ChangeUserPassword(username, pw);
+            window.currentUser.MustChangePassword = false;
+            const config = await window.go.main.App.GetSchoolConfig();
+            if (window.currentUser.Role === 'homeroom') {
+                renderTeacherScreen(config.schoolName, window.currentUser.ClassNum);
+            } else {
+                renderAdminScreen(config.schoolName);
+            }
+        } catch (e) {
+            err.textContent = e;
+            err.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '변경 완료 및 시작';
+        }
+    });
 }

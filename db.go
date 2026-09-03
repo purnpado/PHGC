@@ -22,8 +22,9 @@ type SchoolConfig struct {
 type SetupRequest struct {
 	SchoolName    string `json:"schoolName"`
 	ClassCount    int    `json:"classCount"`
-	AdminPassword string `json:"adminPassword"`
-	IsSmallSchool bool   `json:"isSmallSchool"`
+	AdminPassword   string `json:"adminPassword"`
+	DefaultPassword string `json:"defaultPassword"`
+	IsSmallSchool   bool   `json:"isSmallSchool"`
 	AdmissionYear int    `json:"admissionYear"`
 }
 
@@ -113,6 +114,16 @@ func (dm *DBManager) InitConfigDB() error {
 			title TEXT NOT NULL,
 			status TEXT DEFAULT 'open',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL,
+			role TEXT NOT NULL,
+			class_num INTEGER,
+			must_change_password BOOLEAN DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 	if err != nil {
@@ -425,3 +436,78 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 }
 
 
+// User represents a system user
+type User struct {
+	ID                 int
+	Username           string
+	PasswordHash       string
+	Role               string
+	ClassNum           int
+	MustChangePassword bool
+}
+
+// InitUsers generates initial user accounts for homerooms, viewer, and master
+func (dm *DBManager) InitUsers(classCount int, defaultPassword, masterPassword string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	// Clear existing users
+	_, err = db.Exec("DELETE FROM users")
+	if err != nil { return err }
+
+	// Create master account (학년부장)
+	masterHash, _ := bcrypt.GenerateFromPassword([]byte(masterPassword), bcrypt.DefaultCost)
+	_, err = db.Exec("INSERT INTO users (username, password_hash, role, must_change_password) VALUES (?, ?, 'master', 0)", "admin", string(masterHash))
+	if err != nil { return err }
+
+	// Create viewer account (진로부장/기타)
+	defaultHash, _ := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
+	_, err = db.Exec("INSERT INTO users (username, password_hash, role, must_change_password) VALUES (?, ?, 'viewer', 1)", "viewer", string(defaultHash))
+	if err != nil { return err }
+
+	// Create homeroom accounts
+	for i := 1; i <= classCount; i++ {
+		username := fmt.Sprintf("%d반", i)
+		_, err = db.Exec("INSERT INTO users (username, password_hash, role, class_num, must_change_password) VALUES (?, ?, 'homeroom', ?, 1)", username, string(defaultHash), i)
+		if err != nil { return err }
+	}
+
+	return nil
+}
+
+// VerifyUserLogin verifies login credentials
+func (dm *DBManager) VerifyUserLogin(username, password string) (*User, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return nil, err }
+	defer db.Close()
+
+	var u User
+	err = db.QueryRow("SELECT id, username, password_hash, role, COALESCE(class_num, 0), must_change_password FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.ClassNum, &u.MustChangePassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("계정을 찾을 수 없습니다")
+		}
+		return nil, err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
+	if err != nil {
+		return nil, fmt.Errorf("비밀번호가 일치하지 않습니다")
+	}
+
+	return &u, nil
+}
+
+// ChangeUserPassword changes the user password
+func (dm *DBManager) ChangeUserPassword(username, newPassword string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil { return err }
+
+	_, err = db.Exec("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = ?", string(hash), username)
+	return err
+}

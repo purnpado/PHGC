@@ -64,6 +64,7 @@ export namespace main {
 	    schoolName: string;
 	    classCount: number;
 	    adminPassword: string;
+	    defaultPassword: string;
 	    isSmallSchool: boolean;
 	    admissionYear: number;
 	
@@ -76,6 +77,7 @@ export namespace main {
 	        this.schoolName = source["schoolName"];
 	        this.classCount = source["classCount"];
 	        this.adminPassword = source["adminPassword"];
+	        this.defaultPassword = source["defaultPassword"];
 	        this.isSmallSchool = source["isSmallSchool"];
 	        this.admissionYear = source["admissionYear"];
 	    }
@@ -136,6 +138,28 @@ export namespace main {
 	        this.currentVersion = source["currentVersion"];
 	        this.releaseNotes = source["releaseNotes"];
 	        this.downloadUrl = source["downloadUrl"];
+	    }
+	}
+	export class User {
+	    ID: number;
+	    Username: string;
+	    PasswordHash: string;
+	    Role: string;
+	    ClassNum: number;
+	    MustChangePassword: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new User(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.Username = source["Username"];
+	        this.PasswordHash = source["PasswordHash"];
+	        this.Role = source["Role"];
+	        this.ClassNum = source["ClassNum"];
+	        this.MustChangePassword = source["MustChangePassword"];
 	    }
 	}
 
