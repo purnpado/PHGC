@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.7",
+    "latestVersion":  "0.5.8",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.7 ??신호등 매트릭스 전체 고교 컬럼 확장, 대시보드 학급 바둑판 카드 그리드 구현, 일반고 백분율 불일치 계산 버그 완벽 수정",
+    "releaseNotes":  "v0.5.8 ??실기고사 비중이 큰 학교(울산애니원고 등) 매트릭스 산출 대상에서 제외",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }

@@ -250,30 +250,6 @@ func init() {
 			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
 			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
 		},
-		// ============ 울산애니원고 ============
-		{
-			SchoolName: "울산애니원고", TrackName: "일반",
-			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
-		},
-		{
-			SchoolName: "울산애니원고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
-		},
-		// ============ 울산스포츠과학고 ============
-		{
-			SchoolName: "울산스포츠과학고", TrackName: "일반",
-			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
-		},
-		// ============ 울산예술고 ============
-		{
-			SchoolName: "울산예술고", TrackName: "일반",
-			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
-		},
 	}
 }
 

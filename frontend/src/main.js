@@ -1411,7 +1411,6 @@ async function openMatrixModal(classNum) {
             const sanup = getBadge('산업고');
             const miyong = getBadge('미용예술');
             const gisul = getBadge('기술공업');
-            const anyone = getBadge('애니원');
             const general = s.generalHSPercentile <= 80 ? '🟢 안정' : (s.generalHSPercentile <= 90 ? '🟡 경계' : '🔴 주의');
 
             matrixRows += `
@@ -1432,7 +1431,6 @@ async function openMatrixModal(classNum) {
                     <td class="p-2.5">${sanup}</td>
                     <td class="p-2.5">${miyong}</td>
                     <td class="p-2.5">${gisul}</td>
-                    <td class="p-2.5">${anyone}</td>
                     <td class="p-2.5 font-bold whitespace-nowrap">${general} <span class="text-[11px] text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
                 </tr>
             `;
@@ -1445,7 +1443,7 @@ async function openMatrixModal(classNum) {
                         <h2 class="text-2xl font-black text-white flex items-center gap-2">
                             📊 ${classNum}반 전체 관내 고교별 진학 신호등 매트릭스
                         </h2>
-                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 즉시 이동합니다. (초록: 안정 / 노랑: 경계 / 빨강: 주의)</p>
+                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 즉시 이동합니다. (초록: 안정 / 노랑: 경계 / 빨강: 주의 ※ 실기고사를 치르는 학교는 제외)</p>
                     </div>
                     <button id="closeMatrixBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
                 </div>
@@ -1467,7 +1465,6 @@ async function openMatrixModal(classNum) {
                                 <th class="p-2.5 text-indigo-400">🛠️ 울산산업고</th>
                                 <th class="p-2.5 text-indigo-400">🛠️ 미용예술고</th>
                                 <th class="p-2.5 text-indigo-400">🛠️ 기술공고</th>
-                                <th class="p-2.5 text-indigo-400">🎨 애니원고</th>
                                 <th class="p-2.5 text-emerald-400">🏫 후기 일반계고</th>
                             </tr>
                         </thead>
