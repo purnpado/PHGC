@@ -22,9 +22,8 @@ type SchoolConfig struct {
 type SetupRequest struct {
 	SchoolName    string `json:"schoolName"`
 	ClassCount    int    `json:"classCount"`
-	AdminPassword   string `json:"adminPassword"`
-	DefaultPassword string `json:"defaultPassword"`
-	IsSmallSchool   bool   `json:"isSmallSchool"`
+	AdminPassword string `json:"adminPassword"`
+	IsSmallSchool bool   `json:"isSmallSchool"`
 	AdmissionYear int    `json:"admissionYear"`
 }
 
@@ -446,34 +445,113 @@ type User struct {
 	MustChangePassword bool
 }
 
-// InitUsers generates initial user accounts for homerooms, viewer, and master
-func (dm *DBManager) InitUsers(classCount int, defaultPassword, masterPassword string) error {
+// InitUsers 초기 마스터, 뷰어, 담임 계정 생성 (기존 계정 초기화)
+// 교사 계정은 처음엔 비밀번호 없이 생성되며, 마스터가 추후 세팅합니다.
+func (dm *DBManager) InitUsers(classCount int, adminPassword string) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
 	if err != nil { return err }
 	defer db.Close()
 
-	// Clear existing users
 	_, err = db.Exec("DELETE FROM users")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
-	// Create master account (학년부장)
-	masterHash, _ := bcrypt.GenerateFromPassword([]byte(masterPassword), bcrypt.DefaultCost)
-	_, err = db.Exec("INSERT INTO users (username, password_hash, role, must_change_password) VALUES (?, ?, 'master', 0)", "admin", string(masterHash))
-	if err != nil { return err }
+	hashedAdmin, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
 
-	// Create viewer account (진로부장/기타)
-	defaultHash, _ := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)
-	_, err = db.Exec("INSERT INTO users (username, password_hash, role, must_change_password) VALUES (?, ?, 'viewer', 1)", "viewer", string(defaultHash))
-	if err != nil { return err }
+	// 1. 마스터 계정
+	_, err = db.Exec(`
+		INSERT INTO users (username, password_hash, role, class_num, must_change_password)
+		VALUES (?, ?, ?, ?, ?)
+	`, "admin", string(hashedAdmin), "master", 0, false)
+	if err != nil {
+		return err
+	}
 
-	// Create homeroom accounts
+	// 2. 뷰어 계정 (초기엔 접속 불가 상태)
+	_, err = db.Exec(`
+		INSERT INTO users (username, password_hash, role, class_num, must_change_password)
+		VALUES (?, ?, ?, ?, ?)
+	`, "viewer", "", "viewer", 0, true)
+	if err != nil {
+		return err
+	}
+
+	// 3. 담임 계정 (1반 ~ classCount반) (초기엔 접속 불가 상태)
 	for i := 1; i <= classCount; i++ {
-		username := fmt.Sprintf("%d반", i)
-		_, err = db.Exec("INSERT INTO users (username, password_hash, role, class_num, must_change_password) VALUES (?, ?, 'homeroom', ?, 1)", username, string(defaultHash), i)
-		if err != nil { return err }
+		username := fmt.Sprintf("teacher%d", i)
+		_, err = db.Exec(`
+			INSERT INTO users (username, password_hash, role, class_num, must_change_password)
+			VALUES (?, ?, ?, ?, ?)
+		`, username, "", "homeroom", i, true)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+// GetUsers 시스템 내 모든 사용자 목록 반환
+func (dm *DBManager) GetUsers() ([]User, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return nil, err }
+	defer db.Close()
+
+	rows, err := db.Query("SELECT id, username, role, class_num, must_change_password FROM users ORDER BY class_num ASC, role DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.ClassNum, &u.MustChangePassword); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// SetUserPassword 관리자가 특정 유저의 비밀번호를 설정/재설정
+func (dm *DBManager) SetUserPassword(username, newPassword string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	// 관리자가 설정해주면 무조건 다시 강제 변경하도록 설정
+	_, err = db.Exec(`
+		UPDATE users 
+		SET password_hash = ?, must_change_password = 1 
+		WHERE username = ?
+	`, string(hashed), username)
+	return err
+}
+
+// AddViewerUser 뷰어 권한을 가진 새 계정 추가
+func (dm *DBManager) AddViewerUser(username, password string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		INSERT INTO users (username, password_hash, role, class_num, must_change_password)
+		VALUES (?, ?, ?, ?, ?)
+	`, username, string(hashed), "viewer", 0, true)
+	return err
 }
 
 // VerifyUserLogin verifies login credentials

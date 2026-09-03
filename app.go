@@ -76,8 +76,8 @@ func (a *App) SetupApp(req SetupRequest) error {
 		return fmt.Errorf("설정 저장 실패: %w", err)
 	}
 
-	// 사용자 초기 계정 생성 (마스터, 뷰어, 담임)
-	err = a.db.InitUsers(req.ClassCount, req.DefaultPassword, req.AdminPassword)
+	// 사용자 초기 계정 생성 (마스터, 뷰어, 담임) - 비밀번호는 비워둠
+	err = a.db.InitUsers(req.ClassCount, req.AdminPassword)
 	if err != nil {
 		return fmt.Errorf("초기 계정 생성 실패: %w", err)
 	}
@@ -93,6 +93,21 @@ func (a *App) VerifyUserLogin(username, password string) (*User, error) {
 // ChangeUserPassword 비밀번호 변경
 func (a *App) ChangeUserPassword(username, newPassword string) error {
 	return a.db.ChangeUserPassword(username, newPassword)
+}
+
+// GetUsers 사용자 목록 조회
+func (a *App) GetUsers() ([]User, error) {
+	return a.db.GetUsers()
+}
+
+// SetUserPassword 특정 사용자 비밀번호 설정 (관리자용)
+func (a *App) SetUserPassword(username, newPassword string) error {
+	return a.db.SetUserPassword(username, newPassword)
+}
+
+// AddViewerUser 뷰어 계정 추가 (관리자용)
+func (a *App) AddViewerUser(username, newPassword string) error {
+	return a.db.AddViewerUser(username, newPassword)
 }
 
 // VerifyAdminPassword 관리자 비밀번호 검증

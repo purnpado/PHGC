@@ -19,7 +19,7 @@ function renderSetupScreen(existingConfig = null) {
     const isEdit = existingConfig !== null;
 
     app.innerHTML = `
-        <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
+        <div class="glass-card p-10 w-full max-w-xl fade-in" style="margin: 2rem;">
             <!-- 헤더 -->
             <div class="text-center mb-8">
                 <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🏫</div>
@@ -58,12 +58,7 @@ function renderSetupScreen(existingConfig = null) {
                     <div id="passwordError" class="error-msg">비밀번호를 입력해 주세요.</div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-semibold text-text-muted mb-2">교사(담임/뷰어) 초기 비밀번호</label>
-                    <input type="password" id="defaultPassword" class="input-field"
-                        placeholder="선생님들께 최초로 알려드릴 공통 비밀번호" autocomplete="off" required />
-                    <div id="defaultPasswordError" class="error-msg">비밀번호를 입력해 주세요.</div>
-                </div>
+
 
                 <div>
                     <label class="block text-sm font-semibold text-text-muted mb-2">비밀번호 확인</label>
@@ -106,12 +101,11 @@ async function handleSetupSubmit(isEdit = false) {
     const classCount = parseInt(document.getElementById('classCount').value, 10);
     const password = document.getElementById('adminPassword').value;
     const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
-    const defaultPassword = document.getElementById('defaultPassword').value;
     const isSmallSchool = document.getElementById('isSmallSchool').checked;
     const saveBtn = document.getElementById('saveBtn');
 
     // 에러 초기화
-    ['schoolNameError', 'classCountError', 'passwordError', 'defaultPasswordError', 'passwordConfirmError', 'generalError']
+    ['schoolNameError', 'classCountError', 'passwordError', 'passwordConfirmError', 'generalError']
         .forEach(id => document.getElementById(id).classList.remove('show'));
 
     // 유효성 검사
@@ -119,7 +113,6 @@ async function handleSetupSubmit(isEdit = false) {
     if (!schoolName) { document.getElementById('schoolNameError').classList.add('show'); hasError = true; }
     if (!classCount || classCount < 1 || classCount > 30) { document.getElementById('classCountError').classList.add('show'); hasError = true; }
     if (!password) { document.getElementById('passwordError').classList.add('show'); hasError = true; }
-    if (!defaultPassword) { document.getElementById('defaultPasswordError').classList.add('show'); hasError = true; }
     if (password !== passwordConfirm) { document.getElementById('passwordConfirmError').classList.add('show'); hasError = true; }
     if (hasError) return;
 
@@ -132,7 +125,6 @@ async function handleSetupSubmit(isEdit = false) {
             schoolName: schoolName,
             classCount: classCount,
             adminPassword: password,
-            defaultPassword: defaultPassword,
             isSmallSchool: isSmallSchool,
             admissionYear: admissionYear
         });
@@ -333,6 +325,12 @@ function showSyncFailed(container, schoolName, errorMsg) {
     `;
     container.classList.remove('hidden');
 
+    document.getElementById('cutoffBtn')?.addEventListener('click', () => {
+        renderCutoffScreen(schoolName);
+    });
+    document.getElementById('userManagementBtn')?.addEventListener('click', () => {
+        renderUserManagementScreen(schoolName);
+    });
     document.getElementById('retryBtn').addEventListener('click', () => {
         renderSyncScreen(schoolName);
     });
@@ -541,18 +539,23 @@ async function renderAdminScreen(schoolName) {
                         </button>
                         <div id="uploadStatus" class="mt-3 text-xs text-center hidden"></div>
                     </div>
+                    <div class="mode-card" id="cutoffBtn">
+                        <span class="icon">🎯</span>
+                        <div class="title">고교별 커트라인 관리</div>
+                        <div class="desc">커트라인 입력 및 서버 데이터 전송</div>
+                    </div>
+
+                    <div class="mode-card" id="userManagementBtn">
+                        <span class="icon">👥</span>
+                        <div class="title">사용자 및 권한 관리</div>
+                        <div class="desc">담임 및 뷰어 계정 비밀번호 설정</div>
+                    </div>
                     ` : `
                     <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center text-text-muted py-10">
                         <span class="text-2xl block mb-2">👁️</span>
                         조회 전용 계정입니다.
                     </div>
                     `}
-
-                    <div class="mode-card" id="cutoffBtn">
-                        <span class="icon">🎯</span>
-                        <div class="title">고교별 커트라인 관리</div>
-                        <div class="desc">커트라인 입력 및 서버 데이터 전송</div>
-                    </div>
                 </div>
 
                 <!-- 오른쪽 패널 (데이터 현황) -->
@@ -628,6 +631,14 @@ async function renderAdminScreen(schoolName) {
             statusDiv.textContent = `오류 발생: ${err}`;
             statusDiv.classList.remove('hidden');
         }
+    });
+
+    document.getElementById('cutoffBtn')?.addEventListener('click', () => {
+        renderCutoffScreen(schoolName);
+    });
+    
+    document.getElementById('userManagementBtn')?.addEventListener('click', () => {
+        renderUserManagementScreen(schoolName);
     });
 }
 
@@ -1312,4 +1323,155 @@ function renderPasswordChangeScreen(username) {
             btn.innerHTML = '변경 완료 및 시작';
         }
     });
+}
+
+// ===== 사용자 및 권한 관리 화면 =====
+export async function renderUserManagementScreen(schoolName) {
+    app.innerHTML = `
+        <div class="glass-card p-10 w-full max-w-4xl fade-in" style="margin: 2rem; min-height: 80vh;">
+            <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-700/50">
+                <div>
+                    <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+                        👥 사용자 및 권한 관리
+                    </h1>
+                    <p class="text-text-muted text-sm mt-2">${schoolName}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button id="backToAdminBtn" class="btn-secondary whitespace-nowrap">
+                        ← 대시보드로 돌아가기
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <!-- 뷰어 추가 폼 -->
+                <div class="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>➕</span> 뷰어(진로부장 등) 계정 추가</h3>
+                    <form id="addViewerForm" class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-xs text-text-muted mb-1">사용자 ID (예: viewer2)</label>
+                            <input type="text" id="newViewerId" class="input-field py-2" required />
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs text-text-muted mb-1">초기 비밀번호</label>
+                            <input type="password" id="newViewerPw" class="input-field py-2" required />
+                        </div>
+                        <button type="submit" id="addViewerBtn" class="btn-primary py-2 px-6 whitespace-nowrap">추가하기</button>
+                    </form>
+                    <div id="addViewerError" class="mt-2 text-sm text-danger hidden"></div>
+                </div>
+
+                <!-- 계정 목록 -->
+                <div>
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>📋</span> 등록된 계정 목록</h3>
+                    <div class="bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-800/80 text-text-muted">
+                                <tr>
+                                    <th class="p-4 font-semibold">구분</th>
+                                    <th class="p-4 font-semibold">아이디</th>
+                                    <th class="p-4 font-semibold">상태</th>
+                                    <th class="p-4 font-semibold text-right">비밀번호 변경/초기화</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userListBody" class="divide-y divide-slate-700/50">
+                                <tr><td colspan="4" class="p-8 text-center text-text-muted">불러오는 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('backToAdminBtn').addEventListener('click', () => {
+        renderAdminScreen(schoolName);
+    });
+
+    // 뷰어 추가 처리
+    document.getElementById('addViewerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('newViewerId').value.trim();
+        const pw = document.getElementById('newViewerPw').value;
+        const btn = document.getElementById('addViewerBtn');
+        const err = document.getElementById('addViewerError');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>...';
+        err.classList.add('hidden');
+
+        try {
+            await window.go.main.App.AddViewerUser(id, pw);
+            document.getElementById('newViewerId').value = '';
+            document.getElementById('newViewerPw').value = '';
+            loadUserList();
+        } catch (error) {
+            err.textContent = error;
+            err.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '추가하기';
+        }
+    });
+
+    // 계정 목록 로드
+    async function loadUserList() {
+        const tbody = document.getElementById('userListBody');
+        try {
+            const users = await window.go.main.App.GetUsers();
+            tbody.innerHTML = '';
+            
+            users.forEach(u => {
+                // 마스터는 본인 비밀번호만 변경하도록 제외하거나 허용 (여기서는 리스트에 띄우되 관리하도록 함)
+                if (u.Role === 'master') return; 
+
+                const isInitial = u.MustChangePassword;
+                let roleLabel = u.Role === 'homeroom' ? `${u.ClassNum}반 담임` : '뷰어';
+                let statusBadge = isInitial 
+                    ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-warning/20 text-warning border border-warning/30">초기 상태</span>`
+                    : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-success/20 text-success border border-success/30">사용 중</span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/30 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-4 font-medium">${roleLabel}</td>
+                    <td class="p-4 text-text-muted">${u.Username}</td>
+                    <td class="p-4">${statusBadge}</td>
+                    <td class="p-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <input type="password" id="pw_${u.Username}" class="input-field py-1 px-3 text-xs w-32" placeholder="새 비밀번호" />
+                            <button class="btn-secondary py-1 px-3 text-xs whitespace-nowrap" onclick="updateUserPassword('${u.Username}')">
+                                ${isInitial ? '비번 설정' : '비번 초기화'}
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-danger">${error}</td></tr>`;
+        }
+    }
+
+    window.updateUserPassword = async (username) => {
+        const input = document.getElementById(`pw_${username}`);
+        const pw = input.value;
+        if (!pw) {
+            alert('비밀번호를 입력하세요.');
+            return;
+        }
+
+        if (confirm(`'${username}' 계정의 비밀번호를 설정하시겠습니까? (설정 시 해당 사용자는 로그인 후 비번을 다시 변경해야 합니다)`)) {
+            try {
+                await window.go.main.App.SetUserPassword(username, pw);
+                alert('비밀번호가 성공적으로 설정되었습니다.');
+                input.value = '';
+                loadUserList();
+            } catch (err) {
+                alert('설정 실패: ' + err);
+            }
+        }
+    };
+
+    loadUserList();
 }
