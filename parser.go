@@ -124,6 +124,10 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 			if studentNum == "" {
 				studentNum = lastStudentNum
 			} else {
+				// 번호가 숫자가 아니면 (예: "3학년 8반", "< 교양교과 >" 등 엑셀 하단 요약 정보) 무시
+				if _, err := strconv.Atoi(studentNum); err != nil {
+					continue
+				}
 				lastStudentNum = studentNum
 			}
 
