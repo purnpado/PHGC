@@ -497,5 +497,35 @@ func (a *App) PerformAutoUpdate(downloadURL string) error {
 	return DownloadAndApplyUpdate(downloadURL)
 }
 
+// GetHighSchoolsData 고교 목록 데이터 반환 (후기 일반고 포함)
+func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
+	data, err := a.sync.GetHighSchools()
+	if err != nil {
+		return nil, err
+	}
+
+	// 후기 일반계고가 목록에 없으면 맨 앞에 추가
+	hasGeneral := false
+	for _, s := range data.Schools {
+		if s.Name == "울산 후기 일반계고" {
+			hasGeneral = true
+			break
+		}
+	}
+
+	if !hasGeneral {
+		generalSchool := HighSchool{
+			Name: "울산 후기 일반계고",
+			Type: "일반계고",
+			Area: "울산전역",
+			Note: "석차백분율(%) 기준",
+		}
+		data.Schools = append([]HighSchool{generalSchool}, data.Schools...)
+	}
+
+	return data, nil
+}
+
+
 
 

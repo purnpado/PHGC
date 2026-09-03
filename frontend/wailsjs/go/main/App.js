@@ -42,6 +42,10 @@ export function GetFeedbackDetails(arg1) {
   return window['go']['main']['App']['GetFeedbackDetails'](arg1);
 }
 
+export function GetHighSchoolsData() {
+  return window['go']['main']['App']['GetHighSchoolsData']();
+}
+
 export function GetLocalFeedbacks() {
   return window['go']['main']['App']['GetLocalFeedbacks']();
 }

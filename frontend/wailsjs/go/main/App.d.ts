@@ -22,6 +22,8 @@ export function GetDataUpdateStatus():Promise<Record<string, any>>;
 
 export function GetFeedbackDetails(arg1:number):Promise<Record<string, any>>;
 
+export function GetHighSchoolsData():Promise<main.HighSchoolData>;
+
 export function GetLocalFeedbacks():Promise<Array<main.FeedbackIssue>>;
 
 export function GetSchoolConfig():Promise<main.SchoolConfig>;

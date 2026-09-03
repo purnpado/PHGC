@@ -42,6 +42,58 @@ export namespace main {
 	        this.created_at = source["created_at"];
 	    }
 	}
+	export class HighSchool {
+	    name: string;
+	    type: string;
+	    area: string;
+	    note: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HighSchool(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.area = source["area"];
+	        this.note = source["note"];
+	    }
+	}
+	export class HighSchoolData {
+	    updatedAt: string;
+	    description: string;
+	    schools: HighSchool[];
+	
+	    static createFrom(source: any = {}) {
+	        return new HighSchoolData(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.updatedAt = source["updatedAt"];
+	        this.description = source["description"];
+	        this.schools = this.convertValues(source["schools"], HighSchool);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class SchoolCalcResult {
 	    schoolName: string;
 	    trackName: string;

@@ -218,3 +218,38 @@ func (sm *SyncManager) GetCurrentVersion() string {
 	return AppVersion
 }
 
+// GetHighSchools 고교 목록 반환 (로컬 저장본 또는 내장 파일)
+func (sm *SyncManager) GetHighSchools() (*HighSchoolData, error) {
+	// 1. dataDir/highschools.json 시도
+	localPath := filepath.Join(sm.dataDir, "highschools.json")
+	if data, err := os.ReadFile(localPath); err == nil {
+		var schoolData HighSchoolData
+		if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
+			return &schoolData, nil
+		}
+	}
+
+	// 2. 실행파일 위치 기준 server-data/highschools.json 시도
+	exePath, err := os.Executable()
+	if err == nil {
+		serverDataPath := filepath.Join(filepath.Dir(exePath), "server-data", "highschools.json")
+		if data, err := os.ReadFile(serverDataPath); err == nil {
+			var schoolData HighSchoolData
+			if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
+				return &schoolData, nil
+			}
+		}
+	}
+
+	// 3. 현재 작업 디렉토리 기준 시도
+	if data, err := os.ReadFile("server-data/highschools.json"); err == nil {
+		var schoolData HighSchoolData
+		if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
+			return &schoolData, nil
+		}
+	}
+
+	return nil, fmt.Errorf("고교 목록 데이터를 찾을 수 없습니다. 서버 동기화를 먼저 실행해 주세요.")
+}
+
+
