@@ -135,18 +135,16 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 	freeSemesters := make(map[string]bool)
 
 	for _, rec := range records {
-		grade := strings.TrimSpace(rec["학년"])
-		if grade == "" {
-			grade = strings.TrimSpace(rec["학 년"])
-		}
-		sem := strings.TrimSpace(rec["학기"])
-		if sem == "" {
-			sem = strings.TrimSpace(rec["학 기"])
-		}
-		
-		achieveRaw := strings.TrimSpace(rec["성취도(수강자수)"])
-		if achieveRaw == "" {
-			achieveRaw = strings.TrimSpace(rec["성 취 도"])
+		var grade, sem, achieveRaw string
+		for k, v := range rec {
+			cleanK := strings.ReplaceAll(k, " ", "")
+			if strings.Contains(cleanK, "학년") {
+				grade = strings.TrimSpace(v)
+			} else if strings.Contains(cleanK, "학기") {
+				sem = strings.TrimSpace(v)
+			} else if strings.Contains(cleanK, "성취도") {
+				achieveRaw = strings.TrimSpace(v)
+			}
 		}
 		
 		if grade == "" || sem == "" || achieveRaw == "" {

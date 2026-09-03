@@ -519,6 +519,9 @@ async function renderAdminScreen(schoolName) {
                 </div>
                 <div class="flex gap-3">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
+                    <button id="goToTeacherBtn" class="btn-secondary px-4 py-2 rounded-lg font-bold text-sm">
+                        👩‍🏫 진학 상담(담임) 모드
+                    </button>
                     <button id="syncBtn" class="btn-primary px-4 py-2 rounded-lg font-bold text-sm">
                         🔄 서버 동기화
                     </button>
@@ -581,7 +584,12 @@ async function renderAdminScreen(schoolName) {
 
     // 이벤트 바인딩
     document.getElementById('backBtn').addEventListener('click', () => {
-        renderModeSelectScreen(schoolName);
+        window.currentUser = null; // 로그아웃
+        renderLoginScreen(schoolName);
+    });
+
+    document.getElementById('goToTeacherBtn')?.addEventListener('click', () => {
+        renderTeacherScreen(schoolName, 1);
     });
 
     document.getElementById('resetDataBtn').addEventListener('click', async () => {
@@ -664,8 +672,16 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     }
 
     let classOptions = '';
-    for (let i = 1; i <= classCount; i++) {
-        classOptions += `<option value="${i}">${i}반</option>`;
+    if (window.currentUser && window.currentUser.Role === 'homeroom') {
+        // 담임인 경우 자기 반만 선택 가능
+        const myClass = window.currentUser.ClassNum;
+        classOptions = `<option value="${myClass}">${myClass}반</option>`;
+        targetClassNum = myClass; // 강제로 타겟 클래스 변경
+    } else {
+        // 마스터나 뷰어는 전반 조회 가능
+        for (let i = 1; i <= classCount; i++) {
+            classOptions += `<option value="${i}">${i}반</option>`;
+        }
     }
 
     app.innerHTML = `
@@ -1372,6 +1388,19 @@ export async function renderUserManagementScreen(schoolName) {
                     <div id="addViewerError" class="mt-2 text-sm text-danger hidden"></div>
                 </div>
 
+                <!-- 담임 계정 일괄 비밀번호 설정 -->
+                <div class="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>🔑</span> 담임 계정 일괄 비밀번호 발급</h3>
+                    <form id="bulkPasswordForm" class="flex gap-4 items-end">
+                        <div class="flex-1">
+                            <label class="block text-xs text-text-muted mb-1">모든 담임(1반~N반) 공통 초기 비밀번호</label>
+                            <input type="password" id="bulkPw" class="input-field py-2" required />
+                        </div>
+                        <button type="submit" id="bulkPwBtn" class="btn-primary py-2 px-6 whitespace-nowrap">일괄 적용하기</button>
+                    </form>
+                    <div id="bulkPwError" class="mt-2 text-sm text-danger hidden"></div>
+                </div>
+
                 <!-- 계정 목록 -->
                 <div>
                     <h3 class="font-bold mb-4 flex items-center gap-2"><span>📋</span> 등록된 계정 목록</h3>
@@ -1422,6 +1451,37 @@ export async function renderUserManagementScreen(schoolName) {
         } finally {
             btn.disabled = false;
             btn.textContent = '추가하기';
+        }
+    });
+
+    // 담임 일괄 비밀번호 처리
+    document.getElementById('bulkPasswordForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pw = document.getElementById('bulkPw').value;
+        const btn = document.getElementById('bulkPwBtn');
+        const err = document.getElementById('bulkPwError');
+        
+        if (!confirm('모든 담임(1반~N반)의 비밀번호를 일괄 설정/초기화 하시겠습니까?\n이미 비밀번호를 바꾼 담임도 모두 초기화됩니다.')) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span>...';
+        err.classList.add('hidden');
+
+        try {
+            const users = await window.go.main.App.GetUsers();
+            const homerooms = users.filter(u => u.Role === 'homeroom');
+            for (const hr of homerooms) {
+                await window.go.main.App.SetUserPassword(hr.Username, pw);
+            }
+            document.getElementById('bulkPw').value = '';
+            alert('모든 담임 계정의 비밀번호가 일괄 설정되었습니다.');
+            loadUserList();
+        } catch (error) {
+            err.textContent = error;
+            err.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '일괄 적용하기';
         }
     });
 
