@@ -151,6 +151,18 @@ func (dm *DBManager) InitConfigDB() error {
 	if err != nil {
 		return fmt.Errorf("config 테이블 생성 실패: %w", err)
 	}
+
+	// 기본 커트라인 실데이터 시드 (울산마이스터고 2024-2026 실데이터 & 후기일반고 기본값)
+	_, _ = db.Exec(`
+		INSERT OR IGNORE INTO highschool_cutoffs (year, school_name, department, track, score_type, min_value, max_value) VALUES
+		(2024, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 215.82, 291.69),
+		(2024, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 212.85, 287.15),
+		(2025, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 218.04, 299.09),
+		(2025, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 206.33, 285.59),
+		(2026, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 245.22, 300.00),
+		(2026, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 241.03, 260.37),
+		(2026, '울산 후기 일반계고', '공통', '일반계고', 'percentile', 85.0, 85.0);
+	`)
 	return nil
 }
 
@@ -682,6 +694,37 @@ func (dm *DBManager) AddViewerUser(username, password string) error {
 	`, username, string(hashed), "viewer", 0, true)
 	return err
 }
+
+// CreateUser 사용자 생성 (관리자, 뷰어, 담임 등 자유 생성)
+func (dm *DBManager) CreateUser(username, password, role string, classNum int) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(`
+		INSERT INTO users (username, password_hash, role, class_num, must_change_password)
+		VALUES (?, ?, ?, ?, 1)
+	`, username, string(hashed), role, classNum)
+	return err
+}
+
+// DeleteUser 사용자 삭제
+func (dm *DBManager) DeleteUser(username string) error {
+	if username == "admin" {
+		return fmt.Errorf("최고 관리자(admin) 계정은 삭제할 수 없습니다")
+	}
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil { return err }
+	defer db.Close()
+
+	_, err = db.Exec("DELETE FROM users WHERE username = ?", username)
+	return err
+}
+
 
 // VerifyUserLogin verifies login credentials
 func (dm *DBManager) VerifyUserLogin(username, password string) (*User, error) {

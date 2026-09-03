@@ -8,6 +8,10 @@ export function ChangeUserPassword(arg1:string,arg2:string):Promise<void>;
 
 export function CheckSetupComplete():Promise<boolean>;
 
+export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
+
+export function DeleteUser(arg1:string):Promise<void>;
+
 export function GetAppVersion():Promise<string>;
 
 export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;

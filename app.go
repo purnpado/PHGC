@@ -526,6 +526,17 @@ func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 	return data, nil
 }
 
+// CreateUser 새 사용자 등록 (관리자, 뷰어, 담임교사 등)
+func (a *App) CreateUser(username, password, role string, classNum int) error {
+	return a.db.CreateUser(username, password, role, classNum)
+}
+
+// DeleteUser 사용자 삭제
+func (a *App) DeleteUser(username string) error {
+	return a.db.DeleteUser(username)
+}
+
+
 
 
 

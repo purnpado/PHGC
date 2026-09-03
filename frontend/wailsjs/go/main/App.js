@@ -14,6 +14,14 @@ export function CheckSetupComplete() {
   return window['go']['main']['App']['CheckSetupComplete']();
 }
 
+export function CreateUser(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['CreateUser'](arg1, arg2, arg3, arg4);
+}
+
+export function DeleteUser(arg1) {
+  return window['go']['main']['App']['DeleteUser'](arg1);
+}
+
 export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }

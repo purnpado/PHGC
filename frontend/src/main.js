@@ -545,8 +545,10 @@ async function renderAdminScreen(schoolName) {
     const attCount = updateStatus.attendanceCount || 0;
     const volCount = updateStatus.volunteerCount || 0;
 
+    app.className = 'wide-layout';
+
     app.innerHTML = `
-        <div class="glass-card p-10 w-full max-w-4xl fade-in" style="margin: 2rem;">
+        <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <!-- 헤더 영역 -->
             <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50">
                 <div>
@@ -830,21 +832,23 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
     }
 
+    app.className = 'wide-layout';
+
     app.innerHTML = `
-        <div class="glass-card p-10 w-full max-w-5xl fade-in" style="margin: 2rem; min-height: 80vh;">
-            <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-700/50">
+        <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
+            <div class="flex flex-wrap items-center justify-between mb-6 pb-4 border-b border-slate-700/50 gap-4">
                 <div>
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3">
                         👨‍🏫 진학 상담 대시보드
                     </h1>
-                    <p class="text-text-muted text-sm mt-2">${schoolName}</p>
+                    <p class="text-text-muted text-sm mt-1">${schoolName}</p>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3">
                     <select id="classSelector" class="input-field" style="width: auto;" ${window.currentUser && window.currentUser.Role === 'homeroom' ? 'disabled' : ''}>
                         <option value="">-- 담당 학급 선택 --</option>
                         ${classOptions}
                     </select>
-                    <button id="backBtn" class="btn-secondary whitespace-nowrap">
+                    <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
                 </div>
@@ -857,6 +861,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     `;
 
     document.getElementById('backBtn').addEventListener('click', () => {
+        app.className = '';
         if (window.currentUser && (window.currentUser.Role === 'homeroom' || window.currentUser.Role === 'viewer')) {
             window.currentUser = null;
             renderLoginScreen(schoolName);
@@ -884,7 +889,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
     });
 
-    // 타겟 학급이 있으면 자동 선택 및 로드 (이벤트 강제 발생)
     if (targetClassNum) {
         classSelector.value = targetClassNum;
         classSelector.dispatchEvent(new Event('change'));
@@ -904,7 +908,6 @@ function renderStudentList(students, classNum) {
 
     let tbody = '';
     students.forEach((s) => {
-        // 일반고 보수적 판별 지표 (80% 내외 기준)
         let generalBadge = '';
         if (s.Percentile <= 80) {
             generalBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${s.Percentile.toFixed(1)}%)</span>`;
@@ -917,11 +920,14 @@ function renderStudentList(students, classNum) {
         tbody += `
             <tr class="hover:bg-slate-800/60 transition-colors border-b border-slate-700/50">
                 <td class="p-4 text-center font-medium text-slate-400">${s.StudentNum || '-'}</td>
-                <td class="p-4 font-bold text-white text-center text-lg">${s.Name}</td>
+                <td class="p-4 font-bold text-white text-center text-lg cursor-pointer hover:underline text-student-name"
+                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
+                    ${s.Name}
+                </td>
                 <td class="p-4 text-center">${generalBadge}</td>
                 <td class="p-4 text-center">
-                    <button class="btn-primary text-xs px-4 py-2 font-bold flex items-center justify-center gap-1.5 mx-auto"
-                            onclick="openStudentModal(${classNum}, '${s.StudentNum}', '${s.Name}')">
+                    <button class="btn-primary text-xs px-4 py-2 font-bold flex items-center justify-center gap-1.5 mx-auto btn-student-counsel"
+                            data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
                         🎯 고교별 진학상담
                     </button>
                 </td>
@@ -930,12 +936,12 @@ function renderStudentList(students, classNum) {
     });
 
     document.getElementById('teacherContent').innerHTML = `
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
             <div class="text-sm text-text-muted">
                 총 <span class="font-bold text-white">${students.length}</span>명 (학생 개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다)
             </div>
             <button id="openMatrixBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">
-                📊 우리 반 고교별 신호등 매트릭스
+                📊 우리 반 전체 고교별 신호등 매트릭스 보기
             </button>
         </div>
 
@@ -945,7 +951,7 @@ function renderStudentList(students, classNum) {
                     <tr class="bg-slate-800/80 text-text-muted text-sm border-b border-slate-700/70">
                         <th class="p-4 font-semibold text-center w-20">번호</th>
                         <th class="p-4 font-semibold text-center w-36">성명</th>
-                        <th class="p-4 font-semibold text-center">일반계고 지원 가이드</th>
+                        <th class="p-4 font-semibold text-center">후기 일반계고 지원 가이드</th>
                         <th class="p-4 font-semibold text-center w-44">진학 상담</th>
                     </tr>
                 </thead>
@@ -959,12 +965,27 @@ function renderStudentList(students, classNum) {
         </div>
     `;
 
+    // 신호등 매트릭스 버튼
     document.getElementById('openMatrixBtn').addEventListener('click', () => {
         openMatrixModal(classNum);
+    });
+
+    // 학생 상담 버튼 및 이름 클릭 이벤트 바인딩 (인라인 onclick 대신 안정적인 리스너 바인딩)
+    document.querySelectorAll('.btn-student-counsel, .text-student-name').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const target = e.currentTarget;
+            const cNum = parseInt(target.dataset.class);
+            const sNum = target.dataset.num;
+            const sName = target.dataset.name;
+            openStudentModal(cNum, sNum, sName);
+        });
     });
 }
 
 // ===== 학생 개인 진학상담 종합 모달 =====
+window.openStudentModal = openStudentModal;
+window.openMatrixModal = openMatrixModal;
+
 async function openStudentModal(classNum, studentNum, name) {
     // 기존 모달 제거
     document.getElementById('studentDetailModal')?.remove();
@@ -1242,7 +1263,7 @@ async function openMatrixModal(classNum) {
     modalEl.id = 'matrixModal';
     modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
     modalEl.innerHTML = `
-        <div class="glass-card p-8 w-full max-w-6xl text-center">
+        <div class="glass-card p-8 w-full max-w-[1680px] text-center">
             <span class="spinner"></span> <span class="text-white ml-2">${classNum}반 학생들의 신호등 매트릭스를 구성하는 중...</span>
         </div>
     `;
@@ -1254,59 +1275,65 @@ async function openMatrixModal(classNum) {
 
         let matrixRows = '';
         fullGrades.forEach(s => {
-            // 주요 학교별 배지 생성
-            const getBadge = (schoolSubstr, track) => {
+            // 고교별 배지 생성 헬퍼 함수
+            const getBadge = (schoolSubstr, track = '일반') => {
                 const r = s.schoolResults.find(x => x.schoolName.includes(schoolSubstr) && x.trackName.includes(track));
-                if (!r) return '-';
+                if (!r) return '<span class="text-slate-500">-</span>';
                 
                 let foundCutoff = null;
                 if (cutoffs) {
-                    foundCutoff = cutoffs.find(c => c.schoolName.includes(schoolSubstr) && c.track.includes(track));
+                    foundCutoff = cutoffs.find(c => c.schoolName.includes(schoolSubstr) && (c.track.includes(track) || c.department === '공통'));
                 }
 
                 if (foundCutoff && foundCutoff.minValue > 0) {
                     if (r.totalScore >= foundCutoff.minValue + 5) {
-                        return `<span class="text-success font-bold" title="${r.totalScore}점 (안정)">🟢 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-success font-bold" title="최저선: ${foundCutoff.minValue}점 (안정)">🟢 ${r.totalScore.toFixed(0)}</span>`;
                     } else if (r.totalScore >= foundCutoff.minValue) {
-                        return `<span class="text-warning font-bold" title="${r.totalScore}점 (경계)">🟡 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-warning font-bold" title="최저선: ${foundCutoff.minValue}점 (경계)">🟡 ${r.totalScore.toFixed(0)}</span>`;
                     } else {
-                        return `<span class="text-danger font-bold" title="${r.totalScore}점 (주의)">🔴 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-danger font-bold" title="최저선: ${foundCutoff.minValue}점 (주의)">🔴 ${r.totalScore.toFixed(0)}</span>`;
                     }
                 }
-                return `<span class="text-slate-300">${r.totalScore.toFixed(0)}점</span>`;
+                return `<span class="text-slate-300 font-medium">${r.totalScore.toFixed(0)}점</span>`;
             };
 
-            const meister = getBadge('마이스터', '일반');
-            const energy = getBadge('에너지', '일반');
-            const hyundai = getBadge('현대', '일반');
-            const sangop = getBadge('상업고', '일반');
+            const meister = getBadge('마이스터');
+            const energy = getBadge('에너지');
+            const hyundai = getBadge('현대');
+            const sangop = getBadge('상업고');
+            const yeosang = getBadge('여자상업고');
+            const saenggwa = getBadge('생활과학');
+            const gongop = getBadge('공업고');
             const general = s.generalHSPercentile <= 80 ? '🟢 안정' : (s.generalHSPercentile <= 90 ? '🟡 경계' : '🔴 주의');
 
             matrixRows += `
                 <tr class="hover:bg-slate-800/60 border-b border-slate-700/50 text-center">
                     <td class="p-3 text-slate-400">${s.studentNum}</td>
-                    <td class="p-3 font-bold text-white cursor-pointer hover:underline"
-                        onclick="document.getElementById('matrixModal').remove(); openStudentModal(${classNum}, '${s.studentNum}', '${s.Name || s.name}')">
+                    <td class="p-3 font-bold text-white cursor-pointer hover:underline matrix-student-name"
+                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${s.name}">
                         ${s.name}
                     </td>
-                    <td class="p-3 text-primary font-medium">${s.allAverage.toFixed(2)}</td>
+                    <td class="p-3 text-primary font-bold">${s.allAverage.toFixed(2)}</td>
                     <td class="p-3">${meister}</td>
                     <td class="p-3">${energy}</td>
                     <td class="p-3">${hyundai}</td>
                     <td class="p-3">${sangop}</td>
+                    <td class="p-3">${yeosang}</td>
+                    <td class="p-3">${saenggwa}</td>
+                    <td class="p-3">${gongop}</td>
                     <td class="p-3 font-bold">${general} <span class="text-xs text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
                 </tr>
             `;
         });
 
         modalEl.innerHTML = `
-            <div class="glass-card p-6 md:p-8 w-full max-w-6xl max-h-[90vh] overflow-y-auto space-y-6">
+            <div class="glass-card p-6 md:p-8 w-full max-w-[1680px] max-h-[92vh] overflow-y-auto space-y-5">
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                     <div>
                         <h2 class="text-2xl font-black text-white flex items-center gap-2">
-                            📊 ${classNum}반 전체 고교별 진학 신호등 매트릭스
+                            📊 ${classNum}반 전체 관내 고교별 진학 신호등 매트릭스
                         </h2>
-                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 바로 이동합니다.</p>
+                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 즉시 이동합니다. (초록: 안정 / 노랑: 경계 / 빨강: 주의)</p>
                     </div>
                     <button id="closeMatrixBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
                 </div>
@@ -1315,14 +1342,17 @@ async function openMatrixModal(classNum) {
                     <table class="w-full text-left border-collapse text-xs sm:text-sm">
                         <thead>
                             <tr class="bg-slate-800/80 text-text-muted border-b border-slate-700/70 text-center">
-                                <th class="p-3 w-14">번호</th>
-                                <th class="p-3 w-24">성명</th>
-                                <th class="p-3 w-20">평균성취도</th>
-                                <th class="p-3">울산마이스터고</th>
-                                <th class="p-3">울산에너지고</th>
-                                <th class="p-3">현대공업고</th>
-                                <th class="p-3">울산상업고</th>
-                                <th class="p-3">후기 일반계고</th>
+                                <th class="p-3 w-12">번호</th>
+                                <th class="p-3 w-20">성명</th>
+                                <th class="p-3 w-16">평균성취</th>
+                                <th class="p-3 text-amber-400">🎓 마이스터고</th>
+                                <th class="p-3 text-amber-400">🎓 에너지고</th>
+                                <th class="p-3 text-amber-400">🎓 현대공고</th>
+                                <th class="p-3 text-indigo-400">🛠️ 울산상고</th>
+                                <th class="p-3 text-indigo-400">🛠️ 울산여상</th>
+                                <th class="p-3 text-indigo-400">🛠️ 울산생과고</th>
+                                <th class="p-3 text-indigo-400">🛠️ 울산공고</th>
+                                <th class="p-3 text-emerald-400">🏫 후기 일반계고</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1331,23 +1361,28 @@ async function openMatrixModal(classNum) {
                     </table>
                 </div>
                 <div class="flex justify-between items-center text-xs text-text-muted">
-                    <span>* 🟢 안정권 / 🟡 적정경계 / 🔴 소신지원 (커트라인 대비)</span>
-                    <button class="btn-secondary text-xs px-4 py-2" onclick="document.getElementById('matrixModal').remove()">닫기</button>
+                    <div>* 점수 뒤 신호등은 등록된 커트라인 대비 5점 이상 초과 시 안정(🟢), 기준점 이상 시 경계(🟡), 미만 시 주의(🔴)로 표시됩니다.</div>
+                    <button id="matrixPrintBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold">🖨️ 매트릭스 인쇄</button>
                 </div>
             </div>
         `;
 
         document.getElementById('closeMatrixBtn').addEventListener('click', () => modalEl.remove());
-        modalEl.addEventListener('click', (e) => { if (e.target === modalEl) modalEl.remove(); });
+        document.getElementById('matrixPrintBtn').addEventListener('click', () => window.print());
+
+        // 학생 이름 클릭 시 해당 학생의 상담창으로 이동
+        modalEl.querySelectorAll('.matrix-student-name').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const cNum = parseInt(e.target.dataset.class);
+                const sNum = e.target.dataset.num;
+                const sName = e.target.dataset.name;
+                modalEl.remove();
+                openStudentModal(cNum, sNum, sName);
+            });
+        });
+
     } catch (err) {
-        modalEl.innerHTML = `
-            <div class="glass-card p-8 w-full max-w-md text-center">
-                <div class="text-danger text-4xl mb-3">⚠️</div>
-                <div class="text-white font-bold mb-4">매트릭스를 불러오지 못했습니다</div>
-                <div class="text-text-muted text-sm mb-6">${err}</div>
-                <button class="btn-secondary w-full" onclick="document.getElementById('matrixModal').remove()">닫기</button>
-            </div>
-        `;
+        modalEl.innerHTML = `<div class="glass-card p-8 text-center text-danger font-bold">매트릭스 생성 실패: ${err}</div>`;
     }
 }
 
@@ -1781,9 +1816,11 @@ async function loadCutoffForm(selectedCategory = 'all') {
             <div class="space-y-6">
         `;
 
-        // 학교 카드 렌더링 헬퍼 함수
+        // 학교 카드 렌더링 헬퍼 함수 (학교 공통 최저선 우선 + 학과별 세부입력 토글)
         const renderSchoolCard = (school, tracks) => {
             const depts = school.departments && school.departments.length > 0 ? school.departments : ["공통"];
+            const schoolSafeId = school.name.replace(/[^a-zA-Z0-9가-힣]/g, '_');
+
             let cardHtml = `
                 <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 space-y-3">
                     <div class="flex items-center justify-between">
@@ -1803,7 +1840,7 @@ async function loadCutoffForm(selectedCategory = 'all') {
                     <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-700/40">
                         <div>
                             <div class="font-bold text-sm text-indigo-300">📌 후기 일반계고 합격선 전망치(%)</div>
-                            <div class="text-[11px] text-text-muted mt-0.5">학교/담임 전망치 입력 (예: 85.0% - 낮을수록 성적 상위권)</div>
+                            <div class="text-[11px] text-text-muted mt-0.5">학교/담임 전망치 입력 (예: 85.0% - 낮을수록 상위권)</div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-text-muted">합격선(%)</span>
@@ -1812,31 +1849,73 @@ async function loadCutoffForm(selectedCategory = 'all') {
                     </div>
                 `;
             } else {
+                // 1) 📌 학교 전체 공통 최저선 (가장 우선적이고 유연한 입력란)
+                cardHtml += `
+                    <div class="bg-slate-900/70 p-3 rounded-lg border border-indigo-500/30 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                <span>📌</span> 학교 전체 공통 최저 합격선 (원서대장 / 학교 발표치)
+                            </div>
+                            <span class="text-[10px] text-slate-400">과 구분 없이 학교 전체 기준</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                `;
+
+                tracks.forEach(track => {
+                    const commonKey = `${school.name}_공통_${track}`;
+                    const saved = savedMap[commonKey] || { minValue: '' };
+                    const isEmployment = track.includes('취업');
+                    const isSpecial = track.includes('특별');
+                    let trackBadgeColor = 'bg-slate-800 text-slate-300';
+                    if (isEmployment) trackBadgeColor = 'bg-emerald-950/70 text-emerald-300 border border-emerald-700/50';
+                    else if (isSpecial) trackBadgeColor = 'bg-amber-950/70 text-amber-300 border border-amber-700/50';
+
+                    cardHtml += `
+                        <div class="flex items-center justify-between bg-slate-800/80 p-2 rounded border border-slate-700/40">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded ${trackBadgeColor}">${track}</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-text-muted">최저점:</span>
+                                <input type="number" step="0.01" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="예: 215.8" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="${track}" data-type="total_score">
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardHtml += `
+                        </div>
+                    </div>
+                `;
+
+                // 2) 학과별 세부 입력 (토글 접이식)
+                cardHtml += `
+                    <div class="pt-1">
+                        <button type="button" class="dept-toggle-btn text-[11px] text-slate-400 hover:text-indigo-300 flex items-center gap-1 transition-colors bg-transparent border-none cursor-pointer py-1" data-target="dept_${schoolSafeId}">
+                            <span>▶</span> 학과별 세부 커트라인 입력 (선택 사항)
+                        </button>
+                        <div id="dept_${schoolSafeId}" class="hidden space-y-2 mt-2 pt-2 border-t border-slate-700/40">
+                `;
+
                 depts.forEach(dept => {
                     tracks.forEach(track => {
                         const key = `${school.name}_${dept}_${track}`;
                         const saved = savedMap[key] || { minValue: '' };
-                        const isEmployment = track.includes('취업');
-                        const isSpecial = track.includes('특별');
-                        
-                        let trackBadgeColor = 'bg-slate-800 text-slate-400';
-                        if (isEmployment) trackBadgeColor = 'bg-emerald-950/60 text-emerald-400 border border-emerald-700/40';
-                        else if (isSpecial) trackBadgeColor = 'bg-amber-950/60 text-amber-400 border border-amber-700/40';
 
                         cardHtml += `
-                            <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg border border-slate-700/30">
+                            <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-lg border border-slate-700/30">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-bold text-xs text-slate-200">${dept}</span>
-                                    <span class="text-[10px] px-1.5 py-0.5 rounded ${trackBadgeColor}">${track}</span>
+                                    <span class="font-medium text-xs text-slate-300">${dept}</span>
+                                    <span class="text-[10px] text-slate-500">${track}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-[11px] text-text-muted">최저 합격점</span>
-                                    <input type="number" step="0.1" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="예: 210.0" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
+                                    <span class="text-[10px] text-text-muted">학과 최저:</span>
+                                    <input type="number" step="0.01" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="선택입력" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
                                 </div>
                             </div>
                         `;
                     });
                 });
+
+                cardHtml += `</div></div>`;
             }
 
             cardHtml += `</div></div>`;
@@ -1890,6 +1969,19 @@ async function loadCutoffForm(selectedCategory = 'all') {
             btn.addEventListener('click', (e) => {
                 const cat = e.target.dataset.category;
                 loadCutoffForm(cat);
+            });
+        });
+
+        // 학과별 세부입력 토글 버튼 이벤트 바인딩
+        document.querySelectorAll('.dept-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.dataset.target;
+                const targetEl = document.getElementById(targetId);
+                if (targetEl) {
+                    const isHidden = targetEl.classList.toggle('hidden');
+                    const icon = btn.querySelector('span');
+                    if (icon) icon.textContent = isHidden ? '▶' : '▼';
+                }
             });
         });
 
@@ -1960,6 +2052,7 @@ async function handleExportCutoff() {
 
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
+    app.className = '';
     try {
         const users = await window.go.main.App.GetUsers();
         
@@ -2115,72 +2208,109 @@ function renderPasswordChangeScreen(username) {
 
 // ===== 사용자 및 권한 관리 화면 =====
 export async function renderUserManagementScreen(schoolName) {
+    app.className = 'wide-layout';
+
+    let classCount = 8;
+    try {
+        const config = await window.go.main.App.GetSchoolConfig();
+        classCount = config.classCount;
+    } catch (e) {
+        console.error(e);
+    }
+
+    let classOptions = '';
+    for (let i = 1; i <= classCount; i++) {
+        classOptions += `<option value="${i}">${i}반</option>`;
+    }
+
     app.innerHTML = `
-        <div class="glass-card p-10 w-full max-w-4xl fade-in" style="margin: 2rem; min-height: 80vh;">
+        <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <div class="flex items-center justify-between mb-8 pb-4 border-b border-slate-700/50">
                 <div>
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3">
-                        👥 사용자 및 권한 관리
+                        👥 스마트 사용자 및 권한 관리
                     </h1>
-                    <p class="text-text-muted text-sm mt-2">${schoolName}</p>
+                    <p class="text-text-muted text-sm mt-1">${schoolName} — 교사별 권한 및 계정을 자유롭게 추가/삭제/관리합니다.</p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <button id="backToAdminBtn" class="btn-secondary whitespace-nowrap">
+                    <button id="backToAdminBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ← 대시보드로 돌아가기
                     </button>
                 </div>
             </div>
 
             <div class="space-y-6">
-                <!-- 뷰어 추가 폼 -->
+                <!-- 새 사용자 계정 추가 폼 -->
                 <div class="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>➕</span> 뷰어(진로부장 등) 계정 추가</h3>
-                    <form id="addViewerForm" class="flex gap-4 items-end">
-                        <div class="flex-1">
-                            <label class="block text-xs text-text-muted mb-1">사용자 ID (예: viewer2)</label>
-                            <input type="text" id="newViewerId" class="input-field py-2" required />
+                    <h3 class="font-bold mb-4 flex items-center gap-2 text-white text-base">
+                        <span>➕</span> 새 교사/관리자 계정 등록
+                    </h3>
+                    <form id="addUserForm" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
+                        <div>
+                            <label class="block text-xs text-text-muted mb-1">사용자 ID</label>
+                            <input type="text" id="newUserId" class="input-field py-2 text-xs" placeholder="예: teacher1" required />
                         </div>
-                        <div class="flex-1">
+                        <div>
                             <label class="block text-xs text-text-muted mb-1">초기 비밀번호</label>
-                            <input type="password" id="newViewerPw" class="input-field py-2" required />
+                            <input type="password" id="newUserPw" class="input-field py-2 text-xs" placeholder="초기 비밀번호" required />
                         </div>
-                        <div class="flex-none pb-1">
-                            <button type="submit" id="addViewerBtn" class="btn-primary py-2 px-6 rounded-lg font-bold shadow whitespace-nowrap" style="width: auto;">추가하기</button>
+                        <div>
+                            <label class="block text-xs text-text-muted mb-1">역할 (권한)</label>
+                            <select id="newUserRole" class="input-field py-2 text-xs">
+                                <option value="viewer">진학/학년부장 (전체 조회)</option>
+                                <option value="homeroom">담임교사 (학급 담당)</option>
+                                <option value="master">관리자 (전체 관리)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-muted mb-1">담당 학급 (담임용)</label>
+                            <select id="newUserClass" class="input-field py-2 text-xs" disabled>
+                                <option value="0">해당 없음</option>
+                                ${classOptions}
+                            </select>
+                        </div>
+                        <div class="pb-0.5">
+                            <button type="submit" id="addUserBtn" class="btn-primary py-2 px-4 rounded-lg font-bold shadow whitespace-nowrap w-full text-xs flex items-center justify-center gap-1.5">
+                                <span>➕</span> 계정 생성
+                            </button>
                         </div>
                     </form>
-                    <div id="addViewerError" class="mt-2 text-sm text-danger hidden"></div>
+                    <div id="addUserError" class="mt-2 text-xs text-danger hidden font-bold"></div>
                 </div>
 
                 <!-- 담임 계정 일괄 비밀번호 설정 -->
                 <div class="p-6 rounded-xl bg-slate-800/50 border border-slate-700/50">
-                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>🔑</span> 담임 계정 일괄 비밀번호 발급</h3>
-                    <form id="bulkPasswordForm" class="flex gap-4 items-end">
+                    <h3 class="font-bold mb-3 flex items-center gap-2 text-white text-base">
+                        <span>🔑</span> 담임 계정 일괄 비밀번호 발급
+                    </h3>
+                    <form id="bulkPasswordForm" class="flex gap-4 items-end max-w-xl">
                         <div class="flex-1">
                             <label class="block text-xs text-text-muted mb-1">모든 담임(1반~N반) 공통 초기 비밀번호</label>
-                            <input type="password" id="bulkPw" class="input-field py-2" required />
+                            <input type="password" id="bulkPw" class="input-field py-2 text-xs" placeholder="공통 비밀번호 입력" required />
                         </div>
-                        <div class="flex-none pb-1">
-                            <button type="submit" id="bulkPwBtn" class="btn-primary py-2 px-6 rounded-lg font-bold shadow whitespace-nowrap" style="width: auto;">일괄 적용하기</button>
+                        <div class="flex-none pb-0.5">
+                            <button type="submit" id="bulkPwBtn" class="btn-primary py-2 px-4 rounded-lg font-bold shadow whitespace-nowrap text-xs" style="width: auto;">일괄 적용</button>
                         </div>
                     </form>
-                    <div id="bulkPwError" class="mt-2 text-sm text-danger hidden"></div>
+                    <div id="bulkPwError" class="mt-2 text-xs text-danger hidden font-bold"></div>
                 </div>
 
                 <!-- 계정 목록 -->
                 <div>
-                    <h3 class="font-bold mb-4 flex items-center gap-2"><span>📋</span> 등록된 계정 목록</h3>
+                    <h3 class="font-bold mb-3 flex items-center gap-2 text-white text-base"><span>📋</span> 등록된 교사/관리자 계정 목록</h3>
                     <div class="bg-slate-900/50 rounded-xl border border-slate-700/50 overflow-hidden">
-                        <table class="w-full text-left text-sm">
+                        <table class="w-full text-left text-xs sm:text-sm">
                             <thead class="bg-slate-800/80 text-text-muted">
                                 <tr>
-                                    <th class="p-4 font-semibold">구분</th>
-                                    <th class="p-4 font-semibold">아이디</th>
-                                    <th class="p-4 font-semibold">상태</th>
-                                    <th class="p-4 font-semibold text-right">비밀번호 변경/초기화</th>
+                                    <th class="p-3.5 font-semibold">구분 (역할)</th>
+                                    <th class="p-3.5 font-semibold">사용자 아이디</th>
+                                    <th class="p-3.5 font-semibold">비번 상태</th>
+                                    <th class="p-3.5 font-semibold text-center">비밀번호 재발급</th>
+                                    <th class="p-3.5 font-semibold text-center w-24">계정 삭제</th>
                                 </tr>
                             </thead>
                             <tbody id="userListBody" class="divide-y divide-slate-700/50">
-                                <tr><td colspan="4" class="p-8 text-center text-text-muted">불러오는 중...</td></tr>
+                                <tr><td colspan="5" class="p-8 text-center text-text-muted">불러오는 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2190,32 +2320,48 @@ export async function renderUserManagementScreen(schoolName) {
     `;
 
     document.getElementById('backToAdminBtn').addEventListener('click', () => {
+        app.className = '';
         renderAdminScreen(schoolName);
     });
 
-    // 뷰어 추가 처리
-    document.getElementById('addViewerForm').addEventListener('submit', async (e) => {
+    const roleSelect = document.getElementById('newUserRole');
+    const classSelect = document.getElementById('newUserClass');
+    roleSelect.addEventListener('change', () => {
+        if (roleSelect.value === 'homeroom') {
+            classSelect.disabled = false;
+            classSelect.value = "1";
+        } else {
+            classSelect.disabled = true;
+            classSelect.value = "0";
+        }
+    });
+
+    // 계정 추가 처리
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const id = document.getElementById('newViewerId').value.trim();
-        const pw = document.getElementById('newViewerPw').value;
-        const btn = document.getElementById('addViewerBtn');
-        const err = document.getElementById('addViewerError');
+        const id = document.getElementById('newUserId').value.trim();
+        const pw = document.getElementById('newUserPw').value;
+        const role = roleSelect.value;
+        const classNum = parseInt(classSelect.value) || 0;
+        const btn = document.getElementById('addUserBtn');
+        const err = document.getElementById('addUserError');
         
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span>...';
+        btn.innerHTML = '<span class="spinner"></span> 생성 중...';
         err.classList.add('hidden');
 
         try {
-            await window.go.main.App.AddViewerUser(id, pw);
-            document.getElementById('newViewerId').value = '';
-            document.getElementById('newViewerPw').value = '';
+            await window.go.main.App.CreateUser(id, pw, role, classNum);
+            document.getElementById('newUserId').value = '';
+            document.getElementById('newUserPw').value = '';
+            alert(`'${id}' 계정이 성공적으로 등록되었습니다.`);
             loadUserList();
         } catch (error) {
-            err.textContent = error;
+            err.textContent = '등록 실패: ' + error;
             err.classList.remove('hidden');
         } finally {
             btn.disabled = false;
-            btn.textContent = '추가하기';
+            btn.innerHTML = '<span>➕</span> 계정 생성';
         }
     });
 
@@ -2226,7 +2372,7 @@ export async function renderUserManagementScreen(schoolName) {
         const btn = document.getElementById('bulkPwBtn');
         const err = document.getElementById('bulkPwError');
         
-        if (!confirm('모든 담임(1반~N반)의 비밀번호를 일괄 설정/초기화 하시겠습니까?\n이미 비밀번호를 바꾼 담임도 모두 초기화됩니다.')) return;
+        if (!confirm('모든 담임(1반~N반)의 비밀번호를 일괄 설정/초기화 하시겠습니까?')) return;
 
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span>...';
@@ -2246,7 +2392,7 @@ export async function renderUserManagementScreen(schoolName) {
             err.classList.remove('hidden');
         } finally {
             btn.disabled = false;
-            btn.textContent = '일괄 적용하기';
+            btn.textContent = '일괄 적용';
         }
     });
 
@@ -2258,34 +2404,42 @@ export async function renderUserManagementScreen(schoolName) {
             tbody.innerHTML = '';
             
             users.forEach(u => {
-                // 마스터는 본인 비밀번호만 변경하도록 제외하거나 허용 (여기서는 리스트에 띄우되 관리하도록 함)
-                if (u.Role === 'master') return; 
-
                 const isInitial = u.MustChangePassword;
-                let roleLabel = u.Role === 'homeroom' ? `${u.ClassNum}반 담임` : '뷰어';
+                let roleLabel = '관리자';
+                if (u.Role === 'homeroom') roleLabel = `${u.ClassNum}반 담임`;
+                else if (u.Role === 'viewer') roleLabel = '진학/학년부장 (뷰어)';
+
                 let statusBadge = isInitial 
-                    ? `<span class="px-2 py-1 rounded text-[10px] font-bold bg-warning/20 text-warning border border-warning/30">초기 상태</span>`
-                    : `<span class="px-2 py-1 rounded text-[10px] font-bold bg-success/20 text-success border border-success/30">사용 중</span>`;
+                    ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-warning/20 text-warning border border-warning/30">초기 상태</span>`
+                    : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-success/20 text-success border border-success/30">사용 중</span>`;
+
+                const isMasterAdmin = u.Username === 'admin';
 
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/30 transition-colors";
                 tr.innerHTML = `
-                    <td class="p-4 font-medium">${roleLabel}</td>
-                    <td class="p-4 text-text-muted">${u.Username}</td>
-                    <td class="p-4">${statusBadge}</td>
-                    <td class="p-4 text-right">
-                        <div class="flex items-center justify-end gap-2">
-                            <input type="password" id="pw_${u.Username}" class="input-field py-1 px-3 text-xs w-32" placeholder="새 비밀번호" />
-                            <button class="btn-primary py-1 px-3 text-xs whitespace-nowrap rounded" style="width: auto; min-width: 80px;" onclick="updateUserPassword('${u.Username}')">
-                                ${isInitial ? '비번 설정' : '비번 초기화'}
+                    <td class="p-3.5 font-bold text-slate-200">${roleLabel}</td>
+                    <td class="p-3.5 text-text-muted font-mono">${u.Username}</td>
+                    <td class="p-3.5">${statusBadge}</td>
+                    <td class="p-3.5 text-center">
+                        <div class="flex items-center justify-center gap-1.5">
+                            <input type="password" id="pw_${u.Username}" class="input-field py-1 px-2.5 text-xs w-28" placeholder="새 비번" />
+                            <button class="btn-primary py-1 px-2.5 text-xs whitespace-nowrap rounded font-bold" style="width: auto;" onclick="updateUserPassword('${u.Username}')">
+                                ${isInitial ? '비번 설정' : '재설정'}
                             </button>
                         </div>
+                    </td>
+                    <td class="p-3.5 text-center">
+                        ${isMasterAdmin 
+                            ? '<span class="text-xs text-slate-600 font-bold">보호됨</span>' 
+                            : `<button class="text-xs text-danger hover:underline font-bold px-2 py-1 rounded bg-danger/10 hover:bg-danger/20 border border-danger/30 transition-colors" onclick="deleteUserAccount('${u.Username}')">삭제</button>`
+                        }
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-danger">${error}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-danger font-bold">${error}</td></tr>`;
         }
     }
 
@@ -2293,11 +2447,11 @@ export async function renderUserManagementScreen(schoolName) {
         const input = document.getElementById(`pw_${username}`);
         const pw = input.value;
         if (!pw) {
-            alert('비밀번호를 입력하세요.');
+            alert('새 비밀번호를 입력하세요.');
             return;
         }
 
-        if (confirm(`'${username}' 계정의 비밀번호를 설정하시겠습니까? (설정 시 해당 사용자는 로그인 후 비번을 다시 변경해야 합니다)`)) {
+        if (confirm(`'${username}' 계정의 비밀번호를 설정하시겠습니까?`)) {
             try {
                 await window.go.main.App.SetUserPassword(username, pw);
                 alert('비밀번호가 성공적으로 설정되었습니다.');
@@ -2305,6 +2459,18 @@ export async function renderUserManagementScreen(schoolName) {
                 loadUserList();
             } catch (err) {
                 alert('설정 실패: ' + err);
+            }
+        }
+    };
+
+    window.deleteUserAccount = async (username) => {
+        if (confirm(`정말로 '${username}' 계정을 삭제하시겠습니까?`)) {
+            try {
+                await window.go.main.App.DeleteUser(username);
+                alert('계정이 삭제되었습니다.');
+                loadUserList();
+            } catch (err) {
+                alert('삭제 실패: ' + err);
             }
         }
     };
