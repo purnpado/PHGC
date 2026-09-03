@@ -46,6 +46,9 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 	var headers []string
 	nameColIdx := -1
 	studentNumColIdx := -1
+	
+	var lastName string
+	var lastStudentNum string
 
 	for _, row := range rows {
 		if len(row) == 0 {
@@ -100,7 +103,13 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 		if headers != nil && nameColIdx != -1 && nameColIdx < len(row) {
 			name := strings.TrimSpace(row[nameColIdx])
 			if name == "" {
-				continue
+				name = lastName // 병합된 셀(빈 칸)일 경우 이전 이름 사용
+			} else {
+				lastName = name // 새로운 이름이면 업데이트
+			}
+
+			if name == "" {
+				continue // 그래도 이름이 없으면 완전히 빈 줄이거나 유효하지 않은 데이터이므로 건너뜐다
 			}
 
 			// 반 정보가 없으면 기본값 1반으로 처리 (오류 방지)
@@ -111,6 +120,11 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 			studentNum := ""
 			if studentNumColIdx != -1 && studentNumColIdx < len(row) {
 				studentNum = strings.TrimSpace(row[studentNumColIdx])
+			}
+			if studentNum == "" {
+				studentNum = lastStudentNum
+			} else {
+				lastStudentNum = studentNum
 			}
 
 			// 학생 식별 키
