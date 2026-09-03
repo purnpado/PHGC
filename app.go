@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/bcrypt"
@@ -309,6 +311,66 @@ func (a *App) FetchCutoffsFromBridge(year int) (int, error) {
 	return len(resData.Data), nil
 }
 
+// RollbackSchoolCutoffs 우리 학교가 중앙 서버에 전송했던 커트라인 데이터를 회수(삭제)
+func (a *App) RollbackSchoolCutoffs(year int) (string, error) {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return "", err
+	}
+
+	url := fmt.Sprintf("%s/api/cutoff?year=%d&school=%s", BridgeServerURL, year, url.QueryEscape(config.SchoolName))
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var resData struct {
+		Message string `json:"message"`
+		Error   string `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&resData)
+
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf(resData.Error)
+	}
+
+	return resData.Message, nil
+}
+
+// ResetServerCutoffs 중앙 서버의 해당 연도 모든 커트라인 데이터를 초기화 (테스트용)
+func (a *App) ResetServerCutoffs(year int) (string, error) {
+	url := fmt.Sprintf("%s/api/cutoff?year=%d&all=true", BridgeServerURL, year)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var resData struct {
+		Message string `json:"message"`
+		Error   string `json:"error"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&resData)
+
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf(resData.Error)
+	}
+
+	return resData.Message, nil
+}
 
 func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB64 string) (int, error) {
 	config, err := a.db.GetSchoolConfig()

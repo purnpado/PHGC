@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.15",
+    "latestVersion":  "0.5.17",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.15 - 학생 상세 상담 모달의 일반고 추정 백분율을 전교 실제 석차백분율로 100% 동기화",
+    "releaseNotes":  "v0.5.17 - 커트라인 서버 등록 회수(삭제/롤백) 및 중앙 서버 전체 초기화(테스트 데이터 클리어) 기능 완벽 구현",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }

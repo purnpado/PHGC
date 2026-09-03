@@ -72,6 +72,7 @@ func main() {
 	{
 		api.POST("/cutoff", handleCutoff)
 		api.GET("/cutoff", handleGetCutoffs)
+		api.DELETE("/cutoff", handleDeleteCutoffs)
 		api.POST("/feedback", handleFeedback)
 		api.GET("/feedback/:id", handleGetFeedback)
 		api.GET("/sync/*filepath", handleSyncFile)
@@ -225,6 +226,102 @@ func handleGetCutoffs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, mergedList)
+}
+
+// handleDeleteCutoffs 학교별 커트라인 회수(삭제) 및 연도별 전체 초기화
+func handleDeleteCutoffs(c *gin.Context) {
+	yearStr := c.DefaultQuery("year", "2026")
+	schoolName := c.Query("school")
+	resetAll := c.Query("all") == "true"
+	targetRepo := getDataRepo()
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	if schoolName == "" && !resetAll {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "학교명(school) 또는 전체초기화(all=true) 파라미터가 필요합니다."})
+		return
+	}
+
+	// 1. 특정 학교 데이터 단독 회수
+	if !resetAll && schoolName != "" {
+		fileName := fmt.Sprintf("server-data/cutoffs/%s_%s.json", yearStr, schoolName)
+		url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, targetRepo, fileName)
+
+		chkReq, _ := http.NewRequest("GET", url, nil)
+		chkReq.Header.Set("Authorization", "token "+giteaToken)
+		chkResp, err := client.Do(chkReq)
+		if err != nil || chkResp.StatusCode != 200 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "서버에 등록된 해당 학교의 커트라인 데이터를 찾을 수 없습니다."})
+			return
+		}
+
+		var fileInfo struct {
+			SHA string `json:"sha"`
+		}
+		_ = json.NewDecoder(chkResp.Body).Decode(&fileInfo)
+		chkResp.Body.Close()
+
+		delBody := map[string]interface{}{
+			"sha":     fileInfo.SHA,
+			"message": fmt.Sprintf("Rollback/Delete cutoff data for %s (%s)", schoolName, yearStr),
+		}
+		delJSON, _ := json.Marshal(delBody)
+		delReq, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(delJSON))
+		delReq.Header.Set("Authorization", "token "+giteaToken)
+		delReq.Header.Set("Content-Type", "application/json")
+
+		delResp, delErr := client.Do(delReq)
+		if delErr != nil || delResp.StatusCode >= 400 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gitea 파일 삭제 실패"})
+			return
+		}
+		defer delResp.Body.Close()
+
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("'%s'의 %s학년도 서버 커트라인 데이터가 안전하게 회수(삭제)되었습니다.", schoolName, yearStr)})
+		return
+	}
+
+	// 2. 해당 연도 전체 커트라인 파일 일괄 초기화 (테스트 데이터 클리어)
+	if resetAll {
+		dirURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/server-data/cutoffs", giteaURL, giteaOwner, targetRepo)
+		req, _ := http.NewRequest("GET", dirURL, nil)
+		req.Header.Set("Authorization", "token "+giteaToken)
+		resp, err := client.Do(req)
+		if err != nil || resp.StatusCode >= 400 {
+			c.JSON(http.StatusOK, gin.H{"message": "초기화할 파일이 없습니다."})
+			return
+		}
+		defer resp.Body.Close()
+
+		var fileList []struct {
+			Name string `json:"name"`
+			SHA  string `json:"sha"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&fileList)
+
+		deletedCount := 0
+		prefix := yearStr + "_"
+		for _, f := range fileList {
+			if strings.HasPrefix(f.Name, prefix) && strings.HasSuffix(f.Name, ".json") {
+				fileURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/server-data/cutoffs/%s", giteaURL, giteaOwner, targetRepo, f.Name)
+				delBody := map[string]interface{}{
+					"sha":     f.SHA,
+					"message": fmt.Sprintf("Reset all cutoffs for %s - deleted %s", yearStr, f.Name),
+				}
+				delJSON, _ := json.Marshal(delBody)
+				delReq, _ := http.NewRequest("DELETE", fileURL, bytes.NewBuffer(delJSON))
+				delReq.Header.Set("Authorization", "token "+giteaToken)
+				delReq.Header.Set("Content-Type", "application/json")
+
+				if delResp, err := client.Do(delReq); err == nil && delResp.StatusCode < 400 {
+					deletedCount++
+					delResp.Body.Close()
+				}
+			}
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%s학년도 서버 커트라인 데이터 %d건이 모두 초기화되었습니다.", yearStr, deletedCount)})
+		return
+	}
 }
 
 func handleFeedback(c *gin.Context) {

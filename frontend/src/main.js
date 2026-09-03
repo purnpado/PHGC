@@ -2138,8 +2138,15 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div class="p-4 border-t border-slate-700/50 flex flex-wrap justify-between items-center bg-slate-800/30 rounded-b-2xl gap-3">
-                <div class="text-xs text-text-muted">입력한 커트라인은 로컬 DB에 자동 저장됩니다.</div>
+                <div class="flex items-center gap-3">
+                    <button id="resetServerCutoffBtn" class="text-xs text-rose-400 hover:text-rose-300 font-bold transition-all bg-transparent border-none cursor-pointer flex items-center gap-1">
+                        <span>⚠️</span> 서버 전체 초기화 (테스트용)
+                    </button>
+                </div>
                 <div class="flex items-center gap-2">
+                    <button id="rollbackCutoffBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 text-rose-300 border border-rose-500/30 hover:bg-rose-950/40" style="width: auto;">
+                        <span>🗑️</span> 서버 등록 회수(삭제)
+                    </button>
                     <button id="importCutoffBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5" style="width: auto;">
                         <span>📥</span> 서버 데이터 내려받기
                     </button>
@@ -2179,6 +2186,16 @@ document.body.addEventListener('click', (e) => {
     const importBtn = e.target.closest('#importCutoffBtn');
     if (importBtn) {
         handleImportCutoff();
+    }
+
+    const rollbackBtn = e.target.closest('#rollbackCutoffBtn');
+    if (rollbackBtn) {
+        handleRollbackCutoff();
+    }
+
+    const resetServerBtn = e.target.closest('#resetServerCutoffBtn');
+    if (resetServerBtn) {
+        handleResetServerCutoff();
     }
 });
 
@@ -2481,6 +2498,51 @@ async function handleImportCutoff() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
+    }
+}
+
+async function handleRollbackCutoff() {
+    const year = parseInt(document.getElementById('cutoffYearSelect').value);
+    if (!confirm(`정말로 우리 학교가 중앙 서버에 등록한 ${year}학년도 커트라인 데이터를 회수(삭제)하시겠습니까?\n\n회수 즉시 다른 학교에서 더 이상 우리 학교 데이터가 조회되지 않습니다.`)) {
+        return;
+    }
+
+    const btn = document.getElementById('rollbackCutoffBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 회수 중...';
+
+    try {
+        const msg = await window.go.main.App.RollbackSchoolCutoffs(year);
+        alert(msg || '서버 데이터 회수가 완료되었습니다.');
+    } catch(e) {
+        alert('서버 데이터 회수 실패: ' + e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🗑️</span> 서버 등록 회수(삭제)';
+    }
+}
+
+async function handleResetServerCutoff() {
+    const year = parseInt(document.getElementById('cutoffYearSelect').value);
+    const confirmed = prompt(`⚠️ [중앙 서버 커트라인 전체 초기화]\n\n중앙 서버에 등록된 모든 학교의 ${year}학년도 커트라인 데이터를 일괄 삭제합니다.\n(테스트 데이터를 깨끗이 비울 때 사용)\n\n진행하시려면 아래 입력창에 '초기화'를 입력하세요:`);
+    if (confirmed !== '초기화') {
+        if (confirmed !== null) alert('초기화가 취소되었습니다.');
+        return;
+    }
+
+    const btn = document.getElementById('resetServerCutoffBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 초기화 진행 중...';
+
+    try {
+        const msg = await window.go.main.App.ResetServerCutoffs(year);
+        alert(msg || '중앙 서버 데이터가 성공적으로 초기화되었습니다.');
+        await loadCutoffForm();
+    } catch(e) {
+        alert('서버 초기화 실패: ' + e);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '⚠️ 서버 전체 초기화 (테스트용)';
     }
 }
 
