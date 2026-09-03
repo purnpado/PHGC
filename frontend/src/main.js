@@ -519,13 +519,13 @@ async function renderAdminScreen(schoolName) {
                 </div>
                 <div class="flex gap-3">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
-                    <button id="goToTeacherBtn" class="btn-secondary px-4 py-2 rounded-lg font-bold text-sm">
+                    <button id="goToTeacherBtn" class="btn-secondary px-4 py-2 rounded-lg font-bold text-sm" style="width: auto;">
                         👩‍🏫 진학 상담(담임) 모드
                     </button>
-                    <button id="syncBtn" class="btn-primary px-4 py-2 rounded-lg font-bold text-sm">
+                    <button id="syncBtn" class="btn-primary px-4 py-2 rounded-lg font-bold text-sm" style="width: auto;">
                         🔄 서버 동기화
                     </button>
-                    <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-sm px-4 py-2 rounded-lg font-bold">
+                    <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-sm px-4 py-2 rounded-lg font-bold" style="width: auto;">
                         데이터 완전 초기화
                     </button>
                     ` : ''}
@@ -589,7 +589,7 @@ async function renderAdminScreen(schoolName) {
     });
 
     document.getElementById('goToTeacherBtn')?.addEventListener('click', () => {
-        renderTeacherScreen(schoolName, 1);
+        renderTeacherScreen(schoolName, null);
     });
 
     document.getElementById('resetDataBtn').addEventListener('click', async () => {
@@ -694,7 +694,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <p class="text-text-muted text-sm mt-2">${schoolName}</p>
                 </div>
                 <div class="flex items-center gap-4">
-                    <select id="classSelector" class="input-field" style="width: auto;" ${targetClassNum ? 'disabled' : ''}>
+                    <select id="classSelector" class="input-field" style="width: auto;" ${window.currentUser && window.currentUser.Role === 'homeroom' ? 'disabled' : ''}>
                         <option value="">-- 담당 학급 선택 --</option>
                         ${classOptions}
                     </select>

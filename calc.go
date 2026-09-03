@@ -137,13 +137,27 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 	for _, rec := range records {
 		var grade, sem, achieveRaw string
 		for k, v := range rec {
+			// 키와 값의 공백, 따옴표, 줄바꿈 등을 완벽하게 제거
 			cleanK := strings.ReplaceAll(k, " ", "")
+			cleanK = strings.ReplaceAll(cleanK, "\"", "")
+			cleanK = strings.ReplaceAll(cleanK, "\r", "")
+			cleanK = strings.ReplaceAll(cleanK, "\n", "")
+
+			cleanV := strings.ReplaceAll(v, "\"", "")
+			cleanV = strings.ReplaceAll(cleanV, "\r", "")
+			cleanV = strings.ReplaceAll(cleanV, "\n", "")
+			cleanV = strings.TrimSpace(cleanV)
+
+			if strings.Contains(cleanK, "학년도") {
+				continue // '학년도' 컬럼은 '학년'으로 오인되지 않도록 무시
+			}
+			
 			if strings.Contains(cleanK, "학년") {
-				grade = strings.TrimSpace(v)
+				grade = cleanV
 			} else if strings.Contains(cleanK, "학기") {
-				sem = strings.TrimSpace(v)
+				sem = cleanV
 			} else if strings.Contains(cleanK, "성취도") {
-				achieveRaw = strings.TrimSpace(v)
+				achieveRaw = cleanV
 			}
 		}
 		
