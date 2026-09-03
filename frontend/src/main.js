@@ -1744,16 +1744,38 @@ function delay(ms) {
 }
 
 // ===== 앱 시작 시 자동 업데이트 확인 및 모달 팝업 =====
-async function checkUpdateOnStartup() {
+async function checkUpdateOnStartup(localVer) {
+    const statusEl = document.getElementById('startupUpdateStatus');
+    if (statusEl) {
+        statusEl.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 서버 확인 중...';
+    }
+
+    // Wails 바인딩 주입 대기 (최대 3초)
+    for (let i = 0; i < 30; i++) {
+        if (window.go?.main?.App?.SyncWithServer) break;
+        await delay(100);
+    }
+
     try {
         if (window.go?.main?.App?.SyncWithServer) {
             const result = await window.go.main.App.SyncWithServer();
             if (result && result.hasUpdate) {
+                if (statusEl) {
+                    statusEl.innerHTML = `<span class="text-rose-400 font-bold animate-pulse">🚀 새 버전 v${result.latestVersion} 출시!</span>`;
+                }
                 showStartupUpdateModal(result);
+            } else {
+                if (statusEl) {
+                    const serverVer = result?.latestVersion || localVer || '';
+                    statusEl.innerHTML = `<span class="text-emerald-400">✅ 최신 버전 (서버: v${serverVer})</span>`;
+                }
             }
         }
     } catch (e) {
-        console.log("시작 시 업데이트 확인 건너뜀:", e);
+        console.log("시작 시 업데이트 확인 실패:", e);
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="text-slate-400">오프라인 모드</span>`;
+        }
     }
 }
 
@@ -2471,29 +2493,42 @@ export async function renderLoginScreen(schoolName) {
                     <div id="loginError" class="error-msg text-center text-xs"></div>
                 </form>
 
-                <!-- 현재 설치된 버전 및 업데이트 확인 영역 -->
+                <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
                 <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs text-text-muted">
-                    <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
-                    <button id="manualUpdateCheckBtn" type="button" class="btn-secondary text-xs px-2.5 py-1 font-bold inline-flex items-center gap-1" style="width: auto;">
+                    <div>
+                        <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
+                        <div id="startupUpdateStatus" class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                            <span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 업데이트 검사 중...
+                        </div>
+                    </div>
+                    <button id="manualUpdateCheckBtn" type="button" class="btn-secondary text-xs px-2.5 py-1.5 font-bold inline-flex items-center gap-1" style="width: auto;">
                         <span>🔄</span> 업데이트 확인
                     </button>
                 </div>
             </div>
         `;
 
+        // 로그인 화면이 로드되면 자동으로 백그라운드 서버 업데이트 검사 실행
+        checkUpdateOnStartup(localVer);
+
         document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {
             const btn = document.getElementById('manualUpdateCheckBtn');
+            const statusEl = document.getElementById('startupUpdateStatus');
             btn.innerHTML = '<span class="spinner"></span> 확인 중...';
+            if (statusEl) statusEl.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 서버 확인 중...';
             try {
                 const res = await window.go.main.App.SyncWithServer();
                 if (res && res.hasUpdate) {
+                    if (statusEl) statusEl.innerHTML = `<span class="text-rose-400 font-bold animate-pulse">🚀 새 버전 v${res.latestVersion} 출시!</span>`;
                     showStartupUpdateModal(res);
                 } else {
                     const serverVer = res && res.latestVersion ? res.latestVersion : localVer;
+                    if (statusEl) statusEl.innerHTML = `<span class="text-emerald-400">✅ 최신 버전 (서버: v${serverVer})</span>`;
                     alert(`현재 설치된 버전(v${localVer})은 최신 상태입니다!\n(중앙 서버 최신 버전: v${serverVer})`);
                 }
             } catch (err) {
                 alert('업데이트 확인 실패: ' + err);
+                if (statusEl) statusEl.innerHTML = `<span class="text-slate-400">오프라인 모드</span>`;
             } finally {
                 btn.innerHTML = '<span>🔄</span> 업데이트 확인';
             }
