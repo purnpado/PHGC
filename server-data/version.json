@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.17",
+    "latestVersion":  "0.5.18",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.17 - 커트라인 서버 등록 회수(삭제/롤백) 및 중앙 서버 전체 초기화(테스트 데이터 클리어) 기능 완벽 구현",
-    "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
+    "releaseNotes":  "v0.5.18 - 자동 업데이트 파이프라인 완성 - Gitea Release Asset 프록시 다운로드 및 publish.ps1 릴리즈 자동화",
+    "downloadUrl":  "https://go.gguk.link/api/download/PHGC.exe"
 }

@@ -22,9 +22,9 @@ func DownloadAndApplyUpdate(customURL string) error {
 	exeDir := filepath.Dir(currentExe)
 
 	// 2. 다운로드 대상 URL 결정
-	// 비공개 Gitea 저장소 이슈를 해결하기 위해 브릿지 서버의 프록시 다운로드 엔드포인트를 기본으로 활용
-	downloadURL := "https://go.gguk.link/api/sync/download/PHGC.exe"
-	if customURL != "" && !strings.Contains(customURL, "/releases") && strings.HasSuffix(customURL, ".exe") {
+	// 브릿지 서버의 Gitea Release Asset 프록시 다운로드 엔드포인트를 기본으로 활용
+	downloadURL := "https://go.gguk.link/api/download/PHGC.exe"
+	if customURL != "" && strings.HasSuffix(customURL, ".exe") {
 		downloadURL = customURL
 	}
 

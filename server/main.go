@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -76,6 +77,7 @@ func main() {
 		api.POST("/feedback", handleFeedback)
 		api.GET("/feedback/:id", handleGetFeedback)
 		api.GET("/sync/*filepath", handleSyncFile)
+		api.GET("/download/:filename", handleDownloadLatest)
 		api.POST("/webhook/gitea", handleGiteaWebhook)
 	}
 
@@ -497,6 +499,68 @@ func sendEmail(to, issueTitle, commentBody string) error {
 		from, []string{to}, []byte(msg))
 
 	return err
+}
+
+// handleDownloadLatest Gitea 최신 릴리즈에서 Asset(exe)을 찾아 프록시 다운로드
+func handleDownloadLatest(c *gin.Context) {
+	filename := c.Param("filename") // e.g. "PHGC.exe"
+
+	// 1. Gitea API로 최신 릴리즈 정보 조회
+	relURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/releases?limit=1", giteaURL, giteaOwner, giteaRepo)
+	req, _ := http.NewRequest("GET", relURL, nil)
+	req.Header.Set("Authorization", "token "+giteaToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gitea 릴리즈 조회 실패"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var releases []struct {
+		TagName string `json:"tag_name"`
+		Assets  []struct {
+			Name               string `json:"name"`
+			BrowserDownloadURL string `json:"browser_download_url"`
+		} `json:"assets"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&releases)
+
+	if len(releases) == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "등록된 릴리즈가 없습니다"})
+		return
+	}
+
+	// 2. 최신 릴리즈의 Asset 중 요청된 파일명 찾기
+	var assetURL string
+	for _, asset := range releases[0].Assets {
+		if strings.EqualFold(asset.Name, filename) {
+			assetURL = asset.BrowserDownloadURL
+			break
+		}
+	}
+
+	if assetURL == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("릴리즈 '%s'에 '%s' 파일이 첨부되어 있지 않습니다", releases[0].TagName, filename)})
+		return
+	}
+
+	// 3. Asset 파일을 Gitea에서 가져와 클라이언트에게 프록시 전달
+	assetReq, _ := http.NewRequest("GET", assetURL, nil)
+	assetReq.Header.Set("Authorization", "token "+giteaToken)
+
+	dlClient := &http.Client{Timeout: 5 * time.Minute}
+	assetResp, err := dlClient.Do(assetReq)
+	if err != nil || assetResp.StatusCode != 200 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Asset 다운로드 실패"})
+		return
+	}
+	defer assetResp.Body.Close()
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Header("Content-Type", "application/octet-stream")
+	io.Copy(c.Writer, assetResp.Body)
 }
 
 func handleSyncFile(c *gin.Context) {
