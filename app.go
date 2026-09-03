@@ -456,10 +456,21 @@ func (a *App) GetClassFullGrades(classNum int) ([]StudentFullData, error) {
 		return nil, err
 	}
 
+	// 1. 전교생 기준 정확한 내신 산출 결과(석차백분율) 가져오기
+	classGrades, _ := a.GetClassGrades(classNum)
+	pctMap := make(map[string]float64)
+	for _, cg := range classGrades {
+		pctMap[cg.StudentNum] = cg.Percentile
+	}
+
 	var results []StudentFullData
 	for _, s := range students {
 		full, err := parseStudentFullData(s)
 		if err == nil {
+			// 대시보드 표와 동일한 정확한 전교 석차 백분율 동기화
+			if realPct, ok := pctMap[full.StudentNum]; ok {
+				full.GeneralHSPercentile = realPct
+			}
 			results = append(results, *full)
 		}
 	}

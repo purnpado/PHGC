@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.6",
+    "latestVersion":  "0.5.7",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.6 ??로컬 버전 상시 표시(로그인/관리자/담임), 수동 업데이트 확인 버튼, 중앙 서버 커트라인 취합 데이터 내려받기(동기화) 연동",
+    "releaseNotes":  "v0.5.7 ??신호등 매트릭스 전체 고교 컬럼 확장, 대시보드 학급 바둑판 카드 그리드 구현, 일반고 백분율 불일치 계산 버그 완벽 수정",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }

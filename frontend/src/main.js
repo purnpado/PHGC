@@ -840,7 +840,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
     }
 
-    let localVer = '0.5.5';
+    let localVer = '0.5.6';
     try {
         localVer = await window.go.main.App.GetAppVersion();
     } catch (e) {
@@ -848,6 +848,66 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     }
 
     app.className = 'wide-layout';
+
+    // 학급 선택 바둑판 카드 그리드 렌더링 함수
+    const getClassGridHTML = () => {
+        let cards = '';
+        const isHomeroom = window.currentUser && window.currentUser.Role === 'homeroom';
+        const myClass = isHomeroom ? window.currentUser.ClassNum : null;
+
+        for (let i = 1; i <= classCount; i++) {
+            const isAccessible = !isHomeroom || (i === myClass);
+            if (isAccessible) {
+                cards += `
+                    <div class="class-card-btn bg-slate-800/70 hover:bg-indigo-950/40 border-2 border-slate-700/60 hover:border-primary/80 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 group flex flex-col items-center justify-center gap-3 shadow-md"
+                         data-class="${i}">
+                        <div class="w-14 h-14 rounded-2xl bg-slate-700/60 text-indigo-300 group-hover:bg-primary group-hover:text-white flex items-center justify-center text-2xl font-black transition-all">
+                            ${i}
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-white group-hover:text-primary transition-colors">3학년 ${i}반</div>
+                            <div class="text-xs text-slate-400 mt-1">${isHomeroom ? '⭐ 내 담당 학급' : '진학 상담 및 성적 명단'}</div>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-xs text-primary font-bold mt-1 group-hover:translate-x-1 transition-transform">
+                            학생 명단 열기 →
+                        </span>
+                    </div>
+                `;
+            } else {
+                cards += `
+                    <div class="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 text-center opacity-40 cursor-not-allowed flex flex-col items-center justify-center gap-3 select-none"
+                         title="담당 학급(${myClass}반)만 열람하실 수 있습니다.">
+                        <div class="w-14 h-14 rounded-2xl bg-slate-800 text-slate-500 flex items-center justify-center text-xl font-bold">
+                            🔒
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-slate-400">3학년 ${i}반</div>
+                            <div class="text-xs text-slate-500 mt-1">타 학급 열람 제한</div>
+                        </div>
+                        <span class="text-xs text-slate-600 font-medium mt-1">접근 불가</span>
+                    </div>
+                `;
+            }
+        }
+
+        const isHomeroomMsg = isHomeroom 
+            ? `선생님의 담당 학급인 <strong class="text-indigo-300">3학년 ${myClass}반</strong>을 클릭하여 진학 상담을 시작하세요.`
+            : `조회하고자 하는 학급 카드를 클릭하세요. (총 ${classCount}학급)`;
+
+        return `
+            <div class="max-w-5xl mx-auto py-8 space-y-6 fade-in">
+                <div class="text-center space-y-2">
+                    <h2 class="text-2xl font-black text-white flex items-center justify-center gap-2">
+                        <span>🏫</span> 담당 학급을 선택해 주세요
+                    </h2>
+                    <p class="text-sm text-text-muted">${isHomeroomMsg}</p>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-5">
+                    ${cards}
+                </div>
+            </div>
+        `;
+    };
 
     app.innerHTML = `
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
@@ -860,6 +920,9 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <p class="text-text-muted text-sm mt-1">${schoolName}</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <button id="classGridHomeBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" style="display: none;">
+                        <span>🗂️</span> 학급 목록
+                    </button>
                     <select id="classSelector" class="input-field" style="width: auto;" ${window.currentUser && window.currentUser.Role === 'homeroom' ? 'disabled' : ''}>
                         <option value="">-- 담당 학급 선택 --</option>
                         ${classOptions}
@@ -870,11 +933,49 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                 </div>
             </div>
 
-            <div id="teacherContent" class="text-center py-20 text-text-muted">
-                상단에서 담당 학급을 선택해 주세요.
+            <div id="teacherContent">
+                ${getClassGridHTML()}
             </div>
         </div>
     `;
+
+    // 학급 카드 클릭 시 학급 로드 함수
+    const loadClass = async (classNum) => {
+        if (!classNum) {
+            document.getElementById('classGridHomeBtn').style.display = 'none';
+            document.getElementById('teacherContent').innerHTML = getClassGridHTML();
+            bindGridEvents();
+            return;
+        }
+
+        document.getElementById('classGridHomeBtn').style.display = 'inline-flex';
+        document.getElementById('classSelector').value = classNum;
+        document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
+        
+        try {
+            const students = await window.go.main.App.GetClassGrades(classNum);
+            renderStudentList(students, classNum);
+        } catch (err) {
+            document.getElementById('teacherContent').innerHTML = `<div class="text-danger py-20 text-center font-bold">오류 발생: ${err}</div>`;
+        }
+    };
+
+    // 학급 카드 클릭 이벤트 바인딩
+    const bindGridEvents = () => {
+        document.querySelectorAll('.class-card-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const cNum = parseInt(btn.dataset.class);
+                loadClass(cNum);
+            });
+        });
+    };
+
+    bindGridEvents();
+
+    document.getElementById('classGridHomeBtn')?.addEventListener('click', () => {
+        document.getElementById('classSelector').value = '';
+        loadClass(null);
+    });
 
     document.getElementById('backBtn').addEventListener('click', () => {
         app.className = '';
@@ -887,27 +988,14 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     });
 
     const classSelector = document.getElementById('classSelector');
-    
-    classSelector.addEventListener('change', async (e) => {
+    classSelector.addEventListener('change', (e) => {
         const classNum = parseInt(e.target.value);
-        if (!classNum) {
-            document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20 text-text-muted">상단에서 담당 학급을 선택해 주세요.</div>';
-            return;
-        }
-
-        document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
-        
-        try {
-            const students = await window.go.main.App.GetClassGrades(classNum);
-            renderStudentList(students, classNum);
-        } catch (err) {
-            document.getElementById('teacherContent').innerHTML = `<div class="text-danger py-20 text-center font-bold">오류 발생: ${err}</div>`;
-        }
+        loadClass(classNum);
     });
 
+    // 담임교사인 경우 본인 반 자동 선택
     if (targetClassNum) {
-        classSelector.value = targetClassNum;
-        classSelector.dispatchEvent(new Event('change'));
+        loadClass(targetClassNum);
     }
 }
 
@@ -1320,30 +1408,38 @@ async function openMatrixModal(classNum) {
             const yeosang = getBadge('여자상업고');
             const saenggwa = getBadge('생활과학');
             const gongop = getBadge('공업고');
+            const sanup = getBadge('산업고');
+            const miyong = getBadge('미용예술');
+            const gisul = getBadge('기술공업');
+            const anyone = getBadge('애니원');
             const general = s.generalHSPercentile <= 80 ? '🟢 안정' : (s.generalHSPercentile <= 90 ? '🟡 경계' : '🔴 주의');
 
             matrixRows += `
                 <tr class="hover:bg-slate-800/60 border-b border-slate-700/50 text-center">
-                    <td class="p-3 text-slate-400">${s.studentNum}</td>
-                    <td class="p-3 font-bold text-white cursor-pointer hover:underline matrix-student-name"
+                    <td class="p-2.5 text-slate-400 font-mono">${s.studentNum}</td>
+                    <td class="p-2.5 font-bold text-white cursor-pointer hover:underline matrix-student-name"
                         data-class="${classNum}" data-num="${s.studentNum}" data-name="${s.name}">
                         ${s.name}
                     </td>
-                    <td class="p-3 text-primary font-bold">${s.allAverage.toFixed(2)}</td>
-                    <td class="p-3">${meister}</td>
-                    <td class="p-3">${energy}</td>
-                    <td class="p-3">${hyundai}</td>
-                    <td class="p-3">${sangop}</td>
-                    <td class="p-3">${yeosang}</td>
-                    <td class="p-3">${saenggwa}</td>
-                    <td class="p-3">${gongop}</td>
-                    <td class="p-3 font-bold">${general} <span class="text-xs text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
+                    <td class="p-2.5 text-primary font-bold">${s.allAverage.toFixed(2)}</td>
+                    <td class="p-2.5">${meister}</td>
+                    <td class="p-2.5">${energy}</td>
+                    <td class="p-2.5">${hyundai}</td>
+                    <td class="p-2.5">${sangop}</td>
+                    <td class="p-2.5">${yeosang}</td>
+                    <td class="p-2.5">${saenggwa}</td>
+                    <td class="p-2.5">${gongop}</td>
+                    <td class="p-2.5">${sanup}</td>
+                    <td class="p-2.5">${miyong}</td>
+                    <td class="p-2.5">${gisul}</td>
+                    <td class="p-2.5">${anyone}</td>
+                    <td class="p-2.5 font-bold whitespace-nowrap">${general} <span class="text-[11px] text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
                 </tr>
             `;
         });
 
         modalEl.innerHTML = `
-            <div class="glass-card p-6 md:p-8 w-full max-w-[1680px] max-h-[92vh] overflow-y-auto space-y-5">
+            <div class="glass-card p-6 md:p-8 w-full max-w-[1760px] max-h-[92vh] overflow-y-auto space-y-5">
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                     <div>
                         <h2 class="text-2xl font-black text-white flex items-center gap-2">
@@ -1355,20 +1451,24 @@ async function openMatrixModal(classNum) {
                 </div>
 
                 <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
-                    <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                    <table class="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr class="bg-slate-800/80 text-text-muted border-b border-slate-700/70 text-center">
-                                <th class="p-3 w-12">번호</th>
-                                <th class="p-3 w-20">성명</th>
-                                <th class="p-3 w-16">평균성취</th>
-                                <th class="p-3 text-amber-400">🎓 마이스터고</th>
-                                <th class="p-3 text-amber-400">🎓 에너지고</th>
-                                <th class="p-3 text-amber-400">🎓 현대공고</th>
-                                <th class="p-3 text-indigo-400">🛠️ 울산상고</th>
-                                <th class="p-3 text-indigo-400">🛠️ 울산여상</th>
-                                <th class="p-3 text-indigo-400">🛠️ 울산생과고</th>
-                                <th class="p-3 text-indigo-400">🛠️ 울산공고</th>
-                                <th class="p-3 text-emerald-400">🏫 후기 일반계고</th>
+                            <tr class="bg-slate-800/80 text-text-muted border-b border-slate-700/70 text-center whitespace-nowrap">
+                                <th class="p-2.5 w-10">번호</th>
+                                <th class="p-2.5 w-16">성명</th>
+                                <th class="p-2.5 w-14">평균</th>
+                                <th class="p-2.5 text-amber-400">🎓 마이스터고</th>
+                                <th class="p-2.5 text-amber-400">🎓 에너지고</th>
+                                <th class="p-2.5 text-amber-400">🎓 현대공고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 울산상고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 울산여상</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 울산생과고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 울산공고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 울산산업고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 미용예술고</th>
+                                <th class="p-2.5 text-indigo-400">🛠️ 기술공고</th>
+                                <th class="p-2.5 text-indigo-400">🎨 애니원고</th>
+                                <th class="p-2.5 text-emerald-400">🏫 후기 일반계고</th>
                             </tr>
                         </thead>
                         <tbody>
