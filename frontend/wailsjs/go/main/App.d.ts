@@ -12,6 +12,8 @@ export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Prom
 
 export function DeleteUser(arg1:string):Promise<void>;
 
+export function FetchCutoffsFromBridge(arg1:number):Promise<number>;
+
 export function GetAppVersion():Promise<string>;
 
 export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;

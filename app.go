@@ -276,6 +276,40 @@ func (a *App) SendCutoffsToBridge(year int) error {
 	return nil
 }
 
+// FetchCutoffsFromBridge 중앙 서버에서 취합된 커트라인 데이터를 다운로드하여 로컬 DB에 반영
+func (a *App) FetchCutoffsFromBridge(year int) (int, error) {
+	url := fmt.Sprintf("%s/api/cutoff?year=%d", BridgeServerURL, year)
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, fmt.Errorf("중앙 서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		return 0, fmt.Errorf("서버 응답: %s", string(b))
+	}
+
+	var resData struct {
+		Success bool         `json:"success"`
+		Data    []CutoffInfo `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&resData); err != nil {
+		return 0, fmt.Errorf("데이터 파싱 실패: %w", err)
+	}
+
+	if len(resData.Data) == 0 {
+		return 0, fmt.Errorf("중앙 서버에 등록된 %d학년도 커트라인 데이터가 아직 없습니다.", year)
+	}
+
+	if err := a.db.SaveCutoffs(resData.Data); err != nil {
+		return 0, fmt.Errorf("로컬 DB 저장 실패: %w", err)
+	}
+
+	return len(resData.Data), nil
+}
+
+
 func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB64 string) (int, error) {
 	config, err := a.db.GetSchoolConfig()
 	if err != nil {

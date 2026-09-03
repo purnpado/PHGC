@@ -545,6 +545,13 @@ async function renderAdminScreen(schoolName) {
     const attCount = updateStatus.attendanceCount || 0;
     const volCount = updateStatus.volunteerCount || 0;
 
+    let localVer = '0.5.5';
+    try {
+        localVer = await window.go.main.App.GetAppVersion();
+    } catch (e) {
+        console.warn(e);
+    }
+
     app.className = 'wide-layout';
 
     app.innerHTML = `
@@ -554,6 +561,7 @@ async function renderAdminScreen(schoolName) {
                 <div>
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3">
                         👔 관리자 대시보드
+                        <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
                     </h1>
                     <p class="text-text-muted text-sm mt-1">${schoolName} (총 ${classCount}학급)</p>
                 </div>
@@ -832,6 +840,13 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
     }
 
+    let localVer = '0.5.5';
+    try {
+        localVer = await window.go.main.App.GetAppVersion();
+    } catch (e) {
+        console.warn(e);
+    }
+
     app.className = 'wide-layout';
 
     app.innerHTML = `
@@ -840,6 +855,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                 <div>
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3">
                         👨‍🏫 진학 상담 대시보드
+                        <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
                     </h1>
                     <p class="text-text-muted text-sm mt-1">${schoolName}</p>
                 </div>
@@ -1715,11 +1731,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="text-center py-10"><span class="spinner"></span> 데이터를 불러오는 중...</div>
             </div>
 
-            <div class="p-4 border-t border-slate-700/50 flex justify-between items-center bg-slate-800/30 rounded-b-2xl">
-                <div class="text-xs text-text-muted">입력한 커트라인은 로컬에 자동 저장됩니다.</div>
-                <button id="exportCutoffBtn" class="btn-primary text-xs px-3.5 py-1.5 font-bold flex items-center gap-1.5" style="width: auto; box-shadow: none;">
-                    <span>📤</span> 중앙 서버로 전송
-                </button>
+            <div class="p-4 border-t border-slate-700/50 flex flex-wrap justify-between items-center bg-slate-800/30 rounded-b-2xl gap-3">
+                <div class="text-xs text-text-muted">입력한 커트라인은 로컬 DB에 자동 저장됩니다.</div>
+                <div class="flex items-center gap-2">
+                    <button id="importCutoffBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5" style="width: auto;">
+                        <span>📥</span> 서버 데이터 내려받기
+                    </button>
+                    <button id="exportCutoffBtn" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5" style="width: auto; box-shadow: none;">
+                        <span>📤</span> 중앙 서버로 전송
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -1747,6 +1768,11 @@ document.body.addEventListener('click', (e) => {
     const exportBtn = e.target.closest('#exportCutoffBtn');
     if (exportBtn) {
         handleExportCutoff();
+    }
+
+    const importBtn = e.target.closest('#importCutoffBtn');
+    if (importBtn) {
+        handleImportCutoff();
     }
 });
 
@@ -2029,17 +2055,40 @@ async function handleExportCutoff() {
         alert('전송 실패: ' + e);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>📤</span> 중앙 서버로 전송하기';
+        btn.innerHTML = '<span>📤</span> 중앙 서버로 전송';
     }
 }
 
-// ===== 로그인 화면 =====
+async function handleImportCutoff() {
+    const btn = document.getElementById('importCutoffBtn');
+    const year = parseInt(document.getElementById('cutoffYearSelect').value);
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> 내려받는 중...';
+
+    try {
+        const count = await window.go.main.App.FetchCutoffsFromBridge(year);
+        alert(`중앙 서버에서 총 ${count}건의 ${year}학년도 커트라인 데이터를 성공적으로 내려받았습니다!`);
+        await loadCutoffForm();
+    } catch(e) {
+        alert('서버 데이터 내려받기 실패: ' + e);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
+    }
+}
 
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
     app.className = '';
     try {
         const users = await window.go.main.App.GetUsers();
+        let localVer = '0.5.5';
+        try {
+            localVer = await window.go.main.App.GetAppVersion();
+        } catch (e) {
+            console.warn(e);
+        }
         
         let adminOptions = '';
         let viewerOptions = '';
@@ -2057,15 +2106,15 @@ export async function renderLoginScreen(schoolName) {
 
         app.innerHTML = `
             <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
-                <div class="text-center mb-8">
+                <div class="text-center mb-6">
                     <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🔐</div>
-                    <h1 class="text-2xl font-bold text-white mb-2">그래서? 넌 어디갈래? 🏫</h1>
-                    <p class="text-text-muted text-sm">${schoolName}</p>
+                    <h1 class="text-2xl font-bold text-white mb-1">그래서? 넌 어디갈래? 🏫</h1>
+                    <p class="text-text-muted text-xs">${schoolName}</p>
                 </div>
-                <form id="loginForm" class="space-y-5">
+                <form id="loginForm" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-semibold text-text-muted mb-2">로그인 계정 선택</label>
-                        <select id="loginUsername" class="input-field cursor-pointer">
+                        <label class="block text-xs font-semibold text-text-muted mb-1.5">로그인 계정 선택</label>
+                        <select id="loginUsername" class="input-field cursor-pointer py-2 text-xs">
                             <optgroup label="관리자">
                                 ${adminOptions}
                             </optgroup>
@@ -2078,16 +2127,41 @@ export async function renderLoginScreen(schoolName) {
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-semibold text-text-muted mb-2">비밀번호</label>
-                        <input type="password" id="loginPassword" class="input-field" placeholder="비밀번호 입력" required />
+                        <label class="block text-xs font-semibold text-text-muted mb-1.5">비밀번호</label>
+                        <input type="password" id="loginPassword" class="input-field py-2 text-xs" placeholder="비밀번호 입력" required />
                     </div>
-                    <div class="pt-3">
-                        <button type="submit" id="loginBtn" class="btn-primary">로그인</button>
+                    <div class="pt-2">
+                        <button type="submit" id="loginBtn" class="btn-primary py-2 text-xs font-bold">로그인</button>
                     </div>
-                    <div id="loginError" class="error-msg text-center"></div>
+                    <div id="loginError" class="error-msg text-center text-xs"></div>
                 </form>
+
+                <!-- 현재 설치된 버전 및 업데이트 확인 영역 -->
+                <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs text-text-muted">
+                    <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
+                    <button id="manualUpdateCheckBtn" type="button" class="text-primary hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1 font-bold text-xs">
+                        <span>🔄</span> 업데이트 확인
+                    </button>
+                </div>
             </div>
         `;
+
+        document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('manualUpdateCheckBtn');
+            btn.innerHTML = '<span class="spinner"></span> 확인 중...';
+            try {
+                const res = await window.go.main.App.SyncWithServer();
+                if (res && res.hasUpdate) {
+                    showStartupUpdateModal(res);
+                } else {
+                    alert(`현재 최신 버전(v${localVer})을 사용하고 계십니다!`);
+                }
+            } catch (err) {
+                alert('업데이트 확인 실패: ' + err);
+            } finally {
+                btn.innerHTML = '<span>🔄</span> 업데이트 확인';
+            }
+        });
 
         document.getElementById('loginPassword').focus();
         document.getElementById('loginForm').addEventListener('submit', async (e) => {

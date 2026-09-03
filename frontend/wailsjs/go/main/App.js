@@ -22,6 +22,10 @@ export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
 
+export function FetchCutoffsFromBridge(arg1) {
+  return window['go']['main']['App']['FetchCutoffsFromBridge'](arg1);
+}
+
 export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }

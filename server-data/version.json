@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.5",
+    "latestVersion":  "0.5.6",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.5 ??중학교 고입원서대장 맞춤형 학교별/학과별/전형별 커트라인 정규 테이블 UI 전면 개편",
+    "releaseNotes":  "v0.5.6 ??로컬 버전 상시 표시(로그인/관리자/담임), 수동 업데이트 확인 버튼, 중앙 서버 커트라인 취합 데이터 내려받기(동기화) 연동",
     "downloadUrl":  "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
