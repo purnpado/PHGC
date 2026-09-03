@@ -1357,8 +1357,90 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// ===== 앱 시작 시 자동 업데이트 확인 및 모달 팝업 =====
+async function checkUpdateOnStartup() {
+    try {
+        if (window.go?.main?.App?.SyncWithServer) {
+            const result = await window.go.main.App.SyncWithServer();
+            if (result && result.hasUpdate) {
+                showStartupUpdateModal(result);
+            }
+        }
+    } catch (e) {
+        console.log("시작 시 업데이트 확인 건너뜀:", e);
+    }
+}
+
+function showStartupUpdateModal(result) {
+    document.getElementById('startupUpdateModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'startupUpdateModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 fade-in';
+    modal.innerHTML = `
+        <div class="glass-card p-6 md:p-8 w-full max-w-lg border border-warning/40 space-y-5 text-left">
+            <div class="flex items-center gap-3 border-b border-slate-700/60 pb-3">
+                <span class="text-3xl">🚀</span>
+                <div>
+                    <h3 class="text-lg font-black text-white">새로운 버전이 출시되었습니다!</h3>
+                    <div class="text-xs text-warning font-bold">v${result.latestVersion} (현재 버전: v${result.currentVersion})</div>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="text-xs font-bold text-slate-300">📦 업데이트 주요 내용:</div>
+                <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap font-sans">
+                    ${result.releaseNotes || '새로운 기능 추가 및 시스템 안정화 패치'}
+                </div>
+            </div>
+
+            <div id="startupUpdateStatusMsg" class="text-xs font-bold text-warning hidden"></div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold" style="width: auto;">
+                    다음에 하기
+                </button>
+                <button id="applyStartupUpdateBtn" class="btn-primary text-xs px-4 py-2.5 font-bold flex items-center gap-2" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: auto;">
+                    🚀 지금 즉시 자동 업데이트 및 재시작
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('skipStartupUpdateBtn').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    document.getElementById('applyStartupUpdateBtn').addEventListener('click', async () => {
+        const btn = document.getElementById('applyStartupUpdateBtn');
+        const skipBtn = document.getElementById('skipStartupUpdateBtn');
+        const statusMsg = document.getElementById('startupUpdateStatusMsg');
+
+        btn.disabled = true;
+        skipBtn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> <span>다운로드 중...</span>';
+        statusMsg.className = 'text-xs font-bold text-warning';
+        statusMsg.textContent = '최신 업데이트 파일을 다운로드하고 있습니다. 완료되면 프로그램이 자동으로 재시작됩니다...';
+        statusMsg.classList.remove('hidden');
+
+        try {
+            await window.go.main.App.PerformAutoUpdate(result.downloadUrl);
+        } catch (err) {
+            btn.disabled = false;
+            skipBtn.disabled = false;
+            btn.textContent = '🚀 다시 시도';
+            statusMsg.className = 'text-xs font-bold text-danger';
+            statusMsg.textContent = '자동 업데이트 실패: ' + err;
+        }
+    });
+}
+
 // ===== 앱 시작 =====
 async function init() {
+    // 프로그램 시작 시 조용히 업데이트 버전 확인 (있으면 모달 팝업)
+    checkUpdateOnStartup();
+
     try {
         const isSetup = await CheckSetupComplete();
         if (isSetup) {
@@ -1633,14 +1715,14 @@ document.body.addEventListener('click', (e) => {
     }
 });
 
-async function loadCutoffForm() {
+async function loadCutoffForm(selectedCategory = 'all') {
     const container = document.getElementById('cutoffFormContainer');
     const year = parseInt(document.getElementById('cutoffYearSelect').value);
     
     container.innerHTML = '<div class="text-center py-10"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
 
     try {
-        // 1. 고교 목록 가져오기 (Go 백엔드 API 우선, 실패 시 기본 리스트 폴백)
+        // 1. 고교 목록 가져오기
         let highschoolsList = [];
         try {
             const data = await window.go.main.App.GetHighSchoolsData();
@@ -1648,7 +1730,7 @@ async function loadCutoffForm() {
                 highschoolsList = data.schools;
             }
         } catch (e) {
-            console.warn("GetHighSchoolsData 호출 실패, 내장 기본 목록 사용:", e);
+            console.warn("GetHighSchoolsData 실패, 기본 목록 사용:", e);
         }
 
         if (highschoolsList.length === 0) {
@@ -1675,31 +1757,53 @@ async function loadCutoffForm() {
             });
         }
 
-        let html = '<div class="space-y-4">';
-        
-        highschoolsList.forEach(school => {
+        // 3. 학교 유형별 분리
+        const meisterSchools = highschoolsList.filter(s => s.type === '마이스터고');
+        const specializedSchools = highschoolsList.filter(s => s.type === '특성화고');
+        const generalSchools = highschoolsList.filter(s => s.type === '일반계고');
+
+        // 상단 카테고리 탭 UI
+        let html = `
+            <div class="flex items-center gap-2 mb-5 pb-3 border-b border-slate-700/60 overflow-x-auto">
+                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'all' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="all">
+                    전체 보기
+                </button>
+                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'meister' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="meister">
+                    🎓 마이스터고 (${meisterSchools.length})
+                </button>
+                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'specialized' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="specialized">
+                    🛠️ 특성화고 (${specializedSchools.length})
+                </button>
+                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'general' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="general">
+                    🏫 후기 일반계고 (${generalSchools.length})
+                </button>
+            </div>
+            <div class="space-y-6">
+        `;
+
+        // 학교 카드 렌더링 헬퍼 함수
+        const renderSchoolCard = (school, tracks) => {
             const depts = school.departments && school.departments.length > 0 ? school.departments : ["공통"];
-            
-            html += `
+            let cardHtml = `
                 <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 space-y-3">
                     <div class="flex items-center justify-between">
-                        <h3 class="font-bold text-white text-base flex items-center gap-2">
+                        <h4 class="font-bold text-white text-base flex items-center gap-2">
                             ${school.name}
-                            <span class="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded font-normal">${school.type}</span>
-                        </h3>
-                        <span class="text-xs text-slate-500">${school.area || ''}</span>
+                            <span class="text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded font-normal">${school.type}</span>
+                        </h4>
+                        <span class="text-xs text-slate-400">${school.area || ''}</span>
                     </div>
                     <div class="space-y-2">
             `;
-            
+
             if (school.type === '일반계고') {
                 const key = `${school.name}_공통_일반계고`;
                 const saved = savedMap[key] || savedMap[`${school.name}_공통_일반`] || { minValue: '' };
-                html += `
+                cardHtml += `
                     <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-lg border border-slate-700/40">
                         <div>
-                            <div class="font-bold text-sm text-indigo-300">📌 후기 일반계고 예상 커트라인(%)</div>
-                            <div class="text-[11px] text-text-muted mt-0.5">학교 전망에 따라 자유롭게 백분율을 입력하세요 (예: 85.0%)</div>
+                            <div class="font-bold text-sm text-indigo-300">📌 후기 일반계고 합격선 전망치(%)</div>
+                            <div class="text-[11px] text-text-muted mt-0.5">학교/담임 전망치 입력 (예: 85.0% - 낮을수록 성적 상위권)</div>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-xs text-text-muted">합격선(%)</span>
@@ -1709,18 +1813,24 @@ async function loadCutoffForm() {
                 `;
             } else {
                 depts.forEach(dept => {
-                    const tracks = ['일반전형', '특별전형'];
                     tracks.forEach(track => {
                         const key = `${school.name}_${dept}_${track}`;
                         const saved = savedMap[key] || { minValue: '' };
-                        html += `
+                        const isEmployment = track.includes('취업');
+                        const isSpecial = track.includes('특별');
+                        
+                        let trackBadgeColor = 'bg-slate-800 text-slate-400';
+                        if (isEmployment) trackBadgeColor = 'bg-emerald-950/60 text-emerald-400 border border-emerald-700/40';
+                        else if (isSpecial) trackBadgeColor = 'bg-amber-950/60 text-amber-400 border border-amber-700/40';
+
+                        cardHtml += `
                             <div class="flex items-center justify-between bg-slate-900/40 p-2.5 rounded-lg border border-slate-700/30">
-                                <div>
-                                    <span class="font-bold text-xs text-slate-300">${dept}</span>
-                                    <span class="text-[11px] text-slate-500 ml-1.5">${track}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-xs text-slate-200">${dept}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded ${trackBadgeColor}">${track}</span>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-[11px] text-text-muted">최저점</span>
+                                    <span class="text-[11px] text-text-muted">최저 합격점</span>
                                     <input type="number" step="0.1" class="cutoff-input w-24 text-right bg-slate-700 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none" placeholder="예: 210.0" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
                                 </div>
                             </div>
@@ -1728,11 +1838,60 @@ async function loadCutoffForm() {
                     });
                 });
             }
-            html += `</div></div>`;
-        });
-        
+
+            cardHtml += `</div></div>`;
+            return cardHtml;
+        };
+
+        // 1) 🎓 마이스터고 섹션 (하위: 일반전형 / 특별전형)
+        if (selectedCategory === 'all' || selectedCategory === 'meister') {
+            html += `
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2 text-sm font-black text-amber-400 bg-amber-950/20 px-3 py-2 rounded-lg border border-amber-500/20">
+                        <span>🎓 마이스터고</span>
+                        <span class="text-xs text-slate-400 font-normal">(하위 전형: 일반전형 / 특별전형)</span>
+                    </div>
+                    ${meisterSchools.map(s => renderSchoolCard(s, ['일반전형', '특별전형'])).join('')}
+                </div>
+            `;
+        }
+
+        // 2) 🛠️ 특성화고 섹션 (하위: 일반전형 / 취업희망자 특별전형)
+        if (selectedCategory === 'all' || selectedCategory === 'specialized') {
+            html += `
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2 text-sm font-black text-indigo-400 bg-indigo-950/20 px-3 py-2 rounded-lg border border-indigo-500/20">
+                        <span>🛠️ 특성화고</span>
+                        <span class="text-xs text-slate-400 font-normal">(하위 전형: 일반전형 / 취업희망자 특별전형)</span>
+                    </div>
+                    ${specializedSchools.map(s => renderSchoolCard(s, ['일반전형', '취업희망자 특별전형'])).join('')}
+                </div>
+            `;
+        }
+
+        // 3) 🏫 후기 일반계고 섹션
+        if (selectedCategory === 'all' || selectedCategory === 'general') {
+            html += `
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2 text-sm font-black text-emerald-400 bg-emerald-950/20 px-3 py-2 rounded-lg border border-emerald-500/20">
+                        <span>🏫 후기 일반계고</span>
+                        <span class="text-xs text-slate-400 font-normal">(석차백분율 기준 커트라인 설정)</span>
+                    </div>
+                    ${generalSchools.map(s => renderSchoolCard(s, ['일반계고'])).join('')}
+                </div>
+            `;
+        }
+
         html += '</div>';
         container.innerHTML = html;
+
+        // 탭 버튼 클릭 이벤트 바인딩
+        document.querySelectorAll('.cutoff-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const cat = e.target.dataset.category;
+                loadCutoffForm(cat);
+            });
+        });
 
         // 자동 저장 리스너 바인딩
         document.querySelectorAll('.cutoff-input').forEach(input => {
