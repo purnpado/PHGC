@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.19",
+    "latestVersion":  "0.5.20",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.19 - 완전 자동화된 Gitea 릴리즈 생성 및 exe 바이너리 Asset 첨부 원스톱 배포",
+    "releaseNotes":  "v0.5.20 - Gitea 릴리즈 생성 및 PHGC.exe 바이너리 자동 첨부 배포 성공",
     "downloadUrl":  "https://go.gguk.link/api/download/PHGC.exe"
 }

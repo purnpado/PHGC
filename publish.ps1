@@ -12,8 +12,11 @@ $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
 $giteaRepo = "PHGC"
 
-# Gitea 토큰 읽기 (서버 .env 또는 환경 변수에서)
-$giteaToken = $env:GITEA_TOKEN
+# Gitea 토큰 읽기 (User 환경변수 또는 서버 .env)
+$giteaToken = [System.Environment]::GetEnvironmentVariable("GITEA_TOKEN", "User")
+if (-not $giteaToken) {
+    $giteaToken = $env:GITEA_TOKEN
+}
 if (-not $giteaToken) {
     $envFile = "server/.env"
     if (Test-Path $envFile) {
@@ -26,6 +29,8 @@ if (-not $giteaToken) {
 }
 if (-not $giteaToken) {
     Write-Host "GITEA_TOKEN not found. Gitea Release upload will be skipped." -ForegroundColor Yellow
+} else {
+    Write-Host ">>> GITEA_TOKEN 로드 성공! (자동 릴리즈 생성 활성화)" -ForegroundColor Green
 }
 
 # ===== 1. 현재 버전 읽기 =====
