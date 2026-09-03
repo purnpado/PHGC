@@ -22,7 +22,9 @@ type StudentExcelData struct {
 	ClassNum   int
 	StudentNum string
 	Name       string
-	RawData    string // 나머지 모든 컬럼 데이터를 JSON으로 저장
+	RawData        string // 교과 성적 JSON
+	AttendanceData string // 출결 데이터 JSON
+	VolunteerData  string // 봉사 데이터 JSON
 }
 
 // ParseExcel 나이스 엑셀 또는 CSV 파일을 읽어 학급별로 분류하여 반환

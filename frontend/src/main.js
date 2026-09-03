@@ -542,11 +542,21 @@ async function renderAdminScreen(schoolName) {
                     <div class="p-5 rounded-xl bg-slate-800/50 border border-slate-700/50">
                         <h3 class="font-bold mb-2">📥 나이스 엑셀 데이터 연동</h3>
                         <p class="text-xs text-text-muted mb-4 line-clamp-3">
-                            3학년 전체 파일, 혹은 담임 선생님이 다운받은 반별 파일을 업로드하세요. 프로그램이 자동으로 '반'을 인식하여 쪼개어 저장합니다.
+                            교과 성적, 출결, 봉사 파일을 각각 업로드하세요. 프로그램이 자동으로 '반'을 인식하여 쪼개어 저장합니다.
                         </p>
-                        <button id="uploadExcelBtn" class="btn-primary w-full flex justify-center items-center gap-2 text-sm">
-                            <span>엑셀 파일 불러오기</span>
-                        </button>
+                        <div class="flex flex-col gap-2">
+                            <button id="uploadExcelBtn" class="btn-primary w-full flex justify-center items-center gap-2 text-sm">
+                                <span>교과성적 불러오기</span>
+                            </button>
+                            <div class="flex gap-2">
+                                <button id="uploadAttendanceBtn" class="btn-secondary w-full flex justify-center items-center gap-1 text-xs">
+                                    <span>출결 불러오기</span>
+                                </button>
+                                <button id="uploadVolunteerBtn" class="btn-secondary w-full flex justify-center items-center gap-1 text-xs">
+                                    <span>봉사 불러오기</span>
+                                </button>
+                            </div>
+                        </div>
                         <div id="uploadStatus" class="mt-3 text-xs text-center hidden"></div>
                     </div>
                     <div class="mode-card" id="cutoffBtn">

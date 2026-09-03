@@ -50,8 +50,16 @@ export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
 }
 
+export function ProcessAttendanceExcel(arg1) {
+  return window['go']['main']['App']['ProcessAttendanceExcel'](arg1);
+}
+
 export function ProcessExcel(arg1) {
   return window['go']['main']['App']['ProcessExcel'](arg1);
+}
+
+export function ProcessVolunteerExcel(arg1) {
+  return window['go']['main']['App']['ProcessVolunteerExcel'](arg1);
 }
 
 export function ResetAllData() {

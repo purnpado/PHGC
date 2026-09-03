@@ -167,6 +167,52 @@ func (a *App) ProcessExcel(filePath string) (map[int]int, error) {
 	return result, nil
 }
 
+// ProcessAttendanceExcel 출결 엑셀 파싱 후 DB 병합
+func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
+	if filePath == "" {
+		return nil, fmt.Errorf("파일이 선택되지 않았습니다")
+	}
+
+	classData, err := ParseAttendanceExcel(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]int)
+	for classNum, students := range classData {
+		err := a.db.UpdateStudentAttendance(classNum, students)
+		if err != nil {
+			return nil, fmt.Errorf("%d반 출결 데이터 저장 실패: %w", classNum, err)
+		}
+		result[classNum] = len(students)
+	}
+
+	return result, nil
+}
+
+// ProcessVolunteerExcel 봉사 엑셀 파싱 후 DB 병합
+func (a *App) ProcessVolunteerExcel(filePath string) (map[int]int, error) {
+	if filePath == "" {
+		return nil, fmt.Errorf("파일이 선택되지 않았습니다")
+	}
+
+	classData, err := ParseVolunteerExcel(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]int)
+	for classNum, students := range classData {
+		err := a.db.UpdateStudentVolunteer(classNum, students)
+		if err != nil {
+			return nil, fmt.Errorf("%d반 봉사 데이터 저장 실패: %w", classNum, err)
+		}
+		result[classNum] = len(students)
+	}
+
+	return result, nil
+}
+
 // GetClassStatus 전체 학급의 데이터 저장 현황(학생 수) 반환
 func (a *App) GetClassStatus(classCount int) map[int]int {
 	status := make(map[int]int)

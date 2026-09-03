@@ -324,9 +324,16 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			student_num TEXT NOT NULL,
 			name TEXT NOT NULL,
-			grades_json TEXT
+			grades_json TEXT,
+			attendance_json TEXT DEFAULT '',
+			volunteer_json TEXT DEFAULT ''
 		);
 	`)
+	
+	// 기존 테이블에 컬럼 추가 (오류 무시 - 이미 존재할 경우)
+	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN attendance_json TEXT DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN volunteer_json TEXT DEFAULT ''`)
+
 	if err != nil {
 		return fmt.Errorf("학급 DB 초기화 실패: %w", err)
 	}
@@ -360,8 +367,8 @@ func (dm *DBManager) SaveClassStudents(classNum int, students []StudentExcelData
 	}
 
 	stmt, err := tx.Prepare(`
-		INSERT INTO students (student_num, name, grades_json)
-		VALUES (?, ?, ?)
+		INSERT INTO students (student_num, name, grades_json, attendance_json, volunteer_json)
+		VALUES (?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		tx.Rollback()
@@ -370,13 +377,75 @@ func (dm *DBManager) SaveClassStudents(classNum int, students []StudentExcelData
 	defer stmt.Close()
 
 	for _, s := range students {
-		_, err = stmt.Exec(s.StudentNum, s.Name, s.RawData)
+		_, err = stmt.Exec(s.StudentNum, s.Name, s.RawData, s.AttendanceData, s.VolunteerData)
 		if err != nil {
 			tx.Rollback()
 			return err
 		}
 	}
 
+	return tx.Commit()
+}
+
+// UpdateStudentAttendance 파싱된 출결 데이터를 기존 학생 DB에 병합
+func (dm *DBManager) UpdateStudentAttendance(classNum int, students []StudentExcelData) error {
+	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
+	db, err := dm.openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("UPDATE students SET attendance_json = ? WHERE name = ? AND student_num = ?")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for _, s := range students {
+		_, err = stmt.Exec(s.AttendanceData, s.Name, s.StudentNum)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// UpdateStudentVolunteer 파싱된 봉사 데이터를 기존 학생 DB에 병합
+func (dm *DBManager) UpdateStudentVolunteer(classNum int, students []StudentExcelData) error {
+	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
+	db, err := dm.openDB(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	stmt, err := tx.Prepare("UPDATE students SET volunteer_json = ? WHERE name = ? AND student_num = ?")
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for _, s := range students {
+		_, err = stmt.Exec(s.VolunteerData, s.Name, s.StudentNum)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -408,7 +477,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 			continue // 해당 반 데이터가 없으면 무시
 		}
 		
-		rows, err := db.Query("SELECT student_num, name, grades_json FROM students")
+		rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, '') FROM students")
 		if err != nil {
 			db.Close()
 			continue
@@ -418,7 +487,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 		for rows.Next() {
 			var s StudentExcelData
 			s.ClassNum = i
-			err := rows.Scan(&s.StudentNum, &s.Name, &s.RawData)
+			err := rows.Scan(&s.StudentNum, &s.Name, &s.RawData, &s.AttendanceData, &s.VolunteerData)
 			if err == nil {
 				students = append(students, s)
 			}

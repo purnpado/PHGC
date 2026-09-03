@@ -26,7 +26,11 @@ export function GetUsers():Promise<Array<main.User>>;
 
 export function OpenExcelFile():Promise<string>;
 
+export function ProcessAttendanceExcel(arg1:string):Promise<Record<number, number>>;
+
 export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
+
+export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ResetAllData():Promise<void>;
 
