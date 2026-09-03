@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.1.0",
-  "minVersion": "0.1.0",
-  "releaseNotes": "초기 릴리스 — 프로젝트 뼈대 + 관리자 설정 + 서버 동기화",
+  "latestVersion": "0.5.0",
+  "minVersion": "0.5.0",
+  "releaseNotes": "v0.5.0 — '그래서? 넌 어디갈래?' 5개 특목/마이스터/특성화고 통합 산출 엔진 및 진학상담 모달 적용",
   "downloadUrl": "https://gitea.gguk.link/purnpadosori/PHGC/releases"
 }
