@@ -1745,7 +1745,6 @@ async function loadCutoffForm() {
         container.innerHTML = `<div class="text-danger py-10 text-center font-bold">데이터 로드 실패: ${err}</div>`;
     }
 }
-}
 
 async function saveCutoffData(year) {
     const inputs = document.querySelectorAll('.cutoff-input');
