@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.27",
+    "latestVersion":  "0.5.28",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.27 - 반 성적 목록 getGeneralGuideBadge 전역 스코프 참조 오류 픽스",
+    "releaseNotes":  "v0.5.28 - 나이스 봉사시간 푸터(310시간) 오인식 픽스 및 대시보드·진학상담·종합성적표 석차/백분율 100% 일치화",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }

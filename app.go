@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -338,7 +339,7 @@ func (a *App) RollbackSchoolCutoffs(year int) (string, error) {
 	_ = json.NewDecoder(resp.Body).Decode(&resData)
 
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf(resData.Error)
+		return "", fmt.Errorf("%s", resData.Error)
 	}
 
 	return resData.Message, nil
@@ -366,7 +367,7 @@ func (a *App) ResetServerCutoffs(year int) (string, error) {
 	_ = json.NewDecoder(resp.Body).Decode(&resData)
 
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf(resData.Error)
+		return "", fmt.Errorf("%s", resData.Error)
 	}
 
 	return resData.Message, nil
@@ -496,6 +497,21 @@ func (a *App) ResetAllData() error {
 	return nil
 }
 
+// matchStudent 학생 번호와 이름을 대조하여 동일 학생 여부 판별 (공백 제거, 번호 정수 일치 지원)
+func matchStudent(num1, name1, num2, name2 string) bool {
+	cleanName1 := strings.ReplaceAll(strings.TrimSpace(name1), " ", "")
+	cleanName2 := strings.ReplaceAll(strings.TrimSpace(name2), " ", "")
+	if cleanName1 != "" && cleanName2 != "" && cleanName1 == cleanName2 {
+		return true
+	}
+	n1, err1 := strconv.Atoi(strings.TrimSpace(num1))
+	n2, err2 := strconv.Atoi(strings.TrimSpace(num2))
+	if err1 == nil && err2 == nil && n1 == n2 {
+		return true
+	}
+	return strings.TrimSpace(num1) == strings.TrimSpace(num2)
+}
+
 // GetStudentFullDetail 학생 1명의 10개 고교별 산출 결과 및 상세 내역 반환
 func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*StudentFullData, error) {
 	s, err := a.db.GetStudent(classNum, studentNum, name)
@@ -511,7 +527,7 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 	// 대시보드와 동일한 정확한 전교 석차 백분율 동기화
 	classGrades, _ := a.GetClassGrades(classNum)
 	for _, cg := range classGrades {
-		if cg.StudentNum == studentNum {
+		if matchStudent(cg.StudentNum, cg.Name, studentNum, name) {
 			full.GeneralHSPercentile = cg.Percentile
 			if cg.Percentile <= 80 {
 				full.GeneralHSLevel = "상"
@@ -577,9 +593,9 @@ func (a *App) GetStudentTranscript(classNum int, studentNum, name string) (*Stud
 		if len(allStudents) > 0 {
 			calcResults, _ := CalculateGrades(allStudents, config.IsSmallSchool)
 			res.TotalStudents = len(calcResults)
-			for idx, cg := range calcResults {
-				if cg.ClassNum == classNum && cg.StudentNum == studentNum {
-					res.Rank = idx + 1
+			for _, cg := range calcResults {
+				if cg.ClassNum == classNum && matchStudent(cg.StudentNum, cg.Name, studentNum, name) {
+					res.Rank = cg.Rank
 					res.Percentile = cg.Percentile
 					break
 				}
@@ -599,18 +615,17 @@ func (a *App) GetClassFullGrades(classNum int) ([]StudentFullData, error) {
 
 	// 1. 전교생 기준 정확한 내신 산출 결과(석차백분율) 가져오기
 	classGrades, _ := a.GetClassGrades(classNum)
-	pctMap := make(map[string]float64)
-	for _, cg := range classGrades {
-		pctMap[cg.StudentNum] = cg.Percentile
-	}
 
 	var results []StudentFullData
 	for _, s := range students {
 		full, err := parseStudentFullData(s)
 		if err == nil {
 			// 대시보드 표와 동일한 정확한 전교 석차 백분율 동기화
-			if realPct, ok := pctMap[full.StudentNum]; ok {
-				full.GeneralHSPercentile = realPct
+			for _, cg := range classGrades {
+				if matchStudent(cg.StudentNum, cg.Name, full.StudentNum, full.Name) {
+					full.GeneralHSPercentile = cg.Percentile
+					break
+				}
 			}
 			results = append(results, *full)
 		}

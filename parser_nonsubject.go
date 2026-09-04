@@ -7,6 +7,42 @@ import (
 	"strings"
 )
 
+// isFooterOrInvalidRow 나이스 출력물 페이지 푸터(예: "11 / 310 푸른파도소리중학교") 및 무효 행 감지
+func isFooterOrInvalidRow(row []string) bool {
+	joined := ""
+	for _, cell := range row {
+		trimmed := strings.TrimSpace(cell)
+		if trimmed == "/" {
+			return true
+		}
+		if strings.Contains(trimmed, "출력일시") || strings.Contains(trimmed, "페이지") {
+			return true
+		}
+		joined += trimmed
+	}
+	// 페이지 표시 (예: "11/310" 등) 또는 학교명 푸터
+	if strings.Contains(joined, "/") {
+		parts := strings.Split(joined, "/")
+		if len(parts) == 2 {
+			p1 := strings.TrimSpace(parts[0])
+			p2 := strings.TrimSpace(parts[1])
+			if _, err1 := strconv.Atoi(p1); err1 == nil {
+				return true
+			}
+			if len(p2) >= 1 {
+				numEnd := 0
+				for numEnd < len(p2) && (p2[numEnd] >= '0' && p2[numEnd] <= '9') {
+					numEnd++
+				}
+				if numEnd > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 // ParseAttendanceExcel 나이스 출결상황 엑셀/CSV 파싱
 func ParseAttendanceExcel(filePath string) (map[int][]StudentExcelData, error) {
 	rows, err := readRows(filePath)
@@ -31,6 +67,10 @@ func ParseAttendanceExcel(filePath string) (map[int][]StudentExcelData, error) {
 		if len(row) == 0 {
 			continue
 		}
+
+		if isFooterOrInvalidRow(row) {
+			continue
+		}
 		
 		if skipNextRow {
 			skipNextRow = false
@@ -50,28 +90,30 @@ func ParseAttendanceExcel(filePath string) (map[int][]StudentExcelData, error) {
 			}
 		}
 
-		if nameColIdx == -1 {
-			for j, cell := range row {
-				val := strings.ReplaceAll(strings.TrimSpace(cell), " ", "")
-				if val == "성명" || val == "이름" {
-					nameColIdx = j
-				} else if val == "번호" || val == "학번" {
-					studentNumColIdx = j
-				} else if val == "결석" {
-					unrecognizedAbsenceIdx = j + 1
-				} else if val == "지각" {
-					unrecognizedLateIdx = j + 1
-				} else if val == "조퇴" {
-					unrecognizedEarlyIdx = j + 1
-				} else if val == "결과" {
-					unrecognizedResultIdx = j + 1
-				}
-			}
-			if nameColIdx != -1 {
-				skipNextRow = true // 헤더가 2줄이므로 다음 줄 무시
-				continue
+		// 헤더 행 재감지 또는 최초 감지
+		isHeaderRow := false
+		for j, cell := range row {
+			val := strings.ReplaceAll(strings.TrimSpace(cell), " ", "")
+			if val == "성명" || val == "이름" {
+				nameColIdx = j
+				isHeaderRow = true
+			} else if val == "번호" || val == "학번" {
+				studentNumColIdx = j
+			} else if val == "결석" {
+				unrecognizedAbsenceIdx = j + 1
+			} else if val == "지각" {
+				unrecognizedLateIdx = j + 1
+			} else if val == "조퇴" {
+				unrecognizedEarlyIdx = j + 1
+			} else if val == "결과" {
+				unrecognizedResultIdx = j + 1
 			}
 		}
+		if isHeaderRow {
+			skipNextRow = true // 헤더가 2줄이므로 다음 줄 무시
+			continue
+		}
+
 		if nameColIdx != -1 && nameColIdx < len(row) {
 			rawName := strings.TrimSpace(row[nameColIdx])
 			rawNum := ""
@@ -160,12 +202,17 @@ func ParseVolunteerExcel(filePath string) (map[int][]StudentExcelData, error) {
 
 	nameColIdx := -1
 	studentNumColIdx := -1
+	dateColIdx := -1
 	totalTimeIdx := -1
 
 	var lastName, lastStudentNum string
 
 	for _, row := range rows {
 		if len(row) == 0 {
+			continue
+		}
+
+		if isFooterOrInvalidRow(row) {
 			continue
 		}
 
@@ -182,20 +229,23 @@ func ParseVolunteerExcel(filePath string) (map[int][]StudentExcelData, error) {
 			}
 		}
 
-		if nameColIdx == -1 {
-			for j, cell := range row {
-				val := strings.ReplaceAll(strings.TrimSpace(cell), " ", "")
-				if val == "성명" || val == "이름" {
-					nameColIdx = j
-				} else if val == "번호" || val == "학번" {
-					studentNumColIdx = j
-				} else if strings.Contains(val, "시간누계(전체)") {
-					totalTimeIdx = j
-				}
+		// 헤더 열 위치 탐색 및 헤더 행 스킵
+		isHeaderRow := false
+		for j, cell := range row {
+			val := strings.ReplaceAll(strings.TrimSpace(cell), " ", "")
+			if val == "성명" || val == "이름" {
+				nameColIdx = j
+				isHeaderRow = true
+			} else if val == "번호" || val == "학번" {
+				studentNumColIdx = j
+			} else if strings.Contains(val, "일자") {
+				dateColIdx = j
+			} else if strings.Contains(val, "시간누계(전체)") {
+				totalTimeIdx = j
 			}
-			if nameColIdx != -1 {
-				continue
-			}
+		}
+		if isHeaderRow {
+			continue
 		}
 
 		if nameColIdx != -1 && nameColIdx < len(row) {
@@ -206,6 +256,26 @@ func ParseVolunteerExcel(filePath string) (map[int][]StudentExcelData, error) {
 			}
 
 			if rawName == "" && rawNum == "" {
+				// 연장행인 경우, 날짜 형식(202X, ., 등)이 없으면 데이터 행이 아니므로 건너뜀
+				hasDate := false
+				if dateColIdx != -1 && dateColIdx < len(row) {
+					dStr := strings.TrimSpace(row[dateColIdx])
+					if strings.Contains(dStr, "202") || strings.Contains(dStr, "201") || strings.Contains(dStr, ".") {
+						hasDate = true
+					}
+				}
+				if !hasDate {
+					for _, c := range row {
+						t := strings.TrimSpace(c)
+						if strings.Contains(t, "202") || strings.Contains(t, "201") {
+							hasDate = true
+							break
+						}
+					}
+				}
+				if !hasDate {
+					continue
+				}
 				rawName = lastName
 				rawNum = lastStudentNum
 			} else {

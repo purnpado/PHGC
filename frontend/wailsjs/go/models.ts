@@ -180,6 +180,8 @@ export namespace main {
 	    S21: number;
 	    S22: number;
 	    TotalSubjectScore: number;
+	    Rank: number;
+	    TotalStudents: number;
 	    Percentile: number;
 	    FinalScore: number;
 	
@@ -198,6 +200,8 @@ export namespace main {
 	        this.S21 = source["S21"];
 	        this.S22 = source["S22"];
 	        this.TotalSubjectScore = source["TotalSubjectScore"];
+	        this.Rank = source["Rank"];
+	        this.TotalStudents = source["TotalStudents"];
 	        this.Percentile = source["Percentile"];
 	        this.FinalScore = source["FinalScore"];
 	    }

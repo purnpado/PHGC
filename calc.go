@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -29,6 +30,8 @@ type StudentCalcResult struct {
 	S22 float64
 	
 	TotalSubjectScore float64 // 5개 학기 합산
+	Rank              int     // 석차 (동석차 반영)
+	TotalStudents     int     // 전체 학생수
 	Percentile        float64 // 백분율
 	FinalScore        float64 // 160 - 0.96 * 백분율
 }
@@ -50,54 +53,70 @@ func CalculateGrades(allStudents map[int][]StudentExcelData, isSmallSchool bool)
 	}
 
 	// 2. 총점(TotalSubjectScore) 기준으로 정렬하여 석차 구하기
-	// (동점자 처리: S22(가산출) > S21 > S13 > S12)
+	// (동점자 처리: S22(가산출) > S21 > S13 > S12 > 반 오름차순 > 번호 오름차순)
 	sort.Slice(results, func(i, j int) bool {
 		a, b := results[i], results[j]
-		if math.Abs(a.TotalSubjectScore - b.TotalSubjectScore) > 0.0001 {
+		if math.Abs(a.TotalSubjectScore-b.TotalSubjectScore) > 0.0001 {
 			return a.TotalSubjectScore > b.TotalSubjectScore
 		}
 		// 총점이 같을 경우 동점자 우선순위
-		if math.Abs(a.S22 - b.S22) > 0.0001 {
+		if math.Abs(a.S22-b.S22) > 0.0001 {
 			return a.S22 > b.S22
 		}
-		if math.Abs(a.S21 - b.S21) > 0.0001 {
+		if math.Abs(a.S21-b.S21) > 0.0001 {
 			return a.S21 > b.S21
 		}
-		if math.Abs(a.S13 - b.S13) > 0.0001 {
+		if math.Abs(a.S13-b.S13) > 0.0001 {
 			return a.S13 > b.S13
 		}
-		return a.S12 > b.S12
+		if math.Abs(a.S12-b.S12) > 0.0001 {
+			return a.S12 > b.S12
+		}
+		// 모든 교과 점수가 동일한 경우 호출 시마다 순서가 바뀌지 않도록 결정적 tie-breaker 적용
+		if a.ClassNum != b.ClassNum {
+			return a.ClassNum < b.ClassNum
+		}
+		numA, errA := strconv.Atoi(strings.TrimSpace(a.StudentNum))
+		numB, errB := strconv.Atoi(strings.TrimSpace(b.StudentNum))
+		if errA == nil && errB == nil && numA != numB {
+			return numA < numB
+		}
+		return a.StudentNum < b.StudentNum
 	})
 
-	// 3. 백분율 및 최종 교과점수 산출
+	// 3. 백분율 및 최종 교과점수 산출 (울산광역시 고입 지침: 동점자는 동석차 및 동일 백분율 부여)
 	totalStudents := len(results)
 	if totalStudents == 0 {
 		return nil, fmt.Errorf("계산할 학생 데이터가 없습니다")
 	}
 
-	for i := range results {
-		rank := float64(i + 1)
-		
-		// 동점자 처리: 이전 학생과 점수가 완전히 같으면 같은 등수 부여
+	baseCount := float64(totalStudents)
+	if isSmallSchool && totalStudents < 10 {
+		baseCount = 10.0 // 소인수 학교 10명 보정
+	}
+
+	ranks := make([]float64, totalStudents)
+	for i := 0; i < totalStudents; i++ {
 		if i > 0 {
 			prev := results[i-1]
 			curr := results[i]
 			if math.Abs(prev.TotalSubjectScore-curr.TotalSubjectScore) < 0.0001 &&
-			   math.Abs(prev.S22-curr.S22) < 0.0001 &&
-			   math.Abs(prev.S21-curr.S21) < 0.0001 &&
-			   math.Abs(prev.S13-curr.S13) < 0.0001 &&
-			   math.Abs(prev.S12-curr.S12) < 0.0001 {
-				// 같은 등수 찾기 (동석차)
-				// 실제 등수는 i+1 이지만, 화면상 표시나 백분율에 쓰일 등수는 prev의 등수를 따라야 할 수도 있음.
-				// 울산 지침상 동점자가 발생할 수 있으나, 여기서는 안전하게 i번째 등수를 그대로 쓰거나 
-				// 엄격한 동점자 처리가 필요하다면 로직 보강 필요 (우선순위 규정을 적용했으므로 대부분 갈라짐)
+				math.Abs(prev.S22-curr.S22) < 0.0001 &&
+				math.Abs(prev.S21-curr.S21) < 0.0001 &&
+				math.Abs(prev.S13-curr.S13) < 0.0001 &&
+				math.Abs(prev.S12-curr.S12) < 0.0001 {
+				// 완전히 동점인 경우 동일한 석차(동석차) 부여
+				ranks[i] = ranks[i-1]
+			} else {
+				ranks[i] = float64(i + 1)
 			}
+		} else {
+			ranks[0] = 1.0
 		}
+	}
 
-		baseCount := float64(totalStudents)
-		if isSmallSchool && totalStudents < 10 {
-			baseCount = 10.0 // 소인수 학교 10명 보정
-		}
+	for i := range results {
+		rank := ranks[i]
 
 		// 석차 백분율 = (개인석차 / 재적수) * 100 (소수 셋째자리 반올림)
 		percentile := (rank / baseCount) * 100
@@ -107,6 +126,8 @@ func CalculateGrades(allStudents map[int][]StudentExcelData, isSmallSchool bool)
 		finalScore := 160.0 - (0.96 * percentile)
 		finalScore = roundToTwoDecimals(finalScore)
 
+		results[i].Rank = int(rank)
+		results[i].TotalStudents = totalStudents
 		results[i].Percentile = percentile
 		results[i].FinalScore = finalScore
 	}

@@ -1595,7 +1595,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     <div class="text-xl font-bold text-white">${data.totalVolunteerHours}시간 <span class="text-[11px] text-slate-400 font-normal">(기본${data.volunteerHours}+추가${data.addVolunteerHours})</span></div>
                 </div>
                 <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
-                    <div class="text-xs text-text-muted mb-1">일반고 추정 백분율</div>
+                    <div class="text-xs text-text-muted mb-1">일반고 석차 백분율</div>
                     <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSPercentile.toFixed(1)}%</div>
                 </div>
             </div>
