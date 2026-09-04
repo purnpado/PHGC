@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.25",
+    "latestVersion":  "0.5.26",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.25 - 담임 수기 출결상황 보완, 지원가이드 판정기준 커스텀화, 마이스터/특성화고 학과별 커트라인 지원, 출결/봉사 업로드 실시간 갱신 적용",
+    "releaseNotes":  "v0.5.26 - 한글 폴더 및 다국어 환경 완벽 지원 무창(No-Window) 자동 업데이트 엔진 적용",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }

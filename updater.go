@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,7 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
+	"unicode/utf16"
 )
 
 // DownloadAndApplyUpdate 새 버전 바이너리를 다운로드하고 자동 교체 및 재실행
@@ -55,43 +58,68 @@ func DownloadAndApplyUpdate(customURL string) error {
 		return fmt.Errorf("다운로드 데이터 저장 실패: %w", err)
 	}
 
-	tempExeName := filepath.Base(tempExe)
-	currentExeName := filepath.Base(currentExe)
+	// 5. PowerShell 백그라운드 스크립트 작성
+	// 한글 경로, 공백 및 터미널 창 노출 방지를 위해 PowerShell Hidden 및 LiteralPath 사용
+	currentPid := os.Getpid()
+	psScript := fmt.Sprintf(`
+$pidToWait = %d
+$tempPath = '%s'
+$targetPath = '%s'
 
-	// 5. Windows 배치 파일 생성하여 현재 프로세스 종료 후 덮어쓰기 & 재실행
-	// 한글 경로 등 다국어 인코딩 문제를 원천 차단하기 위해 %~dp0 기준 순수 ASCII 상대 경로 적용
-	batPath := filepath.Join(exeDir, "apply_update.bat")
-	batContent := fmt.Sprintf(`@echo off
-timeout /t 2 /nobreak > nul
-cd /d "%%%%~dp0"
+try {
+    $proc = Get-Process -Id $pidToWait -ErrorAction SilentlyContinue
+    if ($proc) { $proc.WaitForExit(5000) }
+} catch {}
+Start-Sleep -Milliseconds 500
 
-:retry
-move /y "%s" "%s" > nul 2>&1
-if errorlevel 1 (
-    timeout /t 1 /nobreak > nul
-    goto retry
-)
+$success = $false
+for ($i = 0; $i -lt 15; $i++) {
+    try {
+        Move-Item -LiteralPath $tempPath -Destination $targetPath -Force -ErrorAction Stop
+        $success = $true
+        break
+    } catch {
+        Start-Sleep -Milliseconds 400
+    }
+}
 
-start "" "%s"
-del "%%%%~nx0"
-`, tempExeName, currentExeName, currentExeName)
+if ($success) {
+    Start-Process -FilePath $targetPath
+}
+`, currentPid, strings.ReplaceAll(tempExe, "'", "''"), strings.ReplaceAll(currentExe, "'", "''"))
 
-	if err := os.WriteFile(batPath, []byte(batContent), 0755); err != nil {
-		os.Remove(tempExe)
-		return fmt.Errorf("업데이트 배치파일 생성 실패: %w", err)
+	// UTF-16LE 인코딩 후 Base64 변환
+	encodedScript := encodePowerShell(psScript)
+
+	// 6. PowerShell 무창(CREATE_NO_WINDOW) 프로세스 실행 (터미널 창 완전 숨김)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encodedScript)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
 	}
 
-	// 6. 배치파일 백그라운드 실행 후 현재 프로세스 즉시 종료
-	cmd := exec.Command("cmd.exe", "/c", "start", "/min", batPath)
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("업데이트 스크립트 실행 실패: %w", err)
+		os.Remove(tempExe)
+		return fmt.Errorf("업데이트 프로세스 실행 실패: %w", err)
 	}
 
 	// 7. 메인 프로그램 종료
 	go func() {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 		os.Exit(0)
 	}()
 
 	return nil
+}
+
+// encodePowerShell PowerShell -EncodedCommand용 UTF-16LE Base64 인코딩
+func encodePowerShell(script string) string {
+	runes := []rune(script)
+	u16s := utf16.Encode(runes)
+	bytes := make([]byte, len(u16s)*2)
+	for i, u := range u16s {
+		bytes[i*2] = byte(u)
+		bytes[i*2+1] = byte(u >> 8)
+	}
+	return base64.StdEncoding.EncodeToString(bytes)
 }

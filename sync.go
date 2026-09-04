@@ -14,7 +14,7 @@ import (
 
 const (
 	// 현재 앱 버전
-	AppVersion = "0.5.25"
+	AppVersion = "0.5.26"
 
 	// Gitea 서버 정보
 	GiteaBaseURL = "https://gitea.gguk.link"
@@ -255,6 +255,7 @@ func (sm *SyncManager) GetHighSchools() (*HighSchoolData, error) {
 
 	return nil, fmt.Errorf("고교 목록 데이터를 찾을 수 없습니다. 서버 동기화를 먼저 실행해 주세요.")
 }
+
 
 
 
