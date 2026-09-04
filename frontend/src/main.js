@@ -2276,442 +2276,6 @@ window.loadIssueDetails = async (issueID) => {
 
 
 // ==========================================
-// 커트라인 모달 로직
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    // 커트라인 모달 컨테이너 생성
-    const cutoffModal = document.createElement('div');
-    cutoffModal.id = 'cutoffModal';
-    cutoffModal.className = 'hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4';
-    cutoffModal.innerHTML = `
-        <div class="glass-card max-w-4xl w-full flex flex-col fade-in">
-            <div class="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30 rounded-t-2xl">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <span>🎯</span> 고교별 커트라인 관리
-                </h2>
-                <div class="flex items-center gap-4">
-                    <select id="cutoffYearSelect" class="input-field py-1 px-2 text-sm">
-                        <option value="2024">2024학년도</option>
-                        <option value="2025" selected>2025학년도</option>
-                        <option value="2026">2026학년도</option>
-                    </select>
-                    <button id="closeCutoffBtn" class="text-text-muted hover:text-white transition-colors bg-transparent border-none text-xl">&times;</button>
-                </div>
-            </div>
-            
-            <div class="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar" id="cutoffFormContainer">
-                <div class="text-center py-10"><span class="spinner"></span> 데이터를 불러오는 중...</div>
-            </div>
-
-            <div class="p-4 border-t border-slate-700/50 flex flex-wrap justify-between items-center bg-slate-800/30 rounded-b-2xl gap-3">
-                <div class="flex items-center gap-3">
-                    <button id="resetServerCutoffBtn" class="text-xs text-rose-400 hover:text-rose-300 font-bold transition-all bg-transparent border-none cursor-pointer flex items-center gap-1">
-                        <span>⚠️</span> 서버 전체 초기화 (테스트용)
-                    </button>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button id="rollbackCutoffBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 text-rose-300 border border-rose-500/30 hover:bg-rose-950/40" style="width: auto;">
-                        <span>🗑️</span> 서버 등록 회수(삭제)
-                    </button>
-                    <button id="importCutoffBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5" style="width: auto;">
-                        <span>📥</span> 서버 데이터 내려받기
-                    </button>
-                    <button id="exportCutoffBtn" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5" style="width: auto; box-shadow: none;">
-                        <span>📤</span> 중앙 서버로 전송
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(cutoffModal);
-
-    const closeBtn = document.getElementById('closeCutoffBtn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => cutoffModal.classList.add('hidden'));
-    }
-
-    const yearSelect = document.getElementById('cutoffYearSelect');
-    if (yearSelect) {
-        yearSelect.addEventListener('change', loadCutoffForm);
-    }
-});
-
-// body 델리게이션을 통한 이벤트 바인딩 (DOM 렌더링 이후 버튼 클릭 잡기 위함)
-document.body.addEventListener('click', (e) => {
-    const cutoffBtn = e.target.closest('#cutoffBtn');
-    if (cutoffBtn) {
-        document.getElementById('cutoffModal').classList.remove('hidden');
-        loadCutoffForm();
-    }
-    
-    const exportBtn = e.target.closest('#exportCutoffBtn');
-    if (exportBtn) {
-        handleExportCutoff();
-    }
-
-    const importBtn = e.target.closest('#importCutoffBtn');
-    if (importBtn) {
-        handleImportCutoff();
-    }
-
-    const rollbackBtn = e.target.closest('#rollbackCutoffBtn');
-    if (rollbackBtn) {
-        handleRollbackCutoff();
-    }
-
-    const resetServerBtn = e.target.closest('#resetServerCutoffBtn');
-    if (resetServerBtn) {
-        handleResetServerCutoff();
-    }
-});
-
-async function loadCutoffForm(selectedCategory = 'all') {
-    const container = document.getElementById('cutoffFormContainer');
-    const year = parseInt(document.getElementById('cutoffYearSelect').value);
-    
-    container.innerHTML = '<div class="text-center py-10"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
-
-    try {
-        // 1. 고교 목록 가져오기
-        let highschoolsList = [];
-        try {
-            const data = await window.go.main.App.GetHighSchoolsData();
-            if (data && data.schools && data.schools.length > 0) {
-                highschoolsList = data.schools;
-            }
-        } catch (e) {
-            console.warn("GetHighSchoolsData 실패, 기본 목록 사용:", e);
-        }
-
-        if (highschoolsList.length === 0) {
-            highschoolsList = [
-                { name: "울산 후기 일반계고", type: "일반계고", area: "울산전역", departments: ["공통"] },
-                { name: "울산마이스터고등학교", type: "마이스터고", area: "북구", departments: ["정밀기계과", "자동화시스템과", "전기시스템제어과"] },
-                { name: "울산에너지고등학교", type: "마이스터고", area: "북구", departments: ["전기에너지과", "신재생에너지과"] },
-                { name: "현대공업고등학교", type: "마이스터고", area: "동구", departments: ["정밀기계과", "산업설비과", "전기제어과"] },
-                { name: "울산상업고등학교", type: "특성화고", area: "중구", departments: ["군사경영과", "물류경영과", "IT콘텐츠과"] },
-                { name: "울산여자상업고등학교", type: "특성화고", area: "남구", departments: ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"] },
-                { name: "울산생활과학고등학교", type: "특성화고", area: "동구", departments: ["보건간호과", "조리과", "사무행정과"] },
-                { name: "울산공업고등학교", type: "특성화고", area: "남구", departments: ["건축과", "기계과", "전기과", "전자통신과", "토목과", "화공과"] }
-            ];
-        }
-
-        // 2. 저장된 커트라인 데이터 가져오기
-        const savedCutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
-        const savedMap = {};
-        if (savedCutoffs) {
-            savedCutoffs.forEach(c => {
-                if (c.year === year) {
-                    savedMap[`${c.schoolName}_${c.department}_${c.track}`] = c;
-                }
-            });
-        }
-
-        // 3. 학교 유형별 분리
-        const meisterSchools = highschoolsList.filter(s => s.type === '마이스터고');
-        const specializedSchools = highschoolsList.filter(s => s.type === '특성화고');
-        const generalSchools = highschoolsList.filter(s => s.type === '일반계고');
-
-        // 상단 카테고리 탭 UI
-        let html = `
-            <div class="flex items-center gap-2 mb-5 pb-3 border-b border-slate-700/60 overflow-x-auto">
-                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'all' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="all">
-                    전체 보기
-                </button>
-                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'meister' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="meister">
-                    🎓 마이스터고 (${meisterSchools.length})
-                </button>
-                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'specialized' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="specialized">
-                    🛠️ 특성화고 (${specializedSchools.length})
-                </button>
-                <button class="cutoff-tab-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${selectedCategory === 'general' ? 'bg-primary text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}" data-category="general">
-                    🏫 후기 일반계고 (${generalSchools.length})
-                </button>
-            </div>
-            <div class="space-y-6">
-        `;
-
-        // 학교 카드 렌더링 헬퍼 함수 (원서대장 맞춤형: 학교 공통행 + 학과별 행 정규 테이블)
-        const renderSchoolCard = (school, tracks) => {
-            const depts = school.departments && school.departments.length > 0 ? school.departments : ["공통"];
-
-            let cardHtml = `
-                <div class="bg-slate-800/60 p-4 sm:p-5 rounded-xl border border-slate-700/60 space-y-3">
-                    <div class="flex items-center justify-between pb-2 border-b border-slate-700/40">
-                        <h4 class="font-bold text-white text-base flex items-center gap-2">
-                            ${school.name}
-                            <span class="text-[11px] text-primary bg-primary/15 px-2.5 py-0.5 rounded-full font-semibold border border-primary/30">${school.type}</span>
-                        </h4>
-                        <span class="text-xs text-slate-400 font-medium">${school.area || ''}</span>
-                    </div>
-            `;
-
-            if (school.type === '일반계고') {
-                const key = `${school.name}_공통_일반계고`;
-                const saved = savedMap[key] || savedMap[`${school.name}_공통_일반`] || { minValue: '' };
-                cardHtml += `
-                    <div class="flex items-center justify-between bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/40">
-                        <div>
-                            <div class="font-bold text-sm text-emerald-300">📌 후기 일반계고 합격선 전망치(%)</div>
-                            <div class="text-[11px] text-text-muted mt-0.5">중학교 원서대장 및 진학 전망치 입력 (예: 85.0% - 낮을수록 상위권)</div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-text-muted font-bold">합격선(%)</span>
-                            <input type="number" step="0.1" min="0" max="100" class="cutoff-input w-28 text-right bg-slate-700 border border-slate-600 rounded px-2.5 py-1.5 text-sm text-white font-bold focus:ring-1 focus:ring-primary outline-none" placeholder="예: 85.0" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="일반계고" data-type="percentile">
-                        </div>
-                    </div>
-                `;
-            } else {
-                // 마이스터고 및 특성화고: 학교 공통 + 학과별 정규 테이블
-                cardHtml += `
-                    <div class="overflow-x-auto rounded-lg border border-slate-700/50 bg-slate-900/40">
-                        <table class="w-full text-left border-collapse text-xs">
-                            <thead>
-                                <tr class="bg-slate-800/90 text-text-muted border-b border-slate-700/70">
-                                    <th class="p-2.5 font-bold text-slate-300 w-44">학과 구분</th>
-                `;
-
-                tracks.forEach(track => {
-                    const isEmployment = track.includes('취업');
-                    const isSpecial = track.includes('특별');
-                    let trackBadgeColor = 'text-slate-300';
-                    if (isEmployment) trackBadgeColor = 'text-emerald-400';
-                    else if (isSpecial) trackBadgeColor = 'text-amber-400';
-
-                    cardHtml += `<th class="p-2.5 font-bold text-center ${trackBadgeColor}">${track} 최저점</th>`;
-                });
-
-                cardHtml += `
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-800">
-                                <!-- 1) 학교 전체 공통 행 (원서대장에 과 구분이 없을 때) -->
-                                <tr class="bg-indigo-950/20 hover:bg-indigo-950/40 transition-colors">
-                                    <td class="p-2.5 font-bold text-indigo-300 flex items-center gap-1.5">
-                                        <span>📌</span> 학교 전체 공통 (과 미구분 시)
-                                    </td>
-                `;
-
-                tracks.forEach(track => {
-                    const commonKey = `${school.name}_공통_${track}`;
-                    const saved = savedMap[commonKey] || { minValue: '' };
-                    cardHtml += `
-                        <td class="p-2 text-center">
-                            <input type="number" step="0.01" class="cutoff-input w-28 text-right bg-slate-800 border border-indigo-500/40 rounded px-2 py-1 text-xs text-indigo-200 font-bold focus:ring-1 focus:ring-primary outline-none inline-block" placeholder="학교최저점" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="공통" data-track="${track}" data-type="total_score">
-                        </td>
-                    `;
-                });
-
-                cardHtml += `</tr>`;
-
-                // 2) 학과별 세부 행 (원서대장에 학과가 명시되어 있을 때)
-                depts.forEach(dept => {
-                    cardHtml += `
-                        <tr class="hover:bg-slate-800/40 transition-colors">
-                            <td class="p-2.5 font-semibold text-slate-200">${dept}</td>
-                    `;
-
-                    tracks.forEach(track => {
-                        const key = `${school.name}_${dept}_${track}`;
-                        const saved = savedMap[key] || { minValue: '' };
-                        cardHtml += `
-                            <td class="p-2 text-center">
-                                <input type="number" step="0.01" class="cutoff-input w-28 text-right bg-slate-700/80 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:ring-1 focus:ring-primary outline-none inline-block" placeholder="학과최저점" value="${saved.minValue || ''}" data-school="${school.name}" data-dept="${dept}" data-track="${track}" data-type="total_score">
-                            </td>
-                        `;
-                    });
-
-                    cardHtml += `</tr>`;
-                });
-
-                cardHtml += `
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-            }
-
-            cardHtml += `</div>`;
-            return cardHtml;
-        };
-
-        // 1) 🎓 마이스터고 섹션 (하위: 일반전형 / 특별전형)
-        if (selectedCategory === 'all' || selectedCategory === 'meister') {
-            html += `
-                <div class="space-y-3">
-                    <div class="flex items-center gap-2 text-sm font-black text-amber-400 bg-amber-950/20 px-3 py-2 rounded-lg border border-amber-500/20">
-                        <span>🎓 마이스터고</span>
-                        <span class="text-xs text-slate-400 font-normal">(하위 전형: 일반전형 / 특별전형)</span>
-                    </div>
-                    ${meisterSchools.map(s => renderSchoolCard(s, ['일반전형', '특별전형'])).join('')}
-                </div>
-            `;
-        }
-
-        // 2) 🛠️ 특성화고 섹션 (하위: 일반전형 / 취업희망자 특별전형)
-        if (selectedCategory === 'all' || selectedCategory === 'specialized') {
-            html += `
-                <div class="space-y-3">
-                    <div class="flex items-center gap-2 text-sm font-black text-indigo-400 bg-indigo-950/20 px-3 py-2 rounded-lg border border-indigo-500/20">
-                        <span>🛠️ 특성화고</span>
-                        <span class="text-xs text-slate-400 font-normal">(하위 전형: 일반전형 / 취업희망자 특별전형)</span>
-                    </div>
-                    ${specializedSchools.map(s => renderSchoolCard(s, ['일반전형', '취업희망자 특별전형'])).join('')}
-                </div>
-            `;
-        }
-
-        // 3) 🏫 후기 일반계고 섹션
-        if (selectedCategory === 'all' || selectedCategory === 'general') {
-            html += `
-                <div class="space-y-3">
-                    <div class="flex items-center gap-2 text-sm font-black text-emerald-400 bg-emerald-950/20 px-3 py-2 rounded-lg border border-emerald-500/20">
-                        <span>🏫 후기 일반계고</span>
-                        <span class="text-xs text-slate-400 font-normal">(석차백분율 기준 커트라인 설정)</span>
-                    </div>
-                    ${generalSchools.map(s => renderSchoolCard(s, ['일반계고'])).join('')}
-                </div>
-            `;
-        }
-
-        html += '</div>';
-        container.innerHTML = html;
-
-        // 탭 버튼 클릭 이벤트 바인딩
-        document.querySelectorAll('.cutoff-tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const cat = e.target.dataset.category;
-                loadCutoffForm(cat);
-            });
-        });
-
-        // 자동 저장 리스너 바인딩
-        document.querySelectorAll('.cutoff-input').forEach(input => {
-            input.addEventListener('change', async () => {
-                await saveCutoffData(year);
-            });
-        });
-
-    } catch (err) {
-        container.innerHTML = `<div class="text-danger py-10 text-center font-bold">데이터 로드 실패: ${err}</div>`;
-    }
-}
-
-async function saveCutoffData(year) {
-    const inputs = document.querySelectorAll('.cutoff-input');
-    const cutoffs = [];
-    
-    inputs.forEach(input => {
-        const val = parseFloat(input.value);
-        if (!isNaN(val)) {
-            cutoffs.push({
-                year: year,
-                schoolName: input.dataset.school,
-                department: input.dataset.dept,
-                track: input.dataset.track,
-                scoreType: input.dataset.type,
-                minValue: val,
-                maxValue: val // 간소화: 최저점만 사용
-            });
-        }
-    });
-
-    if (cutoffs.length > 0) {
-        try {
-            await window.go.main.App.SaveCutoffs(cutoffs);
-        } catch (e) {
-            console.error('커트라인 저장 실패:', e);
-        }
-    }
-}
-
-async function handleExportCutoff() {
-    const btn = document.getElementById('exportCutoffBtn');
-    const year = parseInt(document.getElementById('cutoffYearSelect').value);
-    
-    if (!confirm(`${year}학년도 커트라인 데이터를 중앙 데이터베이스로 전송하시겠습니까?`)) {
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span>전송 중...';
-
-    try {
-        await saveCutoffData(year); // Ensure latest is saved
-        await window.go.main.App.SendCutoffsToBridge(year);
-        alert('데이터 전송이 완료되었습니다! 협조해 주셔서 감사합니다.');
-    } catch(e) {
-        alert('전송 실패: ' + e);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>📤</span> 중앙 서버로 전송';
-    }
-}
-
-async function handleImportCutoff() {
-    const btn = document.getElementById('importCutoffBtn');
-    const year = parseInt(document.getElementById('cutoffYearSelect').value);
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> 내려받는 중...';
-
-    try {
-        const count = await window.go.main.App.FetchCutoffsFromBridge(year);
-        alert(`중앙 서버에서 총 ${count}건의 ${year}학년도 커트라인 데이터를 성공적으로 내려받았습니다!`);
-        await loadCutoffForm();
-    } catch(e) {
-        alert('서버 데이터 내려받기 실패: ' + e);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
-    }
-}
-
-async function handleRollbackCutoff() {
-    const year = parseInt(document.getElementById('cutoffYearSelect').value);
-    if (!confirm(`정말로 우리 학교가 중앙 서버에 등록한 ${year}학년도 커트라인 데이터를 회수(삭제)하시겠습니까?\n\n회수 즉시 다른 학교에서 더 이상 우리 학교 데이터가 조회되지 않습니다.`)) {
-        return;
-    }
-
-    const btn = document.getElementById('rollbackCutoffBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> 회수 중...';
-
-    try {
-        const msg = await window.go.main.App.RollbackSchoolCutoffs(year);
-        alert(msg || '서버 데이터 회수가 완료되었습니다.');
-    } catch(e) {
-        alert('서버 데이터 회수 실패: ' + e);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span>🗑️</span> 서버 등록 회수(삭제)';
-    }
-}
-
-async function handleResetServerCutoff() {
-    const year = parseInt(document.getElementById('cutoffYearSelect').value);
-    const confirmed = prompt(`⚠️ [중앙 서버 커트라인 전체 초기화]\n\n중앙 서버에 등록된 모든 학교의 ${year}학년도 커트라인 데이터를 일괄 삭제합니다.\n(테스트 데이터를 깨끗이 비울 때 사용)\n\n진행하시려면 아래 입력창에 '초기화'를 입력하세요:`);
-    if (confirmed !== '초기화') {
-        if (confirmed !== null) alert('초기화가 취소되었습니다.');
-        return;
-    }
-
-    const btn = document.getElementById('resetServerCutoffBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ 초기화 진행 중...';
-
-    try {
-        const msg = await window.go.main.App.ResetServerCutoffs(year);
-        alert(msg || '중앙 서버 데이터가 성공적으로 초기화되었습니다.');
-        await loadCutoffForm();
-    } catch(e) {
-        alert('서버 초기화 실패: ' + e);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '⚠️ 서버 전체 초기화 (테스트용)';
-    }
-}
-
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
     app.className = '';
@@ -3514,7 +3078,7 @@ async function renderCutoffScreen(schoolName) {
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-3 flex-wrap">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <!-- 입학년도 (입시년도) 선택기: 헷갈림 완전 방지 -->
                         <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-indigo-500/40 shadow-inner">
                             <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도(입시년도):</label>
@@ -3526,14 +3090,23 @@ async function renderCutoffScreen(schoolName) {
                             </select>
                         </div>
 
-                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-4 py-2 font-bold flex items-center gap-1.5 shadow-md">
-                            <span>💾</span> 커트라인 전체 저장
+                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 shadow-md">
+                            <span>💾</span> 커트라인 저장
                         </button>
-                        <button id="exportBridgeCutoffBtn" class="text-xs border border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/30 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
-                            <span>📤</span> 중앙 서버 전송
+                        <button id="exportBridgeCutoffBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                            <span>📤</span> 서버 전송
                         </button>
-                        <button id="backToAdminBtn" class="btn-secondary text-xs px-4 py-2 font-bold">
-                            ← 대시보드로 돌아가기
+                        <button id="importBridgeCutoffBtn" class="text-xs bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
+                            <span>📥</span> 서버 데이터 내려받기
+                        </button>
+                        <button id="rollbackBridgeCutoffBtn" class="text-xs bg-rose-950/20 border border-rose-500/30 text-rose-300 hover:bg-rose-950/40 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors" title="우리 학교 등록 데이터 회수">
+                            <span>🗑️</span> 회수
+                        </button>
+                        <button id="resetBridgeCutoffBtn" class="text-[11px] text-rose-400 hover:text-rose-300 font-bold px-2 py-2 flex items-center gap-1 bg-transparent border-none cursor-pointer" title="중앙 서버 전체 초기화 (테스트용)">
+                            <span>⚠️</span> 서버 초기화
+                        </button>
+                        <button id="backToAdminBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold">
+                            ← 대시보드
                         </button>
                     </div>
                 </div>
@@ -3676,8 +3249,14 @@ async function renderCutoffScreen(schoolName) {
             });
         });
 
-        // 전체 저장 함수
-        const saveAllCutoffs = async () => {
+        // 1. 입학년도(입시년도) 변경 리스너
+        document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
+            currentAdmissionYear = parseInt(e.target.value);
+            renderMainScreen();
+        });
+
+        // 2. 전체 저장 함수
+        const saveAllCutoffs = async (silent = false) => {
             const rows = app.querySelectorAll('.cutoff-item-row');
             const cutoffs = [];
 
@@ -3709,34 +3288,104 @@ async function renderCutoffScreen(schoolName) {
             });
 
             if (cutoffs.length === 0) {
-                alert('저장할 유효한 커트라인 점수가 없습니다. 최저 합격선을 입력해주세요.');
-                return;
+                if (!silent) alert('저장할 유효한 커트라인 점수가 없습니다. 최저 합격선을 입력해주세요.');
+                return false;
             }
 
             try {
                 await window.go.main.App.SaveCutoffs(cutoffs);
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
-                alert(`${currentAdmissionYear}학년도 총 ${cutoffs.length}개의 고교·학과별 커트라인(최저/최고/평균)이 안전하게 저장되었습니다!`);
+                if (!silent) {
+                    alert(`${currentAdmissionYear}학년도 총 ${cutoffs.length}개의 고교·학과별 커트라인(최저/최고/평균)이 안전하게 저장되었습니다!`);
+                }
+                return true;
             } catch (err) {
                 alert('저장 실패: ' + err);
+                return false;
             }
         };
 
-        document.getElementById('saveAllCutoffsBtn')?.addEventListener('click', saveAllCutoffs);
+        document.getElementById('saveAllCutoffsBtn')?.addEventListener('click', () => saveAllCutoffs(false));
 
+        // 3. 중앙 서버 전송
         document.getElementById('exportBridgeCutoffBtn')?.addEventListener('click', async () => {
             if (!confirm(`${currentAdmissionYear}학년도 커트라인 데이터를 중앙 데이터베이스로 전송하시겠습니까?`)) {
                 return;
             }
-            await saveAllCutoffs();
+            const btn = document.getElementById('exportBridgeCutoffBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 전송 중...';
+
             try {
+                await saveAllCutoffs(true);
                 await window.go.main.App.SendCutoffsToBridge(currentAdmissionYear);
-                alert('데이터 전송이 성공적으로 완료되었습니다.');
+                alert('데이터 전송이 성공적으로 완료되었습니다! 협조해 주셔서 감사합니다.');
             } catch (err) {
                 alert('서버 전송 실패: ' + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📤</span> 서버 전송';
             }
         });
 
+        // 4. 중앙 서버 데이터 내려받기
+        document.getElementById('importBridgeCutoffBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('importBridgeCutoffBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 내려받는 중...';
+
+            try {
+                const count = await window.go.main.App.FetchCutoffsFromBridge(currentAdmissionYear);
+                alert(`${currentAdmissionYear}학년도 중앙 서버에서 총 ${count}건의 커트라인 데이터를 성공적으로 내려받았습니다!`);
+                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                renderMainScreen();
+            } catch (err) {
+                alert('서버 데이터 내려받기 실패: ' + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
+            }
+        });
+
+        // 5. 서버 등록 회수(삭제)
+        document.getElementById('rollbackBridgeCutoffBtn')?.addEventListener('click', async () => {
+            if (!confirm(`정말로 우리 학교가 중앙 서버에 등록한 ${currentAdmissionYear}학년도 커트라인 데이터를 회수(삭제)하시겠습니까?\n\n회수 즉시 다른 학교에서 더 이상 우리 학교 데이터가 조회되지 않습니다.`)) {
+                return;
+            }
+            const btn = document.getElementById('rollbackBridgeCutoffBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 회수 중...';
+
+            try {
+                const msg = await window.go.main.App.RollbackSchoolCutoffs(currentAdmissionYear);
+                alert(msg || '서버 데이터 회수가 완료되었습니다.');
+            } catch (err) {
+                alert('서버 데이터 회수 실패: ' + err);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🗑️</span> 회수';
+            }
+        });
+
+        // 6. 서버 전체 초기화 (테스트용)
+        document.getElementById('resetBridgeCutoffBtn')?.addEventListener('click', async () => {
+            const confirmed = prompt(`⚠️ [중앙 서버 커트라인 전체 초기화]\n\n중앙 서버에 등록된 모든 학교의 ${currentAdmissionYear}학년도 커트라인 데이터를 일괄 삭제합니다.\n(테스트 데이터를 깨끗이 비울 때 사용)\n\n진행하시려면 아래 입력창에 '초기화'를 입력하세요:`);
+            if (confirmed !== '초기화') {
+                if (confirmed !== null) alert('초기화가 취소되었습니다.');
+                return;
+            }
+
+            try {
+                const msg = await window.go.main.App.ResetServerCutoffs(currentAdmissionYear);
+                alert(msg || '중앙 서버 데이터가 성공적으로 초기화되었습니다.');
+                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                renderMainScreen();
+            } catch (err) {
+                alert('서버 초기화 실패: ' + err);
+            }
+        });
+
+        // 7. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });

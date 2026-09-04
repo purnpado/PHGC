@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.30",
-    "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.30 - 고교 입학년도(입시년도) 표기 정립 및 커트라인 관리 단일 통합 페이지(네비게이션 탭·최고/최저/평균 입력·공식 공개 입결 탭) 전면 개편",
-    "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
+  "latestVersion": "0.5.31",
+  "minVersion": "0.5.0",
+  "releaseNotes": "v0.5.31 - 구버전 커트라인 팝업 모달창 제거 및 단일 통합 커트라인 관리 페이지(서버 연동 툴바) 일원화",
+  "downloadUrl": "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }
