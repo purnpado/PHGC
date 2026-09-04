@@ -7,6 +7,7 @@ frontend/dist/
 
 # Go
 *.exe
+!server-data/PHGC.exe
 *.exe~
 *.dll
 *.so

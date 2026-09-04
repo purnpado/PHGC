@@ -1,6 +1,6 @@
 ﻿{
-    "latestVersion":  "0.5.22",
+    "latestVersion":  "0.5.23",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.22 - 로그인 계정 명칭을 학년부장 및 진로부장(조회전용)으로 현실 직책 반영 수정",
-    "downloadUrl":  "https://go.gguk.link/api/download/PHGC.exe"
+    "releaseNotes":  "v0.5.23 - 원클릭 자동 업데이트 다운로드 경로를 비공개 동기화 엔드포인트로 연동",
+    "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }
