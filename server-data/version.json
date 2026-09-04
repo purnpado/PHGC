@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.23",
+    "latestVersion":  "0.5.24",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.23 - 원클릭 자동 업데이트 다운로드 경로를 비공개 동기화 엔드포인트로 연동",
+    "releaseNotes":  "v0.5.24 - 한글 경로 및 다국어 폴더 환경에서도 완벽 작동하는 무중단 자동 교체 스크립트 적용",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }

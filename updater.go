@@ -55,12 +55,15 @@ func DownloadAndApplyUpdate(customURL string) error {
 		return fmt.Errorf("다운로드 데이터 저장 실패: %w", err)
 	}
 
+	tempExeName := filepath.Base(tempExe)
+	currentExeName := filepath.Base(currentExe)
+
 	// 5. Windows 배치 파일 생성하여 현재 프로세스 종료 후 덮어쓰기 & 재실행
+	// 한글 경로 등 다국어 인코딩 문제를 원천 차단하기 위해 %~dp0 기준 순수 ASCII 상대 경로 적용
 	batPath := filepath.Join(exeDir, "apply_update.bat")
 	batContent := fmt.Sprintf(`@echo off
-setlocal
-chcp 65001 > nul
 timeout /t 2 /nobreak > nul
+cd /d "%%%%~dp0"
 
 :retry
 move /y "%s" "%s" > nul 2>&1
@@ -70,8 +73,8 @@ if errorlevel 1 (
 )
 
 start "" "%s"
-del "%%~f0"
-`, tempExe, currentExe, currentExe)
+del "%%%%~nx0"
+`, tempExeName, currentExeName, currentExeName)
 
 	if err := os.WriteFile(batPath, []byte(batContent), 0755); err != nil {
 		os.Remove(tempExe)
