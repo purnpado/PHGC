@@ -94,8 +94,14 @@ git add .
 git add -f server-data/PHGC.exe
 git commit -m "release: v$newVer - $Notes"
 git tag -a "v$newVer" -m "v$newVer - $Notes" -f
-git push
-git push origin "v$newVer" -f
+if ($giteaToken) {
+    $authenticatedUrl = "https://${giteaToken}@gitea.gguk.link/purnpadosori/PHGC.git"
+    git push $authenticatedUrl main
+    git push $authenticatedUrl "v$newVer" -f
+} else {
+    git push
+    git push origin "v$newVer" -f
+}
 
 # ===== 8. Gitea Release 생성 & exe Asset 업로드 =====
 if ($giteaToken) {
