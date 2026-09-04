@@ -112,7 +112,7 @@ if ($giteaToken) {
     # 8-1. 기존 동일 태그 릴리즈가 있으면 삭제
     $headers = @{
         "Authorization" = "token $giteaToken"
-        "Content-Type"  = "application/json"
+        "Content-Type"  = "application/json; charset=utf-8"
     }
     try {
         $existingRelease = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/tags/v$newVer" -Headers $headers -Method Get -ErrorAction SilentlyContinue
@@ -124,7 +124,7 @@ if ($giteaToken) {
         # 기존 릴리즈 없으면 무시
     }
 
-    # 8-2. 새 릴리즈 생성
+    # 8-2. 새 릴리즈 생성 (UTF-8 바이트 배열 전송으로 한글 깨짐 방지)
     $releaseBody = @{
         tag_name = "v$newVer"
         name     = "v$newVer"
@@ -132,9 +132,10 @@ if ($giteaToken) {
         draft    = $false
         prerelease = $false
     } | ConvertTo-Json -Depth 4
+    $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($releaseBody)
 
     try {
-        $release = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $headers -Method Post -Body $releaseBody
+        $release = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $headers -Method Post -Body $bodyBytes
         $releaseId = $release.id
         Write-Host ">>> Gitea Release 생성 완료 (ID: $releaseId)" -ForegroundColor Green
 
