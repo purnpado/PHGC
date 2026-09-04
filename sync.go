@@ -1,6 +1,7 @@
-﻿package main
+package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -119,6 +120,7 @@ func (sm *SyncManager) CheckVersion() (*VersionInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 
 	var versionInfo VersionInfo
 	if err := json.Unmarshal(data, &versionInfo); err != nil {
@@ -133,6 +135,7 @@ func (sm *SyncManager) SyncHighSchools() (*HighSchoolData, error) {
 	if err != nil {
 		return nil, err
 	}
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 
 	var schoolData HighSchoolData
 	if err := json.Unmarshal(data, &schoolData); err != nil {

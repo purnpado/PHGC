@@ -52,11 +52,13 @@ Write-Host ">>> 버전 자동 증가: $currentVer -> $newVer" -ForegroundColor G
 Write-Host ">>> 릴리즈 노트: $Notes" -ForegroundColor Yellow
 Write-Host "==========================================" -ForegroundColor Cyan
 
-# ===== 3. server-data/version.json 업데이트 =====
+# ===== 3. server-data/version.json 업데이트 (BOM 없는 UTF-8) =====
 $json.latestVersion = $newVer
 $json.releaseNotes = "v$newVer - $Notes"
 $json.downloadUrl = "https://go.gguk.link/api/sync/server-data/PHGC.exe"
-$json | ConvertTo-Json -Depth 4 | Set-Content $versionFile -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$jsonString = $json | ConvertTo-Json -Depth 4
+[System.IO.File]::WriteAllText((Resolve-Path $versionFile), $jsonString, $utf8NoBom)
 
 # ===== 4. sync.go AppVersion 업데이트 =====
 $syncFile = "sync.go"
