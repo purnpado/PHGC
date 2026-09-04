@@ -293,7 +293,7 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		json.Unmarshal([]byte(s.RawData), &records)
 	}
 
-	freeSemesters := make(map[string]bool)
+	var lastGrade, lastSem string
 
 	for _, rec := range records {
 		var grade, sem, achieveRaw, subjectName string
@@ -307,27 +307,39 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 			if strings.Contains(cleanK, "학년도") {
 				continue
 			}
-			if strings.Contains(cleanK, "학년") {
+			if cleanK == "학년" || (strings.Contains(cleanK, "학년") && !strings.Contains(cleanK, "학기")) {
 				grade = cleanV
-			} else if strings.Contains(cleanK, "학기") {
+			} else if cleanK == "학기" || strings.Contains(cleanK, "학기") {
 				sem = cleanV
 			} else if strings.Contains(cleanK, "성취도") {
 				achieveRaw = cleanV
-			} else if strings.Contains(cleanK, "과목") {
+			} else if (cleanK == "과목" || cleanK == "교과목" || cleanK == "과목명") || (strings.Contains(cleanK, "과목") && !strings.Contains(cleanK, "평균") && !strings.Contains(cleanK, "원점수") && !strings.Contains(cleanK, "교과")) {
 				subjectName = cleanV
 			}
 		}
 
-		if grade == "" || sem == "" || achieveRaw == "" {
+		if grade != "" {
+			lastGrade = grade
+		} else {
+			grade = lastGrade
+		}
+
+		if sem != "" {
+			lastSem = sem
+		} else {
+			sem = lastSem
+		}
+
+		if grade == "" || sem == "" || achieveRaw == "" || subjectName == "" || len(subjectName) < 2 {
+			continue
+		}
+		if strings.Contains(subjectName, "/") || strings.Contains(subjectName, "중학교") {
 			continue
 		}
 
-		key := grade + "_" + sem
 		achieve := string(achieveRaw[0])
-
 		if achieve == "P" {
-			freeSemesters[key] = true
-			continue
+			continue // P는 성취도 수치 점수 산출에서 제외
 		}
 
 		score := 0
@@ -340,6 +352,7 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		default: continue
 		}
 
+		key := grade + "_" + sem
 		result.SemesterScores[key] = append(result.SemesterScores[key], score)
 
 		// 가중치 과목 분류
@@ -352,15 +365,7 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		}
 	}
 
-	// 자유학기 처리: 해당 학기를 제거
-	for k := range freeSemesters {
-		delete(result.SemesterScores, k)
-		for cat := range result.SubjectScores {
-			delete(result.SubjectScores[cat], k)
-		}
-	}
-
-	// 전과목 평균 성취도 계산
+	// 전과목 평균 성취도 계산 (A~E 5점 만점 환산)
 	totalScore := 0
 	totalCount := 0
 	for _, scores := range result.SemesterScores {

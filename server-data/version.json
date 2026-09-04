@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.28",
+    "latestVersion":  "0.5.29",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.28 - 나이스 봉사시간 푸터(310시간) 오인식 픽스 및 대시보드·진학상담·종합성적표 석차/백분율 100% 일치화",
+    "releaseNotes":  "v0.5.29 - 교과 성적 병합 셀 누락 픽스(평균 성취도 5.0 오류 해결) 및 백분율 소수 둘째자리(0.00%) 표기 통일",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }

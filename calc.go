@@ -153,10 +153,10 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 	// 학기별로 과목 성적 분류
 	// grade_semester -> list of achievement strings
 	semesters := make(map[string][]int)
-	freeSemesters := make(map[string]bool)
+	var lastGrade, lastSem string
 
 	for _, rec := range records {
-		var grade, sem, achieveRaw string
+		var grade, sem, achieveRaw, subjectName string
 		for k, v := range rec {
 			// 키와 값의 공백, 따옴표, 줄바꿈 등을 완벽하게 제거
 			cleanK := strings.ReplaceAll(k, " ", "")
@@ -173,16 +173,33 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 				continue // '학년도' 컬럼은 '학년'으로 오인되지 않도록 무시
 			}
 			
-			if strings.Contains(cleanK, "학년") {
+			if cleanK == "학년" || (strings.Contains(cleanK, "학년") && !strings.Contains(cleanK, "학기")) {
 				grade = cleanV
-			} else if strings.Contains(cleanK, "학기") {
+			} else if cleanK == "학기" || strings.Contains(cleanK, "학기") {
 				sem = cleanV
 			} else if strings.Contains(cleanK, "성취도") {
 				achieveRaw = cleanV
+			} else if (cleanK == "과목" || cleanK == "교과목" || cleanK == "과목명") || (strings.Contains(cleanK, "과목") && !strings.Contains(cleanK, "평균") && !strings.Contains(cleanK, "원점수") && !strings.Contains(cleanK, "교과")) {
+				subjectName = cleanV
 			}
 		}
 		
-		if grade == "" || sem == "" || achieveRaw == "" {
+		if grade != "" {
+			lastGrade = grade
+		} else {
+			grade = lastGrade
+		}
+
+		if sem != "" {
+			lastSem = sem
+		} else {
+			sem = lastSem
+		}
+
+		if grade == "" || sem == "" || achieveRaw == "" || subjectName == "" || len(subjectName) < 2 {
+			continue
+		}
+		if strings.Contains(subjectName, "/") || strings.Contains(subjectName, "중학교") {
 			continue
 		}
 
@@ -192,8 +209,7 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 		achieve := string(achieveRaw[0])
 		
 		if achieve == "P" {
-			freeSemesters[key] = true
-			continue // P는 점수 산출에서 제외
+			continue // P는 교과 점수 산출에서 제외
 		}
 
 		score := 0
@@ -204,18 +220,18 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 		case "D": score = 2
 		case "E": score = 1
 		default:
-			// 성취도가 아닌 원점수만 있는 예체능이나 기타 과목은 제외 (울산 지침 확인 필요, 보통 A-E)
+			// 성취도가 아닌 원점수만 있는 예체능이나 기타 과목은 제외
 			continue
 		}
 		
 		semesters[key] = append(semesters[key], score)
 	}
 
-	// S11: 1학년 중 자유학기가 아닌 학기
+	// S11: 1학년 중 성취도가 산출된 학기 (자유학기는 성취도 과목이 0개이므로 자동 제외)
 	s11Scores := []int{}
-	if !freeSemesters["1_1"] && len(semesters["1_1"]) > 0 {
+	if len(semesters["1_1"]) > 0 {
 		s11Scores = semesters["1_1"]
-	} else if !freeSemesters["1_2"] && len(semesters["1_2"]) > 0 {
+	} else if len(semesters["1_2"]) > 0 {
 		s11Scores = semesters["1_2"]
 	}
 	res.S11 = calcSemesterScore(s11Scores, 5.44)

@@ -874,11 +874,11 @@ function getGeneralGuideBadge(percentile) {
     const cutoff = getGeneralGuideCutoff();
     const border = Math.min(100, cutoff + 10.0);
     if (percentile <= cutoff) {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${percentile.toFixed(1)}%)</span>`;
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${percentile.toFixed(2)}%)</span>`;
     } else if (percentile <= border) {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 일반고 경계 (${percentile.toFixed(1)}%)</span>`;
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 일반고 경계 (${percentile.toFixed(2)}%)</span>`;
     } else {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 일반고 주의 (${percentile.toFixed(1)}%)</span>`;
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 일반고 주의 (${percentile.toFixed(2)}%)</span>`;
     }
 }
 window.getGeneralGuideCutoff = getGeneralGuideCutoff;
@@ -1596,7 +1596,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
                 <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
                     <div class="text-xs text-text-muted mb-1">일반고 석차 백분율</div>
-                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSPercentile.toFixed(1)}%</div>
+                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSPercentile.toFixed(2)}%</div>
                 </div>
             </div>
 
@@ -1879,7 +1879,7 @@ async function openMatrixModal(classNum) {
                     <td class="p-2.5">${sanup}</td>
                     <td class="p-2.5">${miyong}</td>
                     <td class="p-2.5">${gisul}</td>
-                    <td class="p-2.5 font-bold whitespace-nowrap">${general} <span class="text-[11px] text-slate-400">(${s.generalHSPercentile.toFixed(1)}%)</span></td>
+                    <td class="p-2.5 font-bold whitespace-nowrap">${general} <span class="text-[11px] text-slate-400">(${s.generalHSPercentile.toFixed(2)}%)</span></td>
                 </tr>
             `;
         });
