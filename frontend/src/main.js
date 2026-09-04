@@ -856,6 +856,35 @@ async function renderAdminScreen(schoolName) {
     });
 }
 
+// ===== 일반고 지원가이드 판정 기준선 전역 헬퍼 (기본 80%) =====
+function getGeneralGuideCutoff() {
+    const val = localStorage.getItem('phgc_general_guide_cutoff');
+    if (val !== null && !isNaN(parseFloat(val))) {
+        return parseFloat(val);
+    }
+    return 80.0;
+}
+
+function setGeneralGuideCutoff(val) {
+    localStorage.setItem('phgc_general_guide_cutoff', val);
+    window.generalGuideCutoff = val;
+}
+
+function getGeneralGuideBadge(percentile) {
+    const cutoff = getGeneralGuideCutoff();
+    const border = Math.min(100, cutoff + 10.0);
+    if (percentile <= cutoff) {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${percentile.toFixed(1)}%)</span>`;
+    } else if (percentile <= border) {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 일반고 경계 (${percentile.toFixed(1)}%)</span>`;
+    } else {
+        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 일반고 주의 (${percentile.toFixed(1)}%)</span>`;
+    }
+}
+window.getGeneralGuideCutoff = getGeneralGuideCutoff;
+window.setGeneralGuideCutoff = setGeneralGuideCutoff;
+window.getGeneralGuideBadge = getGeneralGuideBadge;
+
 // ===== 담임 교사 모드 화면 =====
 async function renderTeacherScreen(schoolName, targetClassNum = null) {
     let classCount = 8;
@@ -947,32 +976,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
             </div>
         `;
     };
-
-// 일반고 지원가이드 판정 기준선 (기본 80%)
-function getGeneralGuideCutoff() {
-    const val = localStorage.getItem('phgc_general_guide_cutoff');
-    if (val !== null && !isNaN(parseFloat(val))) {
-        return parseFloat(val);
-    }
-    return 80.0;
-}
-
-function setGeneralGuideCutoff(val) {
-    localStorage.setItem('phgc_general_guide_cutoff', val);
-    window.generalGuideCutoff = val;
-}
-
-function getGeneralGuideBadge(percentile) {
-    const cutoff = getGeneralGuideCutoff();
-    const border = Math.min(100, cutoff + 10.0);
-    if (percentile <= cutoff) {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-success/20 text-success border border-success/30">🟢 일반고 안정 (${percentile.toFixed(1)}%)</span>`;
-    } else if (percentile <= border) {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-warning/20 text-warning border border-warning/30">🟡 일반고 경계 (${percentile.toFixed(1)}%)</span>`;
-    } else {
-        return `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-danger/20 text-danger border border-danger/30">🔴 일반고 주의 (${percentile.toFixed(1)}%)</span>`;
-    }
-}
 
     app.innerHTML = `
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">

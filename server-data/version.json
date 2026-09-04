@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.26",
+    "latestVersion":  "0.5.27",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.26 - 한글 폴더 및 다국어 환경 완벽 지원 무창(No-Window) 자동 업데이트 엔진 적용",
+    "releaseNotes":  "v0.5.27 - 반 성적 목록 getGeneralGuideBadge 전역 스코프 참조 오류 픽스",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }
