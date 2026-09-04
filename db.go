@@ -425,65 +425,129 @@ func (dm *DBManager) SaveClassStudents(classNum int, students []StudentExcelData
 }
 
 // UpdateStudentAttendance 파싱된 출결 데이터를 기존 학생 DB에 병합
-func (dm *DBManager) UpdateStudentAttendance(classNum int, students []StudentExcelData) error {
+func (dm *DBManager) UpdateStudentAttendance(classNum int, students []StudentExcelData) (int, error) {
 	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
 	db, err := dm.openDB(dbPath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer db.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	stmt, err := tx.Prepare("UPDATE students SET attendance_json = ? WHERE name = ? AND student_num = ?")
+	stmt, err := tx.Prepare(`
+		UPDATE students 
+		SET attendance_json = ? 
+		WHERE (REPLACE(name, ' ', '') = REPLACE(?, ' ', '')) 
+		  AND (CAST(student_num AS INTEGER) = CAST(? AS INTEGER) OR student_num = ?)
+	`)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 	defer stmt.Close()
 
+	// 2차 fallback stmt (학번 불일치 시 반 내 이름 매칭)
+	stmtNameFallback, err := tx.Prepare(`
+		UPDATE students 
+		SET attendance_json = ? 
+		WHERE REPLACE(name, ' ', '') = REPLACE(?, ' ', '')
+	`)
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+	defer stmtNameFallback.Close()
+
+	updatedCount := 0
 	for _, s := range students {
-		_, err = stmt.Exec(s.AttendanceData, s.Name, s.StudentNum)
+		res, err := stmt.Exec(s.AttendanceData, s.Name, s.StudentNum, s.StudentNum)
 		if err != nil {
 			tx.Rollback()
-			return err
+			return 0, err
+		}
+		rows, _ := res.RowsAffected()
+		if rows > 0 {
+			updatedCount += int(rows)
+		} else {
+			// fallback: 이름으로 매칭 시도
+			resFallback, err := stmtNameFallback.Exec(s.AttendanceData, s.Name)
+			if err == nil {
+				r2, _ := resFallback.RowsAffected()
+				updatedCount += int(r2)
+			}
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return updatedCount, nil
 }
 
 // UpdateStudentVolunteer 파싱된 봉사 데이터를 기존 학생 DB에 병합
-func (dm *DBManager) UpdateStudentVolunteer(classNum int, students []StudentExcelData) error {
+func (dm *DBManager) UpdateStudentVolunteer(classNum int, students []StudentExcelData) (int, error) {
 	dbPath := filepath.Join(dm.dataDir, fmt.Sprintf("class_%d.db", classNum))
 	db, err := dm.openDB(dbPath)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer db.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	stmt, err := tx.Prepare("UPDATE students SET volunteer_json = ? WHERE name = ? AND student_num = ?")
+	stmt, err := tx.Prepare(`
+		UPDATE students 
+		SET volunteer_json = ? 
+		WHERE (REPLACE(name, ' ', '') = REPLACE(?, ' ', '')) 
+		  AND (CAST(student_num AS INTEGER) = CAST(? AS INTEGER) OR student_num = ?)
+	`)
 	if err != nil {
 		tx.Rollback()
-		return err
+		return 0, err
 	}
 	defer stmt.Close()
 
+	// 2차 fallback stmt (학번 불일치 시 반 내 이름 매칭)
+	stmtNameFallback, err := tx.Prepare(`
+		UPDATE students 
+		SET volunteer_json = ? 
+		WHERE REPLACE(name, ' ', '') = REPLACE(?, ' ', '')
+	`)
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
+	defer stmtNameFallback.Close()
+
+	updatedCount := 0
 	for _, s := range students {
-		_, err = stmt.Exec(s.VolunteerData, s.Name, s.StudentNum)
+		res, err := stmt.Exec(s.VolunteerData, s.Name, s.StudentNum, s.StudentNum)
 		if err != nil {
 			tx.Rollback()
-			return err
+			return 0, err
+		}
+		rows, _ := res.RowsAffected()
+		if rows > 0 {
+			updatedCount += int(rows)
+		} else {
+			// fallback: 이름으로 매칭 시도
+			resFallback, err := stmtNameFallback.Exec(s.VolunteerData, s.Name)
+			if err == nil {
+				r2, _ := resFallback.RowsAffected()
+				updatedCount += int(r2)
+			}
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return updatedCount, nil
 }
 
 // UpdateStudentExtra 수기 입력 가산점 및 추가사항 업데이트

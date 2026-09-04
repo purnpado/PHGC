@@ -54,8 +54,13 @@ type StudentFullData struct {
 	AllAverage         float64                     `json:"allAverage"`         // 전과목 평균 성취도
 	SemesterScores     map[string][]int            `json:"semesterScores"`     // 학기별 성취도 목록
 	SubjectScores      map[string]map[string][]int `json:"subjectScores"`      // [과목][학기]별 성취도
-	AbsenceDays        int                         `json:"absenceDays"`        // 미인정 결석 일수 (기본)
-	SeptAbsenceDays    int                         `json:"septAbsenceDays"`    // 9.30 기준 전기고(마이스터/특성화) 미인정 결석일수
+	AbsenceDays        int                         `json:"absenceDays"`        // 미인정 결석 환산 일수 (결석 + 지각조퇴결과/3)
+	RawAbsenceDays     int                         `json:"rawAbsenceDays"`     // 1학기 나이스 순수 결석일수
+	RawLateCount       int                         `json:"rawLateCount"`       // 1학기 나이스 지각횟수
+	RawEarlyCount      int                         `json:"rawEarlyCount"`      // 1학기 나이스 조퇴횟수
+	RawResultCount     int                         `json:"rawResultCount"`     // 1학기 나이스 결과횟수
+	SeptAbsenceDays    int                         `json:"septAbsenceDays"`    // 9.30 기준 전기고 미인정 결석일수 수기
+	SeptLateEtc        int                         `json:"septLateEtc"`        // 9.30 기준 미인정 지각·조퇴·결과 합산 횟수 수기
 	HasSeptAbsence     bool                        `json:"hasSeptAbsence"`     // 9.30 출결 수기 입력 여부
 	VolunteerHours     int                         `json:"volunteerHours"`     // 기본 봉사 시간
 	AddVolunteerHours  int                         `json:"addVolunteerHours"`  // 수기 추가 봉사 시간
@@ -372,10 +377,13 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 	if s.AttendanceData != "" {
 		var attendanceMap map[string]int
 		json.Unmarshal([]byte(s.AttendanceData), &attendanceMap)
-		result.AbsenceDays = attendanceMap["absence"]
+		result.RawAbsenceDays = attendanceMap["absence"]
+		result.RawLateCount = attendanceMap["late"]
+		result.RawEarlyCount = attendanceMap["early"]
+		result.RawResultCount = attendanceMap["result"]
 		// 지각/조퇴/결과 3회 = 결석 1일
-		tardyDays := (attendanceMap["late"] + attendanceMap["early"] + attendanceMap["result"]) / 3
-		result.AbsenceDays += tardyDays
+		tardyDays := (result.RawLateCount + result.RawEarlyCount + result.RawResultCount) / 3
+		result.AbsenceDays = result.RawAbsenceDays + tardyDays
 	}
 
 	// 봉사 파싱
@@ -399,6 +407,11 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 				} else if k == "sept_absence" {
 					if vf, ok := v.(float64); ok {
 						result.SeptAbsenceDays = int(vf)
+						result.HasSeptAbsence = true
+					}
+				} else if k == "sept_late_etc" {
+					if vf, ok := v.(float64); ok {
+						result.SeptLateEtc = int(vf)
 						result.HasSeptAbsence = true
 					}
 				} else if vb, ok := v.(bool); ok {
@@ -553,9 +566,9 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 
 	// === 3. 출결 점수 ===
 	absenceDays := student.AbsenceDays
-	// 전기고(마이스터고 및 특성화고)의 경우 9.30 기준 결석 일수가 수기 입력되었으면 우선 적용
+	// 전기고(마이스터고 및 특성화고)의 경우 9.30 기준 결석 일수 및 지각·조퇴·결과(3회당 1일)가 수기 입력되었으면 우선 적용
 	if student.HasSeptAbsence && (strings.Contains(rule.SchoolName, "마이스터") || strings.Contains(rule.SchoolName, "에너지") || strings.Contains(rule.SchoolName, "현대") || strings.Contains(rule.SchoolName, "고") || strings.Contains(rule.SchoolName, "상업") || strings.Contains(rule.SchoolName, "과학")) {
-		absenceDays = student.SeptAbsenceDays
+		absenceDays = student.SeptAbsenceDays + (student.SeptLateEtc / 3)
 	}
 	result.AttendanceScore = math.Max(0, rule.AttendanceMax-float64(absenceDays)*rule.AbsencePenalty)
 	result.AttendanceScore = roundToTwoDecimals(result.AttendanceScore)

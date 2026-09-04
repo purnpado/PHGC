@@ -210,7 +210,12 @@ export namespace main {
 	    semesterScores: Record<string, Array<number>>;
 	    subjectScores: Record<string, any>;
 	    absenceDays: number;
+	    rawAbsenceDays: number;
+	    rawLateCount: number;
+	    rawEarlyCount: number;
+	    rawResultCount: number;
 	    septAbsenceDays: number;
+	    septLateEtc: number;
 	    hasSeptAbsence: boolean;
 	    volunteerHours: number;
 	    addVolunteerHours: number;
@@ -235,7 +240,12 @@ export namespace main {
 	        this.semesterScores = source["semesterScores"];
 	        this.subjectScores = source["subjectScores"];
 	        this.absenceDays = source["absenceDays"];
+	        this.rawAbsenceDays = source["rawAbsenceDays"];
+	        this.rawLateCount = source["rawLateCount"];
+	        this.rawEarlyCount = source["rawEarlyCount"];
+	        this.rawResultCount = source["rawResultCount"];
 	        this.septAbsenceDays = source["septAbsenceDays"];
+	        this.septLateEtc = source["septLateEtc"];
 	        this.hasSeptAbsence = source["hasSeptAbsence"];
 	        this.volunteerHours = source["volunteerHours"];
 	        this.addVolunteerHours = source["addVolunteerHours"];

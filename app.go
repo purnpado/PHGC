@@ -182,11 +182,11 @@ func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
 
 	result := make(map[int]int)
 	for classNum, students := range classData {
-		err := a.db.UpdateStudentAttendance(classNum, students)
+		updatedCount, err := a.db.UpdateStudentAttendance(classNum, students)
 		if err != nil {
 			return nil, fmt.Errorf("%d반 출결 데이터 저장 실패: %w", classNum, err)
 		}
-		result[classNum] = len(students)
+		result[classNum] = updatedCount
 	}
 
 	return result, nil
@@ -205,11 +205,11 @@ func (a *App) ProcessVolunteerExcel(filePath string) (map[int]int, error) {
 
 	result := make(map[int]int)
 	for classNum, students := range classData {
-		err := a.db.UpdateStudentVolunteer(classNum, students)
+		updatedCount, err := a.db.UpdateStudentVolunteer(classNum, students)
 		if err != nil {
 			return nil, fmt.Errorf("%d반 봉사 데이터 저장 실패: %w", classNum, err)
 		}
-		result[classNum] = len(students)
+		result[classNum] = updatedCount
 	}
 
 	return result, nil
