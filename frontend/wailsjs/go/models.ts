@@ -8,6 +8,7 @@ export namespace main {
 	    scoreType: string;
 	    maxValue: number;
 	    minValue: number;
+	    avgValue: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CutoffInfo(source);
@@ -22,6 +23,7 @@ export namespace main {
 	        this.scoreType = source["scoreType"];
 	        this.maxValue = source["maxValue"];
 	        this.minValue = source["minValue"];
+	        this.avgValue = source["avgValue"];
 	    }
 	}
 	export class FeedbackIssue {

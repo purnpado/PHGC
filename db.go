@@ -28,7 +28,7 @@ type SetupRequest struct {
 	AdmissionYear int    `json:"admissionYear"`
 }
 
-// CutoffInfo 고교 커트라인 정보 (연도 및 전형, 최고/최저점 포함)
+// CutoffInfo 고교 커트라인 정보 (연도 및 전형, 최고/최저/평균점 포함)
 type CutoffInfo struct {
 	Year        int     `json:"year"`
 	SchoolName  string  `json:"schoolName"`
@@ -37,6 +37,7 @@ type CutoffInfo struct {
 	ScoreType   string  `json:"scoreType"`  // percentile 또는 total_score
 	MaxValue    float64 `json:"maxValue"`
 	MinValue    float64 `json:"minValue"`
+	AvgValue    float64 `json:"avgValue"`   // 평균점
 }
 
 // DB 매니저
@@ -128,6 +129,7 @@ func (dm *DBManager) InitConfigDB() error {
 			score_type TEXT NOT NULL,
 			max_value REAL,
 			min_value REAL,
+			avg_value REAL DEFAULT 0,
 			UNIQUE(year, school_name, department, track)
 		);
 		CREATE TABLE IF NOT EXISTS feedback_issues (
@@ -152,16 +154,19 @@ func (dm *DBManager) InitConfigDB() error {
 		return fmt.Errorf("config 테이블 생성 실패: %w", err)
 	}
 
+	// 기존 DB 마이그레이션 (avg_value 컬럼 추가)
+	_, _ = db.Exec("ALTER TABLE highschool_cutoffs ADD COLUMN avg_value REAL DEFAULT 0")
+
 	// 기본 커트라인 실데이터 시드 (울산마이스터고 2024-2026 실데이터 & 후기일반고 기본값)
 	_, _ = db.Exec(`
-		INSERT OR IGNORE INTO highschool_cutoffs (year, school_name, department, track, score_type, min_value, max_value) VALUES
-		(2024, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 215.82, 291.69),
-		(2024, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 212.85, 287.15),
-		(2025, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 218.04, 299.09),
-		(2025, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 206.33, 285.59),
-		(2026, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 245.22, 300.00),
-		(2026, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 241.03, 260.37),
-		(2026, '울산 후기 일반계고', '공통', '일반계고', 'percentile', 85.0, 85.0);
+		INSERT OR IGNORE INTO highschool_cutoffs (year, school_name, department, track, score_type, min_value, max_value, avg_value) VALUES
+		(2024, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 215.82, 291.69, 253.75),
+		(2024, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 212.85, 287.15, 250.00),
+		(2025, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 218.04, 299.09, 258.50),
+		(2025, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 206.33, 285.59, 245.90),
+		(2026, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 245.22, 300.00, 272.60),
+		(2026, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 241.03, 260.37, 250.70),
+		(2026, '울산 후기 일반계고', '공통', '일반계고', 'percentile', 85.0, 85.0, 85.0);
 	`)
 	return nil
 }
@@ -254,13 +259,14 @@ func (dm *DBManager) SaveCutoffs(cutoffs []CutoffInfo) error {
 
 	for _, c := range cutoffs {
 		_, err = tx.Exec(`
-			INSERT INTO highschool_cutoffs (year, school_name, department, track, score_type, max_value, min_value)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO highschool_cutoffs (year, school_name, department, track, score_type, max_value, min_value, avg_value)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(year, school_name, department, track) DO UPDATE SET
 				score_type = excluded.score_type,
 				max_value = excluded.max_value,
-				min_value = excluded.min_value
-		`, c.Year, c.SchoolName, c.Department, c.Track, c.ScoreType, c.MaxValue, c.MinValue)
+				min_value = excluded.min_value,
+				avg_value = excluded.avg_value
+		`, c.Year, c.SchoolName, c.Department, c.Track, c.ScoreType, c.MaxValue, c.MinValue, c.AvgValue)
 		if err != nil {
 			tx.Rollback()
 			return err
@@ -278,7 +284,7 @@ func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT year, school_name, department, track, score_type, max_value, min_value FROM highschool_cutoffs")
+	rows, err := db.Query("SELECT year, school_name, department, track, score_type, max_value, min_value, IFNULL(avg_value, 0) FROM highschool_cutoffs")
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +293,7 @@ func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	var cutoffs []CutoffInfo
 	for rows.Next() {
 		var c CutoffInfo
-		if err := rows.Scan(&c.Year, &c.SchoolName, &c.Department, &c.Track, &c.ScoreType, &c.MaxValue, &c.MinValue); err == nil {
+		if err := rows.Scan(&c.Year, &c.SchoolName, &c.Department, &c.Track, &c.ScoreType, &c.MaxValue, &c.MinValue, &c.AvgValue); err == nil {
 			cutoffs = append(cutoffs, c)
 		}
 	}

@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "0.5.29",
+    "latestVersion":  "0.5.30",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v0.5.29 - 교과 성적 병합 셀 누락 픽스(평균 성취도 5.0 오류 해결) 및 백분율 소수 둘째자리(0.00%) 표기 통일",
+    "releaseNotes":  "v0.5.30 - 고교 입학년도(입시년도) 표기 정립 및 커트라인 관리 단일 통합 페이지(네비게이션 탭·최고/최저/평균 입력·공식 공개 입결 탭) 전면 개편",
     "downloadUrl":  "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }
