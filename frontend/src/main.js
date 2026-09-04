@@ -2887,7 +2887,7 @@ async function renderCutoffScreen(schoolName) {
     ];
 
     // 공식 공개 입결 레퍼런스 데이터 (최근 3개년 공개 통계)
-    const publicOfficialData = [
+    const publicOfficialDefaults = [
         { year: 2026, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 245.22, max: 300.00, avg: 272.60, unit: "점", note: "공식 합격선" },
         { year: 2026, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 241.03, max: 260.37, avg: 250.70, unit: "점", note: "공식 합격선" },
         { year: 2025, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 218.04, max: 299.09, avg: 258.50, unit: "점", note: "공식 입결" },
@@ -2899,6 +2899,13 @@ async function renderCutoffScreen(schoolName) {
         { year: 2026, school: "울산상업고", track: "일반전형", dept: "물류경영과", min: 72.50, max: 95.00, avg: 81.20, unit: "점", note: "전년도 참고" },
         { year: 2026, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" }
     ];
+    let publicOfficialData = publicOfficialDefaults;
+    try {
+        const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
+        if (savedPublicData) publicOfficialData = JSON.parse(savedPublicData);
+    } catch (e) {
+        console.warn('공개 데이터 불러오기 실패:', e);
+    }
 
     let currentTab = 'all'; // 'all', 'meister', 'special', 'general', 'public'
 
@@ -3010,21 +3017,20 @@ async function renderCutoffScreen(schoolName) {
             });
         } else {
             // 공식 공개 입결 데이터 탭 뷰
-            const publicRowsHTML = publicOfficialData.map(p => `
+            const publicRowsHTML = publicOfficialData.map((p, index) => `
                 <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors text-center">
                     <td class="p-3 text-slate-400">${p.year}학년도</td>
                     <td class="p-3 font-bold text-white text-left pl-4">${p.school}</td>
                     <td class="p-3 text-indigo-300">${p.dept}</td>
                     <td class="p-3 text-slate-300">${p.track}</td>
-                    <td class="p-3 font-bold text-emerald-300">${p.min} ${p.unit}</td>
-                    <td class="p-3 text-sky-300">${p.max} ${p.unit}</td>
-                    <td class="p-3 text-amber-300">${p.avg} ${p.unit}</td>
-                    <td class="p-3 text-slate-400 text-xs">${p.note}</td>
+                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right font-bold text-emerald-300 w-20 public-min-score" value="${p.min}" aria-label="${p.school} 최저점" /></td>
+                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right text-sky-300 w-20 public-max-score" value="${p.max}" aria-label="${p.school} 최고점" /></td>
+                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right text-amber-300 w-20 public-avg-score" value="${p.avg}" aria-label="${p.school} 평균점" /></td>
+                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs w-28 public-note" value="${p.note}" aria-label="${p.school} 출처 또는 구분" /></td>
                     <td class="p-3">
                         <button class="btn-secondary text-[11px] px-2.5 py-1 font-bold btn-apply-public-item" 
-                                data-school="${p.school}" data-dept="${p.dept}" data-track="${p.track.replace('전형','')}" 
-                                data-min="${p.min}" data-max="${p.max}" data-avg="${p.avg}">
-                            👉 내 커트라인으로 복사
+                                data-index="${index}" data-school="${p.school}" data-dept="${p.dept}" data-track="${p.track.replace('전형','')}">
+                            내 커트라인 반영
                         </button>
                     </td>
                 </tr>
@@ -3037,7 +3043,7 @@ async function renderCutoffScreen(schoolName) {
                             <h3 class="font-bold text-white text-base flex items-center gap-2">
                                 <span>📊</span> 울산광역시 고등학교 공식 공개 합격선 및 입결 데이터
                             </h3>
-                            <p class="text-xs text-text-muted mt-1">교육청 및 각 고등학교가 공식 발표한 최근 3개년 실제 합격선 통계자료입니다. 원클릭으로 내 커트라인에 복사할 수 있습니다.</p>
+                            <p class="text-xs text-text-muted mt-1">교육청 및 각 고등학교의 공개 자료를 기준으로 관리합니다. 필요한 경우 점수와 출처를 수정한 뒤 내 커트라인에 반영할 수 있습니다.</p>
                         </div>
                     </div>
 
@@ -3053,7 +3059,7 @@ async function renderCutoffScreen(schoolName) {
                                     <th class="p-2.5 w-28 text-sky-300">최고점</th>
                                     <th class="p-2.5 w-28 text-amber-300">평균점</th>
                                     <th class="p-2.5 w-28">출처/구분</th>
-                                    <th class="p-2.5 w-36">원클릭 적용</th>
+                                    <th class="p-2.5 w-36">내 커트라인 반영</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -3090,7 +3096,7 @@ async function renderCutoffScreen(schoolName) {
                             </select>
                         </div>
 
-                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 shadow-md">
+                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
                             <span>💾</span> 커트라인 저장
                         </button>
                         <button id="exportBridgeCutoffBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
@@ -3101,9 +3107,6 @@ async function renderCutoffScreen(schoolName) {
                         </button>
                         <button id="rollbackBridgeCutoffBtn" class="text-xs bg-rose-950/20 border border-rose-500/30 text-rose-300 hover:bg-rose-950/40 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors" title="우리 학교 등록 데이터 회수">
                             <span>🗑️</span> 회수
-                        </button>
-                        <button id="resetBridgeCutoffBtn" class="text-[11px] text-rose-400 hover:text-rose-300 font-bold px-2 py-2 flex items-center gap-1 bg-transparent border-none cursor-pointer" title="중앙 서버 전체 초기화 (테스트용)">
-                            <span>⚠️</span> 서버 초기화
                         </button>
                         <button id="backToAdminBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold">
                             ← 대시보드
@@ -3220,9 +3223,10 @@ async function renderCutoffScreen(schoolName) {
                 const school = btn.dataset.school;
                 const dept = btn.dataset.dept;
                 const track = btn.dataset.track;
-                const min = parseFloat(btn.dataset.min);
-                const max = parseFloat(btn.dataset.max);
-                const avg = parseFloat(btn.dataset.avg);
+                const row = btn.closest('tr');
+                const min = parseFloat(row.querySelector('.public-min-score')?.value);
+                const max = parseFloat(row.querySelector('.public-max-score')?.value);
+                const avg = parseFloat(row.querySelector('.public-avg-score')?.value);
                 const scoreType = school.includes('일반계고') ? 'percentile' : 'total_score';
 
                 // 현재 목록에 즉시 추가/갱신 저장
@@ -3248,6 +3252,30 @@ async function renderCutoffScreen(schoolName) {
                 }
             });
         });
+
+        document.getElementById('saveAllCutoffsBtn')?.addEventListener('click', () => saveAllCutoffs(false));
+
+        if (currentTab === 'public') {
+            const savePublicData = () => {
+                const rows = app.querySelectorAll('.btn-apply-public-item');
+                publicOfficialData = publicOfficialData.map((item, index) => {
+                    const button = [...rows].find(btn => Number(btn.dataset.index) === index);
+                    const row = button?.closest('tr');
+                    if (!row) return item;
+                    return {
+                        ...item,
+                        min: parseFloat(row.querySelector('.public-min-score')?.value) || item.min,
+                        max: parseFloat(row.querySelector('.public-max-score')?.value) || item.max,
+                        avg: parseFloat(row.querySelector('.public-avg-score')?.value) || item.avg,
+                        note: row.querySelector('.public-note')?.value.trim() || item.note
+                    };
+                });
+                localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+            };
+            app.querySelectorAll('.public-min-score, .public-max-score, .public-avg-score, .public-note').forEach(input => {
+                input.addEventListener('change', savePublicData);
+            });
+        }
 
         // 1. 입학년도(입시년도) 변경 리스너
         document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
@@ -3304,8 +3332,6 @@ async function renderCutoffScreen(schoolName) {
                 return false;
             }
         };
-
-        document.getElementById('saveAllCutoffsBtn')?.addEventListener('click', () => saveAllCutoffs(false));
 
         // 3. 중앙 서버 전송
         document.getElementById('exportBridgeCutoffBtn')?.addEventListener('click', async () => {
@@ -3367,25 +3393,7 @@ async function renderCutoffScreen(schoolName) {
             }
         });
 
-        // 6. 서버 전체 초기화 (테스트용)
-        document.getElementById('resetBridgeCutoffBtn')?.addEventListener('click', async () => {
-            const confirmed = prompt(`⚠️ [중앙 서버 커트라인 전체 초기화]\n\n중앙 서버에 등록된 모든 학교의 ${currentAdmissionYear}학년도 커트라인 데이터를 일괄 삭제합니다.\n(테스트 데이터를 깨끗이 비울 때 사용)\n\n진행하시려면 아래 입력창에 '초기화'를 입력하세요:`);
-            if (confirmed !== '초기화') {
-                if (confirmed !== null) alert('초기화가 취소되었습니다.');
-                return;
-            }
-
-            try {
-                const msg = await window.go.main.App.ResetServerCutoffs(currentAdmissionYear);
-                alert(msg || '중앙 서버 데이터가 성공적으로 초기화되었습니다.');
-                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
-                renderMainScreen();
-            } catch (err) {
-                alert('서버 초기화 실패: ' + err);
-            }
-        });
-
-        // 7. 대시보드로 돌아가기
+        // 6. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });

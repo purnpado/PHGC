@@ -56,8 +56,6 @@ export function ResetAcademicYear(arg1:number):Promise<void>;
 
 export function ResetAllData():Promise<void>;
 
-export function ResetServerCutoffs(arg1:number):Promise<string>;
-
 export function RollbackSchoolCutoffs(arg1:number):Promise<string>;
 
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;

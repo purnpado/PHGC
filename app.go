@@ -242,7 +242,7 @@ func (a *App) SendCutoffsToBridge(year int) error {
 	if err != nil {
 		return err
 	}
-	
+
 	cutoffs, err := a.db.GetCutoffs()
 	if err != nil {
 		return err
@@ -264,7 +264,7 @@ func (a *App) SendCutoffsToBridge(year int) error {
 		"year":       year,
 		"data":       yearData,
 	}
-	
+
 	jsonBytes, _ := json.Marshal(payload)
 	resp, err := http.Post(BridgeServerURL+"/api/cutoff", "application/json", bytes.NewBuffer(jsonBytes))
 	if err != nil {
@@ -345,34 +345,6 @@ func (a *App) RollbackSchoolCutoffs(year int) (string, error) {
 	return resData.Message, nil
 }
 
-// ResetServerCutoffs 중앙 서버의 해당 연도 모든 커트라인 데이터를 초기화 (테스트용)
-func (a *App) ResetServerCutoffs(year int) (string, error) {
-	url := fmt.Sprintf("%s/api/cutoff?year=%d&all=true", BridgeServerURL, year)
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("서버 연결 실패: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var resData struct {
-		Message string `json:"message"`
-		Error   string `json:"error"`
-	}
-	_ = json.NewDecoder(resp.Body).Decode(&resData)
-
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("%s", resData.Error)
-	}
-
-	return resData.Message, nil
-}
-
 func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB64 string) (int, error) {
 	config, err := a.db.GetSchoolConfig()
 	if err != nil {
@@ -404,7 +376,7 @@ func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB6
 	json.NewDecoder(resp.Body).Decode(&result)
 
 	issueID := int(result["issue_id"].(float64))
-	
+
 	// 로컬 DB에 기록 저장
 	a.db.SaveFeedbackIssue(issueID, title)
 
@@ -471,6 +443,7 @@ func (a *App) GetClassGrades(classNum int) ([]StudentCalcResult, error) {
 
 	return classResults, nil
 }
+
 // ResetAllData 데이터 폴더 삭제를 통해 완전 초기화
 func (a *App) ResetAllData() error {
 	// DB 연결이 열려 있을 수 있으므로 GC를 강제로 호출하거나 그냥 폴더 내용물을 지움
@@ -480,7 +453,7 @@ func (a *App) ResetAllData() error {
 		exePath = "."
 	}
 	dataDir := filepath.Join(filepath.Dir(exePath), "data")
-	
+
 	err = os.RemoveAll(dataDir)
 	if err != nil {
 		return fmt.Errorf("데이터 삭제 실패: %w", err)
@@ -488,7 +461,7 @@ func (a *App) ResetAllData() error {
 
 	// dataDir 다시 생성
 	os.MkdirAll(dataDir, 0755)
-	
+
 	// 테이블 다시 생성
 	if err := a.db.InitConfigDB(); err != nil {
 		return fmt.Errorf("DB 초기화 실패: %w", err)
@@ -736,8 +709,3 @@ func (a *App) CreateUser(username, password, role string, classNum int) error {
 func (a *App) DeleteUser(username string) error {
 	return a.db.DeleteUser(username)
 }
-
-
-
-
-

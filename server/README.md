@@ -21,7 +21,7 @@
 | `GET` | `/api/sync/*filepath` | Gitea 저장소 내 raw 파일 동기화 프록시 (최신 버전 및 바이너리 다운로드) |
 | `POST` | `/api/cutoff` | 학교별 고교 합격 커트라인 등록 (Gitea 커밋 연동) |
 | `GET` | `/api/cutoff` | 관내 등록된 전형별 합격 커트라인 일괄 취합 조회 (`?year=2026`) |
-| `DELETE` | `/api/cutoff` | 특정 학교 커트라인 회수(`?school=...`) 또는 연도별 전체 초기화(`?all=true`) |
+| `DELETE` | `/api/cutoff` | 특정 학교 커트라인 회수(`?school=...`) |
 | `POST` | `/api/feedback` | 교사 피드백/문의사항 등록 (Gitea Issue 자동 생성 및 이메일 발송) |
 
 ## 환경 변수 설정 (`.env`)

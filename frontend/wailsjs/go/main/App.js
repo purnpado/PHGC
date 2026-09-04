@@ -110,10 +110,6 @@ export function ResetAllData() {
   return window['go']['main']['App']['ResetAllData']();
 }
 
-export function ResetServerCutoffs(arg1) {
-  return window['go']['main']['App']['ResetServerCutoffs'](arg1);
-}
-
 export function RollbackSchoolCutoffs(arg1) {
   return window['go']['main']['App']['RollbackSchoolCutoffs'](arg1);
 }

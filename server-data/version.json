@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.31",
+  "latestVersion": "0.5.32",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.31 - 구버전 커트라인 팝업 모달창 제거 및 단일 통합 커트라인 관리 페이지(서버 연동 툴바) 일원화",
+  "releaseNotes": "v0.5.32 - 커트라인 서버 전체 초기화 제거 및 공개 데이터 편집 지원",
   "downloadUrl": "https://go.gguk.link/api/sync/server-data/PHGC.exe"
 }

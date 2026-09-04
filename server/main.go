@@ -230,110 +230,64 @@ func handleGetCutoffs(c *gin.Context) {
 	c.JSON(http.StatusOK, mergedList)
 }
 
-// handleDeleteCutoffs 학교별 커트라인 회수(삭제) 및 연도별 전체 초기화
+// handleDeleteCutoffs 학교별 커트라인 회수(삭제)
 func handleDeleteCutoffs(c *gin.Context) {
 	yearStr := c.DefaultQuery("year", "2026")
 	schoolName := c.Query("school")
-	resetAll := c.Query("all") == "true"
 	targetRepo := getDataRepo()
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	if schoolName == "" && !resetAll {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "학교명(school) 또는 전체초기화(all=true) 파라미터가 필요합니다."})
+	if schoolName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "학교명(school) 파라미터가 필요합니다."})
 		return
 	}
 
-	// 1. 특정 학교 데이터 단독 회수
-	if !resetAll && schoolName != "" {
-		fileName := fmt.Sprintf("server-data/cutoffs/%s_%s.json", yearStr, schoolName)
-		url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, targetRepo, fileName)
+	// 특정 학교 데이터 단독 회수
+	fileName := fmt.Sprintf("server-data/cutoffs/%s_%s.json", yearStr, schoolName)
+	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, targetRepo, fileName)
 
-		chkReq, _ := http.NewRequest("GET", url, nil)
-		chkReq.Header.Set("Authorization", "token "+giteaToken)
-		chkResp, err := client.Do(chkReq)
-		if err != nil || chkResp.StatusCode != 200 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "서버에 등록된 해당 학교의 커트라인 데이터를 찾을 수 없습니다."})
-			return
-		}
-
-		var fileInfo struct {
-			SHA string `json:"sha"`
-		}
-		_ = json.NewDecoder(chkResp.Body).Decode(&fileInfo)
-		chkResp.Body.Close()
-
-		delBody := map[string]interface{}{
-			"sha":     fileInfo.SHA,
-			"message": fmt.Sprintf("Rollback/Delete cutoff data for %s (%s)", schoolName, yearStr),
-		}
-		delJSON, _ := json.Marshal(delBody)
-		delReq, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(delJSON))
-		delReq.Header.Set("Authorization", "token "+giteaToken)
-		delReq.Header.Set("Content-Type", "application/json")
-
-		delResp, delErr := client.Do(delReq)
-		if delErr != nil || delResp.StatusCode >= 400 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gitea 파일 삭제 실패"})
-			return
-		}
-		defer delResp.Body.Close()
-
-		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("'%s'의 %s학년도 서버 커트라인 데이터가 안전하게 회수(삭제)되었습니다.", schoolName, yearStr)})
+	chkReq, _ := http.NewRequest("GET", url, nil)
+	chkReq.Header.Set("Authorization", "token "+giteaToken)
+	chkResp, err := client.Do(chkReq)
+	if err != nil || chkResp.StatusCode != 200 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "서버에 등록된 해당 학교의 커트라인 데이터를 찾을 수 없습니다."})
 		return
 	}
 
-	// 2. 해당 연도 전체 커트라인 파일 일괄 초기화 (테스트 데이터 클리어)
-	if resetAll {
-		dirURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/server-data/cutoffs", giteaURL, giteaOwner, targetRepo)
-		req, _ := http.NewRequest("GET", dirURL, nil)
-		req.Header.Set("Authorization", "token "+giteaToken)
-		resp, err := client.Do(req)
-		if err != nil || resp.StatusCode >= 400 {
-			c.JSON(http.StatusOK, gin.H{"message": "초기화할 파일이 없습니다."})
-			return
-		}
-		defer resp.Body.Close()
+	var fileInfo struct {
+		SHA string `json:"sha"`
+	}
+	_ = json.NewDecoder(chkResp.Body).Decode(&fileInfo)
+	chkResp.Body.Close()
 
-		var fileList []struct {
-			Name string `json:"name"`
-			SHA  string `json:"sha"`
-		}
-		_ = json.NewDecoder(resp.Body).Decode(&fileList)
+	delBody := map[string]interface{}{
+		"sha":     fileInfo.SHA,
+		"message": fmt.Sprintf("Rollback/Delete cutoff data for %s (%s)", schoolName, yearStr),
+	}
+	delJSON, _ := json.Marshal(delBody)
+	delReq, _ := http.NewRequest("DELETE", url, bytes.NewBuffer(delJSON))
+	delReq.Header.Set("Authorization", "token "+giteaToken)
+	delReq.Header.Set("Content-Type", "application/json")
 
-		deletedCount := 0
-		prefix := yearStr + "_"
-		for _, f := range fileList {
-			if strings.HasPrefix(f.Name, prefix) && strings.HasSuffix(f.Name, ".json") {
-				fileURL := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/server-data/cutoffs/%s", giteaURL, giteaOwner, targetRepo, f.Name)
-				delBody := map[string]interface{}{
-					"sha":     f.SHA,
-					"message": fmt.Sprintf("Reset all cutoffs for %s - deleted %s", yearStr, f.Name),
-				}
-				delJSON, _ := json.Marshal(delBody)
-				delReq, _ := http.NewRequest("DELETE", fileURL, bytes.NewBuffer(delJSON))
-				delReq.Header.Set("Authorization", "token "+giteaToken)
-				delReq.Header.Set("Content-Type", "application/json")
-
-				if delResp, err := client.Do(delReq); err == nil && delResp.StatusCode < 400 {
-					deletedCount++
-					delResp.Body.Close()
-				}
-			}
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%s학년도 서버 커트라인 데이터 %d건이 모두 초기화되었습니다.", yearStr, deletedCount)})
+	delResp, delErr := client.Do(delReq)
+	if delErr != nil || delResp.StatusCode >= 400 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gitea 파일 삭제 실패"})
 		return
 	}
+	defer delResp.Body.Close()
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("'%s'의 %s학년도 서버 커트라인 데이터가 안전하게 회수(삭제)되었습니다.", schoolName, yearStr)})
+	return
 }
 
 func handleFeedback(c *gin.Context) {
 	var payload struct {
-		SchoolName      string `json:"schoolName"`
-		Email           string `json:"email"`
-		Title           string `json:"title"`
-		Content         string `json:"content"`
-		AttachmentName  string `json:"attachmentName"`
-		AttachmentB64   string `json:"attachmentB64"`
+		SchoolName     string `json:"schoolName"`
+		Email          string `json:"email"`
+		Title          string `json:"title"`
+		Content        string `json:"content"`
+		AttachmentName string `json:"attachmentName"`
+		AttachmentB64  string `json:"attachmentB64"`
 	}
 
 	if err := c.ShouldBindJSON(&payload); err != nil {
@@ -345,7 +299,7 @@ func handleFeedback(c *gin.Context) {
 	issueBody := fmt.Sprintf("**작성자 이메일:** %s\n\n---\n%s", payload.Email, payload.Content)
 
 	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues", giteaURL, giteaOwner, giteaRepo)
-	
+
 	reqBody := map[string]interface{}{
 		"title": issueTitle,
 		"body":  issueBody,
@@ -379,7 +333,7 @@ func handleFeedback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Feedback submitted",
+		"message":  "Feedback submitted",
 		"issue_id": result.Number,
 	})
 }
@@ -401,8 +355,8 @@ func handleGetFeedback(c *gin.Context) {
 	defer resp.Body.Close()
 
 	var issue struct {
-		State string `json:"state"`
-		Comments int `json:"comments"`
+		State    string `json:"state"`
+		Comments int    `json:"comments"`
 	}
 	json.NewDecoder(resp.Body).Decode(&issue)
 
@@ -420,7 +374,7 @@ func handleGetFeedback(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"state": issue.State,
+		"state":    issue.State,
 		"comments": comments,
 	})
 }
@@ -450,23 +404,23 @@ func handleGiteaWebhook(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "No issue payload"})
 		return
 	}
-	
+
 	issueBody, _ := issueObj["body"].(string)
 	commentBody, _ := commentObj["body"].(string)
 	issueTitle, _ := issueObj["title"].(string)
-	
+
 	// Parse email from issue body (Format: **작성자 이메일:** example@gmail.com)
 	re := regexp.MustCompile(`(?i)\*\*작성자 이메일:\*\*\s*([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})`)
 	matches := re.FindStringSubmatch(issueBody)
-	
+
 	if len(matches) < 2 {
 		log.Printf("No email found in issue body")
 		c.JSON(http.StatusOK, gin.H{"message": "No email found in issue, ignored"})
 		return
 	}
-	
+
 	targetEmail := matches[1]
-	
+
 	// Send Email
 	if smtpUser != "" && smtpPass != "" {
 		err := sendEmail(targetEmail, issueTitle, commentBody)
@@ -570,14 +524,14 @@ func handleSyncFile(c *gin.Context) {
 		filepath = filepath[1:]
 	}
 	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/raw/%s", giteaURL, giteaOwner, giteaRepo, filepath)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	req.Header.Set("Authorization", "token "+giteaToken)
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -585,39 +539,46 @@ func handleSyncFile(c *gin.Context) {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		c.JSON(resp.StatusCode, gin.H{"error": "Failed to fetch file from Gitea"})
 		return
 	}
-	
+
 	body, _ := io.ReadAll(resp.Body)
 	c.Data(http.StatusOK, "application/json", body)
 }
 
-
 func uploadIssueAttachment(issueID int, filename, b64Data string) error {
 	decoded, err := base64.StdEncoding.DecodeString(b64Data)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
-	
+
 	fw, err := w.CreateFormFile("attachment", filename)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	fw.Write(decoded)
 	w.Close()
 
 	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/issues/%d/assets", giteaURL, giteaOwner, giteaRepo, issueID)
 	req, err := http.NewRequest("POST", url, &b)
-	if err != nil { return err }
-	
+	if err != nil {
+		return err
+	}
+
 	req.Header.Set("Authorization", "token "+giteaToken)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
@@ -626,4 +587,3 @@ func uploadIssueAttachment(issueID int, filename, b64Data string) error {
 	}
 	return nil
 }
-
