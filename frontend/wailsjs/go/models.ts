@@ -179,6 +179,8 @@ export namespace main {
 	    attendanceMax: number;
 	    volunteerScore: number;
 	    volunteerMax: number;
+	    leadershipScore: number;
+	    leadershipMax: number;
 	    extraScore: number;
 	    totalScore: number;
 	
@@ -200,6 +202,8 @@ export namespace main {
 	        this.attendanceMax = source["attendanceMax"];
 	        this.volunteerScore = source["volunteerScore"];
 	        this.volunteerMax = source["volunteerMax"];
+	        this.leadershipScore = source["leadershipScore"];
+	        this.leadershipMax = source["leadershipMax"];
 	        this.extraScore = source["extraScore"];
 	        this.totalScore = source["totalScore"];
 	    }
@@ -256,6 +260,13 @@ export namespace main {
 	    TotalStudents: number;
 	    Percentile: number;
 	    FinalScore: number;
+	    AttendanceScore: number;
+	    VolunteerScore: number;
+	    BehaviorScore: number;
+	    CreativeScore: number;
+	    NonAcademicScore: number;
+	    GeneralTotalScore: number;
+	    GeneralDataComplete: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new StudentCalcResult(source);
@@ -276,6 +287,13 @@ export namespace main {
 	        this.TotalStudents = source["TotalStudents"];
 	        this.Percentile = source["Percentile"];
 	        this.FinalScore = source["FinalScore"];
+	        this.AttendanceScore = source["AttendanceScore"];
+	        this.VolunteerScore = source["VolunteerScore"];
+	        this.BehaviorScore = source["BehaviorScore"];
+	        this.CreativeScore = source["CreativeScore"];
+	        this.NonAcademicScore = source["NonAcademicScore"];
+	        this.GeneralTotalScore = source["GeneralTotalScore"];
+	        this.GeneralDataComplete = source["GeneralDataComplete"];
 	    }
 	}
 	export class StudentFullData {
@@ -296,11 +314,16 @@ export namespace main {
 	    volunteerHours: number;
 	    addVolunteerHours: number;
 	    totalVolunteerHours: number;
+	    leadershipTerms: number;
 	    extraData: Record<string, boolean>;
 	    extraPoints: number;
 	    extraJSON: string;
 	    generalHSPercentile: number;
 	    generalHSLevel: string;
+	    generalHSAcademicScore: number;
+	    generalHSNonAcademicScore: number;
+	    generalHSTotalScore: number;
+	    generalHSDataComplete: boolean;
 	    schoolResults: SchoolCalcResult[];
 	
 	    static createFrom(source: any = {}) {
@@ -326,11 +349,16 @@ export namespace main {
 	        this.volunteerHours = source["volunteerHours"];
 	        this.addVolunteerHours = source["addVolunteerHours"];
 	        this.totalVolunteerHours = source["totalVolunteerHours"];
+	        this.leadershipTerms = source["leadershipTerms"];
 	        this.extraData = source["extraData"];
 	        this.extraPoints = source["extraPoints"];
 	        this.extraJSON = source["extraJSON"];
 	        this.generalHSPercentile = source["generalHSPercentile"];
 	        this.generalHSLevel = source["generalHSLevel"];
+	        this.generalHSAcademicScore = source["generalHSAcademicScore"];
+	        this.generalHSNonAcademicScore = source["generalHSNonAcademicScore"];
+	        this.generalHSTotalScore = source["generalHSTotalScore"];
+	        this.generalHSDataComplete = source["generalHSDataComplete"];
 	        this.schoolResults = this.convertValues(source["schoolResults"], SchoolCalcResult);
 	    }
 	
