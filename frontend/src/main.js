@@ -1591,6 +1591,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     <div class="text-xs text-text-muted">
                         교과 ${r.allSubjectScore.toFixed(1)}${r.weightedScore > 0 ? ` + 가중치 ${r.weightedScore.toFixed(1)}` : ''} 
                         | 출결 ${r.attendanceScore.toFixed(1)} | 봉사 ${r.volunteerScore.toFixed(1)}
+                        ${r.leadershipMax > 0 ? ` | 리더십 ${r.leadershipScore.toFixed(1)}` : ''}
                         ${weightDetailText}
                     </div>
                     <div class="text-lg font-black text-white">
@@ -1652,8 +1653,9 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     <div class="text-xl font-bold text-white">${data.totalVolunteerHours}시간 <span class="text-[11px] text-slate-400 font-normal">(기본${data.volunteerHours}+추가${data.addVolunteerHours})</span></div>
                 </div>
                 <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
-                    <div class="text-xs text-text-muted mb-1">일반고 석차 백분율</div>
-                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSPercentile.toFixed(2)}%</div>
+                    <div class="text-xs text-text-muted mb-1">후기 일반고 내신 / 석차백분율</div>
+                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSDataComplete ? `${data.generalHSTotalScore.toFixed(2)}점` : '비교과 입력 필요'}</div>
+                    <div class="text-[11px] text-slate-400">교과 ${data.generalHSAcademicScore.toFixed(2)} / 비교과 ${data.generalHSDataComplete ? data.generalHSNonAcademicScore.toFixed(2) : '-'} · ${data.generalHSPercentile.toFixed(2)}%</div>
                 </div>
             </div>
 
@@ -1667,7 +1669,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
                     <div class="flex items-center justify-between">
                         <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
-                            <span>✏️</span> 9/30 기준 수기 추가입력 (출결 상황 · 봉사 추가 · 가산점)
+                            <span>✏️</span> 수기 추가입력 (전기고 9/30 · 일반고 11/30 기준)
                             ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 진로부장은 조회 전용 모드입니다.</span>' : ''}
                         </h3>
                         ${!isViewer ? `
@@ -1706,6 +1708,15 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         </div>
 
                         <!-- 2) 추가 봉사시간 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 col-span-full">
+                            <label class="block text-slate-300 font-bold mb-1">🏫 후기 일반고 비교과 원자료 <span class="text-[10px] text-slate-400">(11/30 마감 · 미인정 결석환산일수 / 봉사시간)</span></label>
+                            <div class="grid grid-cols-3 gap-2 text-xs">
+                                ${[1,2,3].map(g => `<div class="flex items-center gap-1"><span>${g}학년</span><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center py-1" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center py-1" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사" ${isViewer ? 'disabled' : ''}/></div>`).join('')}
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-2">각 학년: 미인정 결석 + (지각·조퇴·결과 합계÷3, 나머지 버림)을 입력합니다. 세 학년 모두 있어야 일반계고 총점(200점)을 확정합니다.</div>
+                        </div>
+
+                        <!-- 2) 추가 봉사시간 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
                             <label class="block text-slate-300 font-bold mb-1">🕒 추가 봉사시간</label>
                             <div class="flex items-center gap-1.5 pt-1">
@@ -1717,6 +1728,17 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         </div>
 
                         <!-- 3) 창의적체험활동 (임원 등) 가산점 -->
+                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+                            <label class="block text-slate-300 font-bold mb-1">👑 전기고 리더십 인정 학기</label>
+                            <div class="flex items-center gap-1.5 pt-1">
+                                <input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field text-center py-1 font-bold"
+                                       value="${extra['leadership_terms'] || 0}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
+                                <span class="text-slate-300">학기</span>
+                            </div>
+                            <div class="text-[10px] text-text-muted mt-2">반장·부반장·전교 학생회장·부회장만 인정. 1학기당 2.5점, 3학년은 1학기까지만 입력합니다.</div>
+                        </div>
+
+                        <!-- 4) 창의적체험활동 (임원 등) 가산점 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
                             <label class="block text-slate-300 font-bold mb-1">🏅 창체 가산점 (+1점씩)</label>
                             <div class="flex items-center gap-2.5 pt-1">
@@ -1840,6 +1862,13 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 add_volunteer: addVol,
                 sept_absence: septAbsence,
                 sept_late_etc: septLateEtc,
+                leadership_terms: Math.min(4, Math.max(0, parseInt(document.getElementById('inputLeadershipTerms').value) || 0)),
+                general_absence_1: parseInt(document.getElementById('inputGeneralAbsence1').value),
+                general_absence_2: parseInt(document.getElementById('inputGeneralAbsence2').value),
+                general_absence_3: parseInt(document.getElementById('inputGeneralAbsence3').value),
+                general_volunteer_1: parseInt(document.getElementById('inputGeneralVolunteer1').value),
+                general_volunteer_2: parseInt(document.getElementById('inputGeneralVolunteer2').value),
+                general_volunteer_3: parseInt(document.getElementById('inputGeneralVolunteer3').value),
                 changche_1: document.getElementById('checkChangche1').checked,
                 changche_2: document.getElementById('checkChangche2').checked,
                 changche_3: document.getElementById('checkChangche3').checked,

@@ -633,6 +633,10 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 	for _, cg := range classGrades {
 		if matchStudent(cg.StudentNum, cg.Name, studentNum, name) {
 			full.GeneralHSPercentile = cg.Percentile
+			full.GeneralHSAcademicScore = cg.FinalScore
+			full.GeneralHSNonAcademicScore = cg.NonAcademicScore
+			full.GeneralHSTotalScore = cg.GeneralTotalScore
+			full.GeneralHSDataComplete = cg.GeneralDataComplete
 			if cg.Percentile <= 80 {
 				full.GeneralHSLevel = "상"
 			} else if cg.Percentile <= 90 {
