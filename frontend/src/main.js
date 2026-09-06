@@ -919,12 +919,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     } catch (e) {
         console.error(e);
     }
-	// 저장된 과거 연도는 계속 남겨 둔다. 매년 새 연도가 추가되어도 최근 3·5년
-	// 비교를 위한 원자료를 삭제하거나 선택 목록에서 숨기지 않는다.
-	const admissionYears = Array.from(new Set([
-		...Array.from({ length: 12 }, (_, index) => currentMiddleSchoolYear + 1 - index),
-		...allSavedCutoffs.map(c => c.year)
-	])).filter(year => Number.isInteger(year)).sort((a, b) => b - a);
 
     let classOptions = '';
     if (window.currentUser && window.currentUser.Role === 'homeroom') {
@@ -1490,14 +1484,32 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             c.schoolName.includes(r.schoolName.substring(0, 4)) && 
             (c.track.includes(r.trackName) || r.trackName.includes(c.track)) &&
             c.department && c.department !== '공통' && c.minValue > 0
-        );
+        ).sort((a, b) => b.year - a.year || a.department.localeCompare(b.department, 'ko'));
 
         let defaultCutoff = null;
         let defaultAvg = null;
-		const cutoffHistory = (cutoffs || []).filter(c =>
-			c.schoolName.includes(r.schoolName.substring(0, 4)) &&
-			(c.track.includes(r.trackName) || r.trackName.includes(c.track)) && c.minValue > 0
-		).sort((a, b) => b.year - a.year).slice(0, 5);
+        const sameSchoolTrack = (c) =>
+            c.schoolName.includes(r.schoolName.substring(0, 4)) &&
+            (c.track.includes(r.trackName) || r.trackName.includes(c.track)) &&
+            c.minValue > 0;
+
+        // 연도별로 한 건만 표시한다. 학과 자료가 없던 해에는 "학교 전체" 값을
+        // 우선 사용하므로, 원서대장에 학과가 없는 학교도 추세에 포함된다.
+        const historyByYear = new Map();
+        (cutoffs || []).filter(sameSchoolTrack).sort((a, b) => {
+            const aWhole = !a.department || a.department === '공통' ? 0 : 1;
+            const bWhole = !b.department || b.department === '공통' ? 0 : 1;
+            return b.year - a.year || aWhole - bWhole;
+        }).forEach(c => {
+            if (!historyByYear.has(c.year)) historyByYear.set(c.year, c);
+        });
+        const cutoffHistory = [...historyByYear.values()].sort((a, b) => b.year - a.year).slice(0, 5);
+        const averageMin = (count) => {
+            const values = cutoffHistory.slice(0, count).map(c => c.minValue);
+            return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+        };
+        const recent3Average = averageMin(3);
+        const recent5Average = averageMin(5);
         if (deptsForSchool.length > 0) {
             defaultCutoff = deptsForSchool[0].minValue;
             defaultAvg = deptsForSchool[0].avgValue;
@@ -1569,9 +1581,10 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 ` : ''}
 
 				${cutoffHistory.length > 0 ? `
-				<div class="text-[11px] text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/40">
-					<span class="font-bold text-indigo-200">최근 ${Math.min(5, cutoffHistory.length)}년 기준:</span>
-					${cutoffHistory.map((c, index) => `<span class="ml-2 ${index === 0 ? 'text-emerald-300 font-bold' : ''}">${c.year} ${c.department || '학교 전체'} ${c.minValue}점</span>`).join('')}
+				<div class="text-[11px] text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/40 space-y-1">
+					<div><span class="font-bold text-indigo-200">연도별 합격선:</span>
+					${cutoffHistory.map((c, index) => `<span class="ml-2 ${index === 0 ? 'text-emerald-300 font-bold' : ''}">${c.year} ${c.department || '학교 전체'} ${c.minValue}점</span>`).join('')}</div>
+					<div class="text-slate-400">직전 ${cutoffHistory[0].year}학년도 ${cutoffHistory[0].minValue}점 · 최근 ${Math.min(3, cutoffHistory.length)}년 평균 ${recent3Average.toFixed(2)}점${cutoffHistory.length >= 4 ? ` · 최근 ${Math.min(5, cutoffHistory.length)}년 평균 ${recent5Average.toFixed(2)}점` : ''}</div>
 				</div>` : ''}
 
                 <div class="flex items-baseline justify-between">
@@ -2802,6 +2815,13 @@ async function renderCutoffScreen(schoolName) {
         console.error(e);
     }
 
+    // 기존 자료의 연도를 보존해 매년 1년씩 누적된 커트라인을 언제든 다시 열고
+    // 최근 3년·5년 상담 비교에 사용할 수 있게 한다.
+    const admissionYears = Array.from(new Set([
+        ...Array.from({ length: 12 }, (_, index) => currentMiddleSchoolYear + 1 - index),
+        ...allSavedCutoffs.map(c => Number(c.year))
+    ])).filter(year => Number.isInteger(year)).sort((a, b) => b - a);
+
     // 기본 등록 고교 및 학과 목록
     const defaultSchoolSpecs = [
         // 1. 마이스터고
@@ -3063,19 +3083,20 @@ async function renderCutoffScreen(schoolName) {
             // 공식 공개 입결 데이터 탭 뷰
             const publicRowsHTML = publicOfficialData.map((p, index) => `
                 <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors text-center">
-                    <td class="p-3 text-slate-400">${p.year}학년도</td>
-                    <td class="p-3 font-bold text-white text-left pl-4">${p.school}</td>
-                    <td class="p-3 text-indigo-300">${p.dept}</td>
-                    <td class="p-3 text-slate-300">${p.track}</td>
-                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right font-bold text-emerald-300 w-20 public-min-score" value="${p.min}" aria-label="${p.school} 최저점" /></td>
-                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right text-sky-300 w-20 public-max-score" value="${p.max}" aria-label="${p.school} 최고점" /></td>
-                    <td class="p-2"><input type="number" step="0.01" class="input-field py-1 px-2 text-xs text-right text-amber-300 w-20 public-avg-score" value="${p.avg}" aria-label="${p.school} 평균점" /></td>
+                    <td class="p-2"><input type="text" inputmode="numeric" class="input-field py-1 px-2 text-xs text-center text-slate-300 w-20 public-year" value="${p.year}" aria-label="입학년도" /></td>
+                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs font-bold text-white w-40 public-school" value="${p.school}" aria-label="고교명" /></td>
+                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs text-indigo-300 w-28 public-dept" value="${p.dept === '공통' ? '' : p.dept}" placeholder="학교 전체" aria-label="학과" /></td>
+                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs text-slate-300 w-24 public-track" value="${p.track}" aria-label="전형" /></td>
+                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right font-bold text-emerald-300 w-20 public-min-score" value="${p.min}" aria-label="${p.school} 최저점" /></td>
+                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right text-sky-300 w-20 public-max-score" value="${p.max}" aria-label="${p.school} 최고점" /></td>
+                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right text-amber-300 w-20 public-avg-score" value="${p.avg}" aria-label="${p.school} 평균점" /></td>
                     <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs w-28 public-note" value="${p.note}" aria-label="${p.school} 출처 또는 구분" /></td>
                     <td class="p-3">
                         <button class="btn-secondary text-[11px] px-2.5 py-1 font-bold btn-apply-public-item" 
-                                data-index="${index}" data-school="${p.school}" data-dept="${p.dept}" data-track="${p.track.replace('전형','')}">
+                                data-index="${index}">
                             내 커트라인 반영
                         </button>
+                        <button class="text-danger/80 hover:text-danger ml-1 btn-delete-public-item" data-index="${index}" title="참고자료 행 삭제">🗑️</button>
                     </td>
                 </tr>
             `).join('');
@@ -3087,8 +3108,9 @@ async function renderCutoffScreen(schoolName) {
                             <h3 class="font-bold text-white text-base flex items-center gap-2">
                                 <span>📊</span> 울산광역시 고등학교 공식 공개 합격선 및 입결 데이터
                             </h3>
-                            <p class="text-xs text-text-muted mt-1">교육청 및 각 고등학교의 공개 자료를 기준으로 관리합니다. 필요한 경우 점수와 출처를 수정한 뒤 내 커트라인에 반영할 수 있습니다.</p>
+                            <p class="text-xs text-text-muted mt-1">공개된 자료를 직접 입력·수정해 참고용으로만 보관합니다. 자동 수집은 하지 않으며, 학과가 없으면 비워 두면 됩니다.</p>
                         </div>
+                        <button id="addPublicDataBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold">➕ 공개자료 행 추가</button>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-900/40">
@@ -3136,6 +3158,9 @@ async function renderCutoffScreen(schoolName) {
                                 ${admissionYears.map(year => `<option value="${year}" ${currentAdmissionYear === year ? 'selected' : ''}>${year}학년도 (${year - 1}학년도 중3${year - 1 === currentMiddleSchoolYear ? ' - 현재' : ''})</option>`).join('')}
                             </select>
                         </div>
+                        <button id="setDefaultAdmissionYearBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold" title="다음에 커트라인 관리 화면을 열 때 기본으로 선택할 입학년도를 저장합니다.">
+                            기본 연도 지정
+                        </button>
 
                         <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
                             <span>💾</span> 커트라인 저장
@@ -3186,6 +3211,15 @@ async function renderCutoffScreen(schoolName) {
         document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
             currentAdmissionYear = parseInt(e.target.value, 10);
             renderMainScreen();
+        });
+
+        document.getElementById('setDefaultAdmissionYearBtn')?.addEventListener('click', async () => {
+            try {
+                await window.go.main.App.UpdateAdmissionYear(currentAdmissionYear);
+                alert(`${currentAdmissionYear}학년도를 기본 고교 입학년도로 지정했습니다. 기존 계정과 암호화 데이터는 변경되지 않습니다.`);
+            } catch (err) {
+                alert('기본 입학년도 저장 실패: ' + err);
+            }
         });
 
         // 탭 전환 이벤트
@@ -3258,13 +3292,17 @@ async function renderCutoffScreen(schoolName) {
         // 공개 데이터 복사 적용 버튼
         app.querySelectorAll('.btn-apply-public-item').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const school = btn.dataset.school;
-                const dept = btn.dataset.dept;
-                const track = btn.dataset.track;
                 const row = btn.closest('tr');
+                const school = row.querySelector('.public-school')?.value.trim();
+                const dept = row.querySelector('.public-dept')?.value.trim() || '';
+                const track = row.querySelector('.public-track')?.value.trim() || '일반';
                 const min = parseFloat(row.querySelector('.public-min-score')?.value);
                 const max = parseFloat(row.querySelector('.public-max-score')?.value);
                 const avg = parseFloat(row.querySelector('.public-avg-score')?.value);
+                if (!school || !Number.isFinite(min) || min <= 0) {
+                    alert('고교명과 최저 합격점을 먼저 입력해주세요.');
+                    return;
+                }
                 const scoreType = school.includes('일반계고') ? 'percentile' : 'total_score';
 
                 // 현재 목록에 즉시 추가/갱신 저장
@@ -3275,8 +3313,8 @@ async function renderCutoffScreen(schoolName) {
                     track: track,
                     scoreType: scoreType,
                     minValue: min,
-                    maxValue: max,
-                    avgValue: avg
+                    maxValue: Number.isFinite(max) && max > 0 ? max : min,
+                    avgValue: Number.isFinite(avg) && avg > 0 ? avg : 0
                 };
 
                 try {
@@ -3302,6 +3340,10 @@ async function renderCutoffScreen(schoolName) {
                     if (!row) return item;
                     return {
                         ...item,
+                        year: parseInt(row.querySelector('.public-year')?.value, 10) || item.year,
+                        school: row.querySelector('.public-school')?.value.trim() || item.school,
+                        dept: row.querySelector('.public-dept')?.value.trim() || '',
+                        track: row.querySelector('.public-track')?.value.trim() || '일반',
                         min: parseFloat(row.querySelector('.public-min-score')?.value) || item.min,
                         max: parseFloat(row.querySelector('.public-max-score')?.value) || item.max,
                         avg: parseFloat(row.querySelector('.public-avg-score')?.value) || item.avg,
@@ -3310,8 +3352,31 @@ async function renderCutoffScreen(schoolName) {
                 });
                 localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
             };
-            app.querySelectorAll('.public-min-score, .public-max-score, .public-avg-score, .public-note').forEach(input => {
+            app.querySelectorAll('.public-year, .public-school, .public-dept, .public-track, .public-min-score, .public-max-score, .public-avg-score, .public-note').forEach(input => {
                 input.addEventListener('change', savePublicData);
+            });
+            document.getElementById('addPublicDataBtn')?.addEventListener('click', () => {
+                publicOfficialData.unshift({
+                    year: currentAdmissionYear,
+                    school: '',
+                    dept: '',
+                    track: '일반',
+                    min: '',
+                    max: '',
+                    avg: '',
+                    unit: '점',
+                    note: '공식 공개자료'
+                });
+                localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                renderMainScreen();
+            });
+            app.querySelectorAll('.btn-delete-public-item').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.dataset.index);
+                    publicOfficialData.splice(index, 1);
+                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    renderMainScreen();
+                });
             });
         }
 

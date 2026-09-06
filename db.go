@@ -309,6 +309,31 @@ func (dm *DBManager) GetSchoolConfig() (*SchoolConfig, error) {
 	return &config, nil
 }
 
+// UpdateAdmissionYear changes only the default admission year.  It intentionally
+// does not recreate teacher accounts or touch their password/key envelopes.
+func (dm *DBManager) UpdateAdmissionYear(admissionYear int) error {
+	if admissionYear < 2000 || admissionYear > 2100 {
+		return fmt.Errorf("입학년도는 2000~2100년 사이여야 합니다")
+	}
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	result, err := db.Exec(`UPDATE school_config SET admission_year = ?, updated_at = CURRENT_TIMESTAMP`, admissionYear)
+	if err != nil {
+		return fmt.Errorf("입학년도 설정 저장 실패: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("학교 초기 설정을 먼저 완료해주세요")
+	}
+	return nil
+}
+
 // VerifyAdminPassword 관리자 비밀번호 검증
 func (dm *DBManager) VerifyAdminPassword(password string) (bool, error) {
 	db, err := dm.openDB(dm.getConfigDBPath())

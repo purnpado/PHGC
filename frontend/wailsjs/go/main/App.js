@@ -166,6 +166,10 @@ export function UnlockAndLogin(arg1, arg2) {
   return window['go']['main']['App']['UnlockAndLogin'](arg1, arg2);
 }
 
+export function UpdateAdmissionYear(arg1) {
+  return window['go']['main']['App']['UpdateAdmissionYear'](arg1);
+}
+
 export function VerifyAdminPassword(arg1) {
   return window['go']['main']['App']['VerifyAdminPassword'](arg1);
 }

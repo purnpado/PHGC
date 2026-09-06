@@ -74,6 +74,12 @@ func (a *App) GetSchoolConfig() (*SchoolConfig, error) {
 	return a.db.GetSchoolConfig()
 }
 
+// UpdateAdmissionYear updates the default cutoff entry year without changing
+// accounts, passwords, or encrypted data-key envelopes.
+func (a *App) UpdateAdmissionYear(admissionYear int) error {
+	return a.db.UpdateAdmissionYear(admissionYear)
+}
+
 // SetupApp 초기 설정 저장
 func (a *App) SetupApp(req SetupRequest) error {
 	if req.SchoolName == "" || req.ClassCount <= 0 || req.AdminPassword == "" {

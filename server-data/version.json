@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.37",
+  "latestVersion": "0.5.38",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.37 - 커트라인 원서대장 입력 및 최근 연도 비교 개선",
+  "releaseNotes": "v0.5.38 - 누적 연도 비교·공개자료 입력·기본 입학년도 설정 개선",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

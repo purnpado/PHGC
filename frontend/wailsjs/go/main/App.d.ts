@@ -84,6 +84,8 @@ export function SyncWithServer():Promise<main.SyncResult>;
 
 export function UnlockAndLogin(arg1:string,arg2:string):Promise<main.User>;
 
+export function UpdateAdmissionYear(arg1:number):Promise<void>;
+
 export function VerifyAdminPassword(arg1:string):Promise<boolean>;
 
 export function VerifyUserLogin(arg1:string,arg2:string):Promise<main.User>;
