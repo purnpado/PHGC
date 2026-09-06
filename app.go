@@ -637,6 +637,7 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 			full.GeneralHSNonAcademicScore = cg.NonAcademicScore
 			full.GeneralHSTotalScore = cg.GeneralTotalScore
 			full.GeneralHSDataComplete = cg.GeneralDataComplete
+			full.GeneralHSProjected = cg.GeneralProjected
 			if cg.Percentile <= 80 {
 				full.GeneralHSLevel = "상"
 			} else if cg.Percentile <= 90 {
@@ -786,6 +787,11 @@ func (a *App) GetClassFullGrades(classNum int) ([]StudentFullData, error) {
 			for _, cg := range classGrades {
 				if matchStudent(cg.StudentNum, cg.Name, full.StudentNum, full.Name) {
 					full.GeneralHSPercentile = cg.Percentile
+					full.GeneralHSAcademicScore = cg.FinalScore
+					full.GeneralHSNonAcademicScore = cg.NonAcademicScore
+					full.GeneralHSTotalScore = cg.GeneralTotalScore
+					full.GeneralHSDataComplete = cg.GeneralDataComplete
+					full.GeneralHSProjected = cg.GeneralProjected
 					break
 				}
 			}

@@ -267,6 +267,7 @@ export namespace main {
 	    NonAcademicScore: number;
 	    GeneralTotalScore: number;
 	    GeneralDataComplete: boolean;
+	    GeneralProjected: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new StudentCalcResult(source);
@@ -294,6 +295,7 @@ export namespace main {
 	        this.NonAcademicScore = source["NonAcademicScore"];
 	        this.GeneralTotalScore = source["GeneralTotalScore"];
 	        this.GeneralDataComplete = source["GeneralDataComplete"];
+	        this.GeneralProjected = source["GeneralProjected"];
 	    }
 	}
 	export class StudentFullData {
@@ -324,6 +326,7 @@ export namespace main {
 	    generalHSNonAcademicScore: number;
 	    generalHSTotalScore: number;
 	    generalHSDataComplete: boolean;
+	    generalHSProjected: boolean;
 	    schoolResults: SchoolCalcResult[];
 	
 	    static createFrom(source: any = {}) {
@@ -359,6 +362,7 @@ export namespace main {
 	        this.generalHSNonAcademicScore = source["generalHSNonAcademicScore"];
 	        this.generalHSTotalScore = source["generalHSTotalScore"];
 	        this.generalHSDataComplete = source["generalHSDataComplete"];
+	        this.generalHSProjected = source["generalHSProjected"];
 	        this.schoolResults = this.convertValues(source["schoolResults"], SchoolCalcResult);
 	    }
 	

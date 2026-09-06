@@ -87,6 +87,7 @@ type StudentFullData struct {
 	GeneralHSNonAcademicScore float64 `json:"generalHSNonAcademicScore"`
 	GeneralHSTotalScore       float64 `json:"generalHSTotalScore"`
 	GeneralHSDataComplete     bool    `json:"generalHSDataComplete"`
+	GeneralHSProjected        bool    `json:"generalHSProjected"`
 
 	// 학교별 산출 결과
 	SchoolResults []SchoolCalcResult `json:"schoolResults"`

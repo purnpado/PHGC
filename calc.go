@@ -41,6 +41,7 @@ type StudentCalcResult struct {
 	NonAcademicScore    float64 // 비교과 합계(40)
 	GeneralTotalScore   float64 // 후기 일반고 내신 총점(200)
 	GeneralDataComplete bool    // 학년별 비교과 입력 완료 여부
+	GeneralProjected    bool    // 11/30 마감 전 누적자료 기준 예상치
 }
 
 // CalculateGrades 전체 학생들의 내신 성적을 계산하여 석차 및 최종 점수를 반환
@@ -144,9 +145,8 @@ func CalculateGrades(allStudents map[int][]StudentExcelData, isSmallSchool bool)
 		results[i].CreativeScore = nonAcademic.CreativeScore
 		results[i].NonAcademicScore = nonAcademic.Total
 		results[i].GeneralDataComplete = complete
-		if complete {
-			results[i].GeneralTotalScore = roundToTwoDecimals(finalScore + nonAcademic.Total)
-		}
+		results[i].GeneralProjected = !complete
+		results[i].GeneralTotalScore = roundToTwoDecimals(finalScore + nonAcademic.Total)
 	}
 
 	return results, nil
@@ -171,8 +171,10 @@ func calculateGeneralNonAcademic(all map[int][]StudentExcelData, target StudentC
 		return generalNonAcademic{}, false
 	}
 	var extra map[string]interface{}
-	if json.Unmarshal([]byte(s.ExtraData), &extra) != nil {
-		return generalNonAcademic{}, false
+	if s.ExtraData == "" {
+		extra = make(map[string]interface{})
+	} else if json.Unmarshal([]byte(s.ExtraData), &extra) != nil {
+		extra = make(map[string]interface{})
 	}
 	intValue := func(key string) (int, bool) { v, ok := extra[key].(float64); return int(v), ok }
 	boolValue := func(key string) bool { v, _ := extra[key].(bool); return v }
@@ -189,7 +191,23 @@ func calculateGeneralNonAcademic(all map[int][]StudentExcelData, target StudentC
 		volunteer += generalVolunteerYearScore(hours)
 	}
 	if !complete {
-		return generalNonAcademic{}, false
+		// 마감 전 상담은 업로드된 3학년 1학기 누적 출결·봉사를 사용한 예상치다.
+		// 학년별 입력이 완료되면 아래의 공식 산출값으로 자동 대체된다.
+		var attendanceMap, volunteerMap map[string]int
+		_ = json.Unmarshal([]byte(s.AttendanceData), &attendanceMap)
+		_ = json.Unmarshal([]byte(s.VolunteerData), &volunteerMap)
+		days := attendanceMap["absence"] + (attendanceMap["late"]+attendanceMap["early"]+attendanceMap["result"])/3
+		attendanceScore := math.Max(4, 16-float64(days)*0.5)
+		hours := volunteerMap["total_time"]
+		volunteerScore := 2.0 + math.Min(6, float64(hours)*0.5)
+		behavior, creative := 5.0, 5.0
+		for grade := 1; grade <= 3; grade++ {
+			if boolValue(fmt.Sprintf("haengbal_%d", grade)) { behavior++ }
+			if boolValue(fmt.Sprintf("changche_%d", grade)) { creative++ }
+		}
+		r := generalNonAcademic{roundToTwoDecimals(attendanceScore), roundToTwoDecimals(volunteerScore), behavior, creative, 0}
+		r.Total = roundToTwoDecimals(r.AttendanceScore + r.VolunteerScore + r.BehaviorScore + r.CreativeScore)
+		return r, false
 	}
 	behavior, creative := 5.0, 5.0
 	for grade := 1; grade <= 3; grade++ {

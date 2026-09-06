@@ -1654,8 +1654,8 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
                 <div class="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/50 text-center">
                     <div class="text-xs text-text-muted mb-1">후기 일반고 내신 / 석차백분율</div>
-                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSDataComplete ? `${data.generalHSTotalScore.toFixed(2)}점` : '비교과 입력 필요'}</div>
-                    <div class="text-[11px] text-slate-400">교과 ${data.generalHSAcademicScore.toFixed(2)} / 비교과 ${data.generalHSDataComplete ? data.generalHSNonAcademicScore.toFixed(2) : '-'} · ${data.generalHSPercentile.toFixed(2)}%</div>
+                    <div class="text-xl font-bold ${data.generalHSPercentile <= (window.generalGuideCutoff || 80) ? 'text-success' : (data.generalHSPercentile <= (window.generalGuideCutoff || 80) + 10 ? 'text-warning' : 'text-danger')}">${data.generalHSTotalScore.toFixed(2)}점 <span class="text-[10px] font-normal text-amber-300">${data.generalHSProjected ? '예상' : '확정'}</span></div>
+                    <div class="text-[11px] text-slate-400">교과 ${data.generalHSAcademicScore.toFixed(2)} / 비교과 ${data.generalHSNonAcademicScore.toFixed(2)} · ${data.generalHSPercentile.toFixed(2)}%</div>
                 </div>
             </div>
 
@@ -1669,21 +1669,27 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
                     <div class="flex items-center justify-between">
                         <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
-                            <span>✏️</span> 수기 추가입력 (전기고 9/30 · 일반고 11/30 기준)
+                            <span>✏️</span> 전형별 비교과 입력
                             ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 진로부장은 조회 전용 모드입니다.</span>' : ''}
                         </h3>
                         ${!isViewer ? `
-                        <button id="saveExtraBtn" class="btn-primary text-xs px-3 py-1.5 font-bold no-print">
-                            💾 저장 후 재계산
+                        <button id="saveExtraBtn" class="btn-primary text-xs font-bold no-print" style="width:auto; min-width:130px; padding:8px 12px;">
+                            💾 저장·재계산
                         </button>
                         ` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
+                        <div class="rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-3 py-2"><b class="text-indigo-200">마이스터고</b> · 출결·봉사·리더십 <span class="text-amber-300">9/30 마감</span></div>
+                        <div class="rounded-lg border border-cyan-500/30 bg-cyan-950/30 px-3 py-2"><b class="text-cyan-200">특성화고</b> · 취업희망자 <span class="text-amber-300">9/30</span> · 일반 <span class="text-amber-300">10/31 마감</span></div>
+                        <div class="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2"><b class="text-emerald-200">후기 일반고</b> · 출결·봉사·행발·창체 <span class="text-amber-300">11/30 마감</span></div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
                         <!-- 1) 9/30 기준 출결 상황 (미인정 결석 + 지각/조퇴/결과) -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
                             <div class="flex items-center justify-between mb-1">
-                                <label class="text-indigo-200 font-bold">📅 9/30 출결 상황</label>
+                                <label class="text-indigo-200 font-bold">📅 전기고 누적 출결</label>
                                 <span class="text-[10px] text-slate-400">3회당 결석1일</span>
                             </div>
                             <div class="space-y-1.5">
@@ -1704,27 +1710,27 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                                     </div>
                                 </div>
                             </div>
-                            <div class="text-[10px] text-text-muted mt-1.5">전기고·일반고 감점 반영</div>
+                            <div class="text-[10px] text-text-muted mt-1.5">마이스터고·특성화고 취업전형: 9/30 기준</div>
                         </div>
 
                         <!-- 2) 추가 봉사시간 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 col-span-full">
-                            <label class="block text-slate-300 font-bold mb-1">🏫 후기 일반고 비교과 원자료 <span class="text-[10px] text-slate-400">(11/30 마감 · 미인정 결석환산일수 / 봉사시간)</span></label>
+                            <label class="block text-emerald-200 font-bold mb-1">🏫 후기 일반고 비교과 확정 입력 <span class="text-[10px] text-slate-400">(11/30 마감 · 마감 전에는 위 누적자료로 예상 산출)</span></label>
                             <div class="grid grid-cols-3 gap-2 text-xs">
                                 ${[1,2,3].map(g => `<div class="flex items-center gap-1"><span>${g}학년</span><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center py-1" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center py-1" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사" ${isViewer ? 'disabled' : ''}/></div>`).join('')}
                             </div>
-                            <div class="text-[10px] text-text-muted mt-2">각 학년: 미인정 결석 + (지각·조퇴·결과 합계÷3, 나머지 버림)을 입력합니다. 세 학년 모두 있어야 일반계고 총점(200점)을 확정합니다.</div>
+                            <div class="text-[10px] text-text-muted mt-2">마감 시 각 학년별 미인정 결석 환산일수와 봉사시간을 확정 입력합니다. 그 전에는 3학년 1학기 누적자료로 일반고 예상 점수를 보여 줍니다.</div>
                         </div>
 
                         <!-- 2) 추가 봉사시간 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-slate-300 font-bold mb-1">🕒 추가 봉사시간</label>
+                            <label class="block text-indigo-200 font-bold mb-1">🕒 전기고 추가 봉사</label>
                             <div class="flex items-center gap-1.5 pt-1">
                                 <input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field text-center py-1 font-bold"
                                        value="${data.addVolunteerHours || 0}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
                                 <span class="text-slate-300">시간 추가</span>
                             </div>
-                            <div class="text-[10px] text-text-muted mt-2">9/30까지 추가 인정분</div>
+                            <div class="text-[10px] text-text-muted mt-2">마이스터고·특성화고 취업전형 9/30까지 인정분</div>
                         </div>
 
                         <!-- 3) 창의적체험활동 (임원 등) 가산점 -->
@@ -1740,7 +1746,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
                         <!-- 4) 창의적체험활동 (임원 등) 가산점 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-slate-300 font-bold mb-1">🏅 창체 가산점 (+1점씩)</label>
+                            <label class="block text-emerald-200 font-bold mb-1">🏅 후기 일반고 창체 가산점 (+1점씩)</label>
                             <div class="flex items-center gap-2.5 pt-1">
                                 <label class="flex items-center gap-1 cursor-pointer">
                                     <input type="checkbox" id="checkChangche1" ${extra['changche_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
@@ -1752,12 +1758,12 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                                     <input type="checkbox" id="checkChangche3" ${extra['changche_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
                                 </label>
                             </div>
-                            <div class="text-[10px] text-text-muted mt-1">학생회/반장 등 임원</div>
+                            <div class="text-[10px] text-text-muted mt-1">11/30 기준 · 학생회/반장 등 인정 임원</div>
                         </div>
 
                         <!-- 4) 행동특성및종합의견 (표창 등) 가산점 -->
                         <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-slate-300 font-bold mb-1">🎖️ 행발 가산점 (+1점씩)</label>
+                            <label class="block text-emerald-200 font-bold mb-1">🎖️ 후기 일반고 행발 가산점 (+1점씩)</label>
                             <div class="flex items-center gap-2.5 pt-1">
                                 <label class="flex items-center gap-1 cursor-pointer">
                                     <input type="checkbox" id="checkHaengbal1" ${extra['haengbal_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
@@ -1769,7 +1775,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                                     <input type="checkbox" id="checkHaengbal3" ${extra['haengbal_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
                                 </label>
                             </div>
-                            <div class="text-[10px] text-text-muted mt-1">모범상/표창장 등</div>
+                            <div class="text-[10px] text-text-muted mt-1">11/30 기준 · 모범상/표창장 등 승인 대상</div>
                         </div>
                     </div>
                 </div>
