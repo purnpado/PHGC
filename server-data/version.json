@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.35",
+  "latestVersion": "0.5.36",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.35 - 피드백 답변 상태 표시 수정",
+  "releaseNotes": "v0.5.36 - 입학년도 및 커트라인 입력 화면 개선",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

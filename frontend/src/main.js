@@ -16,6 +16,7 @@ function renderSetupScreen(existingConfig = null) {
     const schoolName = existingConfig?.schoolName || '';
     const classCount = existingConfig?.classCount || '';
     const isSmallSchool = existingConfig?.isSmallSchool || false;
+	const admissionYear = existingConfig?.admissionYear || (new Date().getFullYear() + 1);
     const isEdit = existingConfig !== null;
 
     app.innerHTML = `
@@ -44,6 +45,13 @@ function renderSetupScreen(existingConfig = null) {
                     <input type="number" id="classCount" class="input-field"
                         placeholder="예: 8" value="${classCount}" min="1" max="30" autocomplete="off" required />
                     <div id="classCountError" class="error-msg">학급수는 1~30 사이로 입력해 주세요.</div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">고교 입학년도</label>
+                    <input type="text" inputmode="numeric" id="admissionYear" class="input-field" value="${admissionYear}" maxlength="4" required />
+                    <p class="text-xs text-text-muted mt-1">현재 중3 학생이 다음 해 3월에 고등학교에 입학하는 연도입니다. 예: 2026년 중3 → 2027학년도</p>
+                    <div id="admissionYearError" class="error-msg">입학년도는 2000~2100년 사이로 입력해 주세요.</div>
                 </div>
 
                 <div class="flex items-center gap-2 mt-2">
@@ -102,16 +110,18 @@ async function handleSetupSubmit(isEdit = false) {
     const password = document.getElementById('adminPassword').value;
     const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
     const isSmallSchool = document.getElementById('isSmallSchool').checked;
+	const admissionYear = parseInt(document.getElementById('admissionYear').value, 10);
     const saveBtn = document.getElementById('saveBtn');
 
     // 에러 초기화
-    ['schoolNameError', 'classCountError', 'passwordError', 'passwordConfirmError', 'generalError']
+    ['schoolNameError', 'classCountError', 'admissionYearError', 'passwordError', 'passwordConfirmError', 'generalError']
         .forEach(id => document.getElementById(id).classList.remove('show'));
 
     // 유효성 검사
     let hasError = false;
     if (!schoolName) { document.getElementById('schoolNameError').classList.add('show'); hasError = true; }
     if (!classCount || classCount < 1 || classCount > 30) { document.getElementById('classCountError').classList.add('show'); hasError = true; }
+	if (!admissionYear || admissionYear < 2000 || admissionYear > 2100) { document.getElementById('admissionYearError').classList.add('show'); hasError = true; }
     if (!password) { document.getElementById('passwordError').classList.add('show'); hasError = true; }
     if (password !== passwordConfirm) { document.getElementById('passwordConfirmError').classList.add('show'); hasError = true; }
     if (hasError) return;
@@ -120,7 +130,6 @@ async function handleSetupSubmit(isEdit = false) {
     saveBtn.innerHTML = '<span class="spinner"></span>저장 중...';
 
     try {
-        const admissionYear = new Date().getFullYear();
         await window.go.main.App.SetupApp({
             schoolName: schoolName,
             classCount: classCount,
@@ -2877,6 +2886,18 @@ async function renderCutoffScreen(schoolName) {
                 { dept: "뷰티예술과", track: "취업희망자" }
             ]
         },
+		{
+			name: "울산공업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+			items: ["건축과", "기계과", "전기과", "전자통신과", "토목과", "화공과"].map(dept => ({ dept, track: "일반" }))
+		},
+		{
+			name: "울산산업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+			items: ["농식품가공과", "보건간호과", "원예디자인과", "금융경영과"].map(dept => ({ dept, track: "일반" }))
+		},
+		{
+			name: "울산기술공업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+			items: ["기계과", "전기과"].map(dept => ({ dept, track: "일반" }))
+		},
         // 3. 후기 일반고
         {
             name: "울산 후기 일반계고",
@@ -2962,21 +2983,21 @@ async function renderCutoffScreen(schoolName) {
                             </td>
                             <td class="p-3 text-center">
                                 <div class="flex items-center justify-center gap-1">
-                                    <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
+                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
                                            value="${minVal}" placeholder="${sch.placeholder}" />
                                     <span class="text-xs text-slate-400">${sch.unit}</span>
                                 </div>
                             </td>
                             <td class="p-3 text-center">
                                 <div class="flex items-center justify-center gap-1">
-                                    <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
+                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
                                            value="${maxVal}" placeholder="선택" />
                                     <span class="text-xs text-slate-400">${sch.unit}</span>
                                 </div>
                             </td>
                             <td class="p-3 text-center">
                                 <div class="flex items-center justify-center gap-1">
-                                    <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
+                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
                                            value="${avgVal}" placeholder="선택" />
                                     <span class="text-xs text-slate-400">${sch.unit}</span>
                                 </div>
@@ -3002,7 +3023,7 @@ async function renderCutoffScreen(schoolName) {
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
+                            <table class="w-full text-left border-collapse text-xs cutoff-compact-table">
                                 <thead>
                                     <tr class="text-text-muted border-b border-slate-700/60 font-semibold bg-slate-900/40">
                                         <th class="p-2.5">학과명</th>
@@ -3013,7 +3034,7 @@ async function renderCutoffScreen(schoolName) {
                                         <th class="p-2.5 text-center w-14">관리</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody class="cutoff-pair-grid">
                                     ${rowsHTML}
                                 </tbody>
                             </table>
@@ -3191,21 +3212,21 @@ async function renderCutoffScreen(schoolName) {
                         </td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
+                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
                                        value="" placeholder="최저점" />
                                 <span class="text-xs text-slate-400">${unit}</span>
                             </div>
                         </td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
+                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
                                        value="" placeholder="선택" />
                                 <span class="text-xs text-slate-400">${unit}</span>
                             </div>
                         </td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="number" step="0.01" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
+                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
                                        value="" placeholder="선택" />
                                 <span class="text-xs text-slate-400">${unit}</span>
                             </div>
