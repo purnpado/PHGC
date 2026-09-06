@@ -23,5 +23,8 @@ server-data/*.exe
 .DS_Store
 Thumbs.db
 # 민감한 데이터 및 엑셀 파일 차단
+.env
+.env.*
+!.env.example
 *.xlsx
 *.db

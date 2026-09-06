@@ -12,20 +12,11 @@ $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
 $giteaRepo = "PHGC"
 
-# Gitea 토큰 읽기 (User 환경변수 또는 서버 .env)
+# Gitea 토큰은 사용자/프로세스 환경변수에서만 읽는다.
+# 중계서버의 .env는 EduBridge-Server에만 두며 PHGC 저장소에는 보관하지 않는다.
 $giteaToken = [System.Environment]::GetEnvironmentVariable("GITEA_TOKEN", "User")
 if (-not $giteaToken) {
     $giteaToken = $env:GITEA_TOKEN
-}
-if (-not $giteaToken) {
-    $envFile = "server/.env"
-    if (Test-Path $envFile) {
-        Get-Content $envFile | ForEach-Object {
-            if ($_ -match '^\s*GITEA_TOKEN\s*=\s*(.+)$') {
-                $giteaToken = $matches[1].Trim()
-            }
-        }
-    }
 }
 if (-not $giteaToken) {
     Write-Host "GITEA_TOKEN not found. Gitea Release upload will be skipped." -ForegroundColor Yellow
