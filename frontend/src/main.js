@@ -926,18 +926,12 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         console.error(e);
     }
 
-    let classOptions = '';
     if (window.currentUser && window.currentUser.Role === 'homeroom') {
         // 담임인 경우 자기 반만 선택 가능
         const myClass = window.currentUser.ClassNum;
-        classOptions = `<option value="${myClass}">${myClass}반</option>`;
         targetClassNum = myClass; // 강제로 타겟 클래스 변경
-    } else {
-        // 마스터나 뷰어는 전반 조회 가능
-        for (let i = 1; i <= classCount; i++) {
-            classOptions += `<option value="${i}">${i}반</option>`;
-        }
     }
+    let activeClassNum = null;
 
     let localVer = '0.5.6';
     try {
@@ -997,7 +991,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
             <div class="max-w-5xl mx-auto py-8 space-y-6 fade-in">
                 <div class="text-center space-y-2">
                     <h2 class="text-2xl font-black text-white flex items-center justify-center gap-2">
-                        <span>🏫</span> 담당 학급을 선택해 주세요
+                        <span>🏫</span> 상담할 학급을 선택해 주세요
                     </h2>
                     <p class="text-sm text-text-muted">${isHomeroomMsg}</p>
                 </div>
@@ -1032,10 +1026,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="classGridHomeBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" style="display: none;">
                         <span>🗂️</span> 학급 목록
                     </button>
-                    <select id="classSelector" class="input-field" style="width: auto;" ${window.currentUser && window.currentUser.Role === 'homeroom' ? 'disabled' : ''}>
-                        <option value="">-- 담당 학급 선택 --</option>
-                        ${classOptions}
-                    </select>
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
@@ -1057,7 +1047,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
         setGeneralGuideCutoff(inputVal);
         alert(`후기 일반고 합격 안정선 기준이 [${inputVal}%]로 설정되었습니다.\n(경계선: ${Math.min(100, inputVal + 10)}%까지)`);
-        const currentClass = parseInt(document.getElementById('classSelector').value);
+        const currentClass = activeClassNum;
         if (currentClass) {
             loadClass(currentClass);
         }
@@ -1066,14 +1056,15 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     // 학급 카드 클릭 시 학급 로드 함수
     const loadClass = async (classNum) => {
         if (!classNum) {
+            activeClassNum = null;
             document.getElementById('classGridHomeBtn').style.display = 'none';
             document.getElementById('teacherContent').innerHTML = getClassGridHTML();
             bindGridEvents();
             return;
         }
 
+        activeClassNum = classNum;
         document.getElementById('classGridHomeBtn').style.display = 'inline-flex';
-        document.getElementById('classSelector').value = classNum;
         document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
         
         try {
@@ -1097,7 +1088,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     bindGridEvents();
 
     document.getElementById('classGridHomeBtn')?.addEventListener('click', () => {
-        document.getElementById('classSelector').value = '';
         loadClass(null);
     });
 
@@ -1109,12 +1099,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         } else {
             renderAdminScreen(schoolName);
         }
-    });
-
-    const classSelector = document.getElementById('classSelector');
-    classSelector.addEventListener('change', (e) => {
-        const classNum = parseInt(e.target.value);
-        loadClass(classNum);
     });
 
     // 담임교사인 경우 본인 반 자동 선택
@@ -1623,7 +1607,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     const extra = data.extraData || {};
 
     modalEl.innerHTML = `
-        <div class="glass-card p-6 md:p-8 w-full max-w-4xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
+        <div class="glass-card p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
             <!-- 모달 헤더 (인쇄 제외 버튼 포함) -->
             <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                 <div>
@@ -1694,7 +1678,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
-                        <section class="lg:col-span-4 bg-slate-900/60 p-3 rounded-lg border border-indigo-500/30 space-y-3">
+                        <section class="lg:col-span-5 bg-slate-900/60 p-4 rounded-lg border border-indigo-500/30 space-y-3">
                             <div><b class="text-indigo-200 text-sm">① 마이스터·특성화고 비교과</b><span class="ml-2 text-slate-400">취업희망 9/30 · 특성화 일반 10/31</span></div>
                             <div class="grid grid-cols-2 gap-2">
                                 <label class="text-slate-300">9/30 결석(일)<input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultAbsence}" ${isViewer ? 'disabled' : ''}/></label>
@@ -1702,12 +1686,12 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                                 <label class="text-slate-300">10/31 결석(일)<input type="number" id="inputOctAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctAbsence}" ${isViewer ? 'disabled' : ''}/></label>
                                 <label class="text-slate-300">10/31 지각·조퇴·결과(회)<input type="number" id="inputOctLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
                                 <label class="text-slate-300">추가 봉사(시간)<input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field w-full text-center mt-1" value="${data.addVolunteerHours || 0}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">리더십 인정(학기)<input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field w-full text-center mt-1" value="${extra['leadership_terms'] || 0}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">리더십 인정(학기)<input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field w-full text-center mt-1" value="${data.leadershipTerms || 0}" ${isViewer ? 'disabled' : ''}/></label>
                             </div>
                             <p class="text-[10px] text-slate-400">출결은 결석 + 기타 3회당 1일입니다. 10/31 확정 전에는 9/30과 같은 누적값을 넣어 예상 점수로 확인하세요. 리더십은 반장·부반장·전교회장·부회장만, 한 학기 2.5점입니다.</p>
                         </section>
 
-                        <section class="lg:col-span-8 bg-slate-900/60 p-3 rounded-lg border border-emerald-500/30 space-y-3">
+                        <section class="lg:col-span-7 bg-slate-900/60 p-4 rounded-lg border border-emerald-500/30 space-y-3">
                             <div><b class="text-emerald-200 text-sm">② 후기 일반고 비교과</b><span class="ml-2 text-slate-400">11/30 마감 · 현재는 3학년 1학기 누적자료로 예상 산출</span></div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 ${[1,2,3].map(g => `<div class="rounded border border-slate-700/70 p-2"><b class="text-slate-200">${g}학년</b><div class="grid grid-cols-2 gap-1 mt-1"><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석환산일" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사시간" ${isViewer ? 'disabled' : ''}/></div></div>`).join('')}
