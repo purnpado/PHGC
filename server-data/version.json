@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.39",
+  "latestVersion": "0.5.40",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.39 - 학과 병합 전형별 입력 및 연도별 입력 화면 개선",
+  "releaseNotes": "v0.5.40 - 신호등 매트릭스 점수 소수 둘째 자리 표시",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

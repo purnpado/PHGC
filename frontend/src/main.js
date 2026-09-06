@@ -1898,14 +1898,14 @@ async function openMatrixModal(classNum) {
 
                 if (foundCutoff && foundCutoff.minValue > 0) {
                     if (r.totalScore >= foundCutoff.minValue + 5) {
-                        return `<span class="text-success font-bold" title="최저선: ${foundCutoff.minValue}점 (안정)">🟢 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-success font-bold" title="최저선: ${foundCutoff.minValue}점 (안정)">🟢 ${r.totalScore.toFixed(2)}</span>`;
                     } else if (r.totalScore >= foundCutoff.minValue) {
-                        return `<span class="text-warning font-bold" title="최저선: ${foundCutoff.minValue}점 (경계)">🟡 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-warning font-bold" title="최저선: ${foundCutoff.minValue}점 (경계)">🟡 ${r.totalScore.toFixed(2)}</span>`;
                     } else {
-                        return `<span class="text-danger font-bold" title="최저선: ${foundCutoff.minValue}점 (주의)">🔴 ${r.totalScore.toFixed(0)}</span>`;
+                        return `<span class="text-danger font-bold" title="최저선: ${foundCutoff.minValue}점 (주의)">🔴 ${r.totalScore.toFixed(2)}</span>`;
                     }
                 }
-                return `<span class="text-slate-300 font-medium">${r.totalScore.toFixed(0)}점</span>`;
+                return `<span class="text-slate-300 font-medium">${r.totalScore.toFixed(2)}점</span>`;
             };
 
             const meister = getBadge('마이스터');
