@@ -3003,48 +3003,35 @@ async function renderCutoffScreen(schoolName) {
                     }
                 });
 
-                const rowsHTML = itemsToRender.map((item) => {
-                    const key = `${sch.name}_${item.dept}_${item.track}`;
-                    const saved = savedMap[key] || {};
-                    const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
-                    const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';
-                    const avgVal = saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
-
-                    return `
-                        <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}">
-                            <td class="p-3">
-                                <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${item.dept}" placeholder="비우면 학교 전체" />
-                            </td>
-                            <td class="p-3">
-                                <input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="${item.track}" placeholder="전형 (예: 일반, 특별)" />
-                            </td>
-                            <td class="p-3 text-center">
-                                <div class="flex items-center justify-center gap-1">
-                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
-                                           value="${minVal}" placeholder="${sch.placeholder}" />
-                                    <span class="text-xs text-slate-400">${sch.unit}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 text-center">
-                                <div class="flex items-center justify-center gap-1">
-                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
-                                           value="${maxVal}" placeholder="선택" />
-                                    <span class="text-xs text-slate-400">${sch.unit}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 text-center">
-                                <div class="flex items-center justify-center gap-1">
-                                    <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
-                                           value="${avgVal}" placeholder="선택" />
-                                    <span class="text-xs text-slate-400">${sch.unit}</span>
-                                </div>
-                            </td>
-                            <td class="p-3 text-center">
-                                <button class="text-xs text-danger/80 hover:text-danger hover:bg-danger/10 p-1.5 rounded transition-colors btn-delete-row" title="행 삭제">🗑️</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+                // 같은 학과는 하나의 셀로 묶고, 그 아래에서 일반·특별 등 전형별
+                // 점수만 구분한다. DB에는 기존처럼 학과+전형 단위로 저장된다.
+                const itemGroups = new Map();
+                itemsToRender.forEach(item => {
+                    const groupKey = item.dept || '';
+                    if (!itemGroups.has(groupKey)) itemGroups.set(groupKey, []);
+                    itemGroups.get(groupKey).push(item);
+                });
+                const rowsHTML = [...itemGroups.entries()].map(([dept, group], groupIndex) =>
+                    group.map((item, itemIndex) => {
+                        const key = `${sch.name}_${item.dept}_${item.track}`;
+                        const saved = savedMap[key] || {};
+                        const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
+                        const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';
+                        const avgVal = saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
+                        const groupId = `${sIdx}-${groupIndex}`;
+                        return `
+                            <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}" data-dept="${dept}" data-dept-group="${groupId}">
+                                ${itemIndex === 0 ? `<td class="p-3 align-middle" rowspan="${group.length}">
+                                    <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${dept}" placeholder="비우면 학교 전체" data-dept-group="${groupId}" />
+                                </td>` : ''}
+                                <td class="p-3"><input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="${item.track}" placeholder="전형 (예: 일반, 특별)" /></td>
+                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" value="${minVal}" placeholder="${sch.placeholder}" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
+                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" value="${maxVal}" placeholder="선택" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
+                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" value="${avgVal}" placeholder="선택" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
+                                <td class="p-3 text-center"><button class="text-xs text-danger/80 hover:text-danger hover:bg-danger/10 p-1.5 rounded transition-colors btn-delete-row" title="행 삭제">🗑️</button></td>
+                            </tr>`;
+                    }).join('')
+                ).join('');
 
                 schoolsHTML += `
                     <div class="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/60 space-y-3 school-cutoff-card shadow-lg" data-school="${sch.name}">
@@ -3148,6 +3135,7 @@ async function renderCutoffScreen(schoolName) {
                         <p class="text-xs text-text-muted mt-1">
                             고교 입학년도별 최저(합격선)·최고·평균점을 한곳에서 편리하게 관리하고 학생 진학 상담 모달의 실시간 판정 기준으로 적용합니다.
                         </p>
+                        <p class="text-xs text-indigo-300 mt-1.5 font-semibold">현재 입력 대상: ${currentAdmissionYear}학년도 (${currentAdmissionYear - 1}학년도 중3) · 연도를 바꾸면 해당 연도의 저장값만 표시됩니다.</p>
                     </div>
 
                     <div class="flex items-center gap-2 flex-wrap">
@@ -3235,6 +3223,15 @@ async function renderCutoffScreen(schoolName) {
             btn.addEventListener('click', (e) => {
                 const tr = e.target.closest('tr');
                 if (tr) tr.remove();
+            });
+        });
+
+        // 병합된 학과 셀을 수정하면 같은 학과의 모든 전형 행에도 저장용 값이 반영된다.
+        app.querySelectorAll('.row-dept-name[data-dept-group]').forEach(input => {
+            input.addEventListener('input', () => {
+                const dept = input.value.trim();
+                app.querySelectorAll(`.cutoff-item-row[data-dept-group="${input.dataset.deptGroup}"]`)
+                    .forEach(row => { row.dataset.dept = dept; });
             });
         });
 
@@ -3394,7 +3391,7 @@ async function renderCutoffScreen(schoolName) {
             rows.forEach(tr => {
                 const school = tr.dataset.school;
                 const scoreType = tr.dataset.type;
-				const dept = tr.querySelector('.row-dept-name')?.value.trim() || '';
+				const dept = tr.querySelector('.row-dept-name')?.value.trim() ?? tr.dataset.dept ?? '';
                 const track = tr.querySelector('.row-track-name')?.value.trim() || '일반';
                 const minStr = tr.querySelector('.row-min-score')?.value.trim();
                 const maxStr = tr.querySelector('.row-max-score')?.value.trim();

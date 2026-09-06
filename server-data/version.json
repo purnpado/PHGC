@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.38",
+  "latestVersion": "0.5.39",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.38 - 누적 연도 비교·공개자료 입력·기본 입학년도 설정 개선",
+  "releaseNotes": "v0.5.39 - 학과 병합 전형별 입력 및 연도별 입력 화면 개선",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }
