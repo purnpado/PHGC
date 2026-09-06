@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.34",
+  "latestVersion": "0.5.35",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.34 - EduBridge 피드백 문의 전송 호환성 수정",
+  "releaseNotes": "v0.5.35 - 피드백 답변 상태 표시 수정",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

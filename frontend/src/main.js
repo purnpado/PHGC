@@ -2190,7 +2190,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let html = '';
             for (const issue of issues) {
-                let statusBadge = issue.status === 'open' ? '<span class="text-xs bg-warning/20 text-warning px-2 py-1 rounded">답변 대기</span>' : '<span class="text-xs bg-success/20 text-success px-2 py-1 rounded">답변 완료</span>';
+                let answered = issue.status !== 'open';
+                try {
+                    const remote = await window.go.main.App.GetFeedbackDetails(issue.issue_id);
+                    answered = answered || remote.state === 'closed' || (remote.comments && remote.comments.length > 0);
+                } catch (_) {}
+                let statusBadge = answered ? '<span class="text-xs bg-success/20 text-success px-2 py-1 rounded">답변 완료</span>' : '<span class="text-xs bg-warning/20 text-warning px-2 py-1 rounded">답변 대기</span>';
                 html += `
                     <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors" onclick="loadIssueDetails(${issue.issue_id})">
                         <div class="flex justify-between items-center mb-2">
