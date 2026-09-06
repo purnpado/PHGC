@@ -86,9 +86,11 @@ if (-not (Test-Path $exePath)) {
 }
 Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 
-# ===== 7. Git 커밋 & 태그 & 푸시 (바이너리는 제외하여 저장소 경량화 유지) =====
+# ===== 7. Git 커밋 & 태그 & 푸시 (바이너리·사용자 미추적 파일 제외) =====
 Write-Host ">>> Git 커밋 및 태그 생성 중..." -ForegroundColor Cyan
-git add .
+# git add . 는 작업 폴더에 둔 개인 자료/임시 폴더까지 릴리즈에 포함할 수 있으므로
+# 이미 추적 중인 파일의 변경만 스테이징한다.
+git add -u
 git commit -m "release: v$newVer - $Notes"
 git tag -a "v$newVer" -m "v$newVer - $Notes" -f
 if ($giteaToken) {

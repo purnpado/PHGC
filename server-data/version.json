@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.40",
+  "latestVersion": "0.5.41",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.40 - 신호등 매트릭스 점수 소수 둘째 자리 표시",
+  "releaseNotes": "v0.5.41 - 고교별 1차 전형 산출식 반영, 최신 학과 목록 연동 및 진학상담 합격 예측 배지 추가",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }
