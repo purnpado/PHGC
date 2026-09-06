@@ -25,8 +25,8 @@ func DownloadAndApplyUpdate(customURL string) error {
 	exeDir := filepath.Dir(currentExe)
 
 	// 2. 다운로드 대상 URL 결정
-	// 브릿지 서버의 sync 프록시 엔드포인트를 활용하여 비공개 저장소 파일 직접 다운로드
-	downloadURL := "https://go.gguk.link/api/sync/server-data/PHGC.exe"
+	// 브릿지 서버의 최신 Release Asset 스트리밍 엔드포인트 활용
+	downloadURL := "https://go.gguk.link/api/download/PHGC.exe"
 	if customURL != "" && strings.HasSuffix(customURL, ".exe") {
 		downloadURL = customURL
 	}

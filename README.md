@@ -101,7 +101,7 @@ wails build
 ```
 
 ### 4. 자동 버전업 & 원클릭 중앙 배포
-PowerShell 환경에서 제공되는 배포 스크립트를 사용하면 버전 번호 자동 증가, Wails 빌드, `server-data/` 동기화 바이너리 복사, Git 커밋/태그, Gitea Release 및 Asset 업로드까지 전자동으로 수행됩니다:
+PowerShell 환경에서 제공되는 배포 스크립트를 사용하면 버전 번호 자동 증가, Wails 빌드, Git 커밋/태그, Gitea Release 및 `PHGC.exe` Asset 업로드를 수행합니다. 기획 문서는 저장소에서만 관리되며 Release Asset에는 포함하지 않습니다:
 
 ```powershell
 .\publish.ps1 -Notes "배포할 업데이트 주요 내용을 입력합니다"

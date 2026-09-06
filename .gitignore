@@ -7,7 +7,7 @@ frontend/dist/
 
 # Go
 *.exe
-!server-data/PHGC.exe
+server-data/*.exe
 *.exe~
 *.dll
 *.so
@@ -25,4 +25,3 @@ Thumbs.db
 # 민감한 데이터 및 엑셀 파일 차단
 *.xlsx
 *.db
-docs/

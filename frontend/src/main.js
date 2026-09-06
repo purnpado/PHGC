@@ -1,7 +1,7 @@
 import './style.css';
 import './app.css';
 
-import { CheckSetupComplete, GetSchoolConfig, SaveSchoolConfig, VerifyAdminPassword, SyncWithServer, GetAppVersion, OpenExcelFile, ProcessExcel, GetClassStatus, GetClassGrades } from '../wailsjs/go/main/App';
+import { CheckSetupComplete, GetSchoolConfig, VerifyAdminPassword, SyncWithServer, GetAppVersion, OpenExcelFile, ProcessExcel, GetClassStatus, GetClassGrades } from '../wailsjs/go/main/App';
 import middleSchools from './assets/middleschools.json';
 
 const app = document.querySelector('#app');
@@ -573,6 +573,10 @@ async function renderAdminScreen(schoolName) {
                     <button id="syncBtn" class="btn-primary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
                         🔄 서버 동기화
                     </button>
+
+                    <button id="importPatchBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
+                        📥 담임 변경분 가져오기
+                    </button>
                     <button id="resetYearBtn" class="text-warning border border-warning/30 hover:bg-warning/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;" title="커트라인은 유지하고 학생 데이터만 삭제">
                         📅 새 입시년도 전환
                     </button>
@@ -853,6 +857,18 @@ async function renderAdminScreen(schoolName) {
 
     document.getElementById('syncBtn')?.addEventListener('click', () => {
         renderSyncScreen(schoolName);
+    });
+
+    document.getElementById('importPatchBtn')?.addEventListener('click', async () => {
+        const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
+        if (!password) return;
+        try {
+            const count = await window.go.main.App.OpenTeacherPatch(password);
+            alert(`${count}건의 담임 변경분을 병합했습니다. 결과를 확인한 뒤 최신 data 폴더를 재배포하세요.`);
+            renderAdminScreen(schoolName);
+        } catch (err) {
+            alert('변경분 가져오기 실패: ' + err);
+        }
     });
 }
 
@@ -2067,8 +2083,9 @@ async function init() {
     try {
         const isSetup = await CheckSetupComplete();
         if (isSetup) {
-            const config = await GetSchoolConfig();
-            renderLoginScreen(config.schoolName);
+            // 암호화된 data 폴더는 로그인 전에는 열지 않는다. 학교명과
+            // 역할 목록은 로그인 후에만 DB에서 읽는다.
+            renderLoginScreen(await window.go.main.App.GetLoginIndex());
         } else {
             renderSetupScreen();
         }
@@ -2113,11 +2130,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div>
                             <label class="block text-sm text-text-muted mb-1">내용</label>
-                            <textarea id="fbContent" class="input-field min-h-[150px] resize-none" placeholder="자세한 내용을 적어주세요..." required></textarea>
+                            <textarea id="fbContent" class="input-field resize-none" style="min-height: 150px;" placeholder="자세한 내용을 적어주세요..." required></textarea>
                         </div>
                         <div>
                             <label class="block text-sm text-text-muted mb-1">사진 첨부 (선택)</label>
-                            <input type="file" id="fbImage" accept="image/*" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer">
+                            <input type="file" id="fbImage" accept="image/*" class="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer">
                         </div>
                         <button id="submitFeedbackBtn" class="btn-primary w-full mt-4">제출하기</button>
                     </div>
@@ -2279,8 +2296,14 @@ window.loadIssueDetails = async (issueID) => {
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
     app.className = '';
-    try {
-        const users = await window.go.main.App.GetUsers();
+	try {
+		const loginIndex = typeof schoolName === 'string' ? { schoolName, accounts: [] } : schoolName;
+		schoolName = loginIndex.schoolName || '암호화된 학교 데이터';
+		const roleOrder = { master: 0, homeroom: 1, viewer: 2 };
+		const loginAccounts = [...(loginIndex.accounts || [])].sort((a, b) => {
+			const roleDiff = (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
+			return roleDiff || (a.classNum || 0) - (b.classNum || 0) || a.username.localeCompare(b.username);
+		});
         let localVer = '0.5.5';
         try {
             localVer = await window.go.main.App.GetAppVersion();
@@ -2288,20 +2311,6 @@ export async function renderLoginScreen(schoolName) {
             console.warn(e);
         }
         
-        let adminOptions = '';
-        let viewerOptions = '';
-        let teacherOptions = '';
-
-        users.forEach(u => {
-            if (u.Role === 'master') {
-                adminOptions += `<option value="${u.Username}">학년부장 (${u.Username})</option>`;
-            } else if (u.Role === 'viewer') {
-                viewerOptions += `<option value="${u.Username}">진로부장 (${u.Username})</option>`;
-            } else if (u.Role === 'homeroom') {
-                teacherOptions += `<option value="${u.Username}">${u.ClassNum}반 담임</option>`;
-            }
-        });
-
         app.innerHTML = `
             <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
                 <div class="text-center mb-6">
@@ -2312,16 +2321,8 @@ export async function renderLoginScreen(schoolName) {
                 <form id="loginForm" class="space-y-4">
                     <div>
                         <label class="block text-xs font-semibold text-text-muted mb-1.5">로그인 계정 선택</label>
-                        <select id="loginUsername" class="input-field cursor-pointer py-2 text-xs">
-                            <optgroup label="학년부장">
-                                ${adminOptions}
-                            </optgroup>
-                            <optgroup label="진로부장 (조회전용)">
-                                ${viewerOptions}
-                            </optgroup>
-                            <optgroup label="담임 교사">
-                                ${teacherOptions}
-                            </optgroup>
+                        <select id="loginUsername" class="input-field cursor-pointer py-2 text-xs" required>
+                            ${loginAccounts.map(account => `<option value="${account.username}">${account.role === 'master' ? '학년부장' : account.role === 'viewer' ? '진로부장' : `${account.username} 담임`}</option>`).join('') || '<option value="admin">학년부장 (admin)</option>'}
                         </select>
                     </div>
                     <div>
@@ -2388,7 +2389,7 @@ export async function renderLoginScreen(schoolName) {
             errorDiv.classList.remove('show');
 
             try {
-                const user = await window.go.main.App.VerifyUserLogin(username, password);
+                const user = await window.go.main.App.UnlockAndLogin(username, password);
                 window.currentUser = user;
 
                 if (user.MustChangePassword) {
@@ -3072,7 +3073,7 @@ async function renderCutoffScreen(schoolName) {
         }
 
         app.innerHTML = `
-            <div class="glass-card p-6 md:p-8 w-full max-w-[1500px] mx-auto min-h-[85vh] space-y-6 fade-in">
+            <div class="glass-card p-6 md:p-8 w-full mx-auto min-h-[85vh] space-y-6 fade-in" style="max-width: 1500px;">
                 <!-- 1. 상단 타이틀 & 입학년도(입시년도) & 주요 액션 네비게이션 바 -->
                 <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/50 pb-4">
                     <div>
@@ -3104,9 +3105,6 @@ async function renderCutoffScreen(schoolName) {
                         </button>
                         <button id="importBridgeCutoffBtn" class="text-xs bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
                             <span>📥</span> 서버 데이터 내려받기
-                        </button>
-                        <button id="rollbackBridgeCutoffBtn" class="text-xs bg-rose-950/20 border border-rose-500/30 text-rose-300 hover:bg-rose-950/40 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors" title="우리 학교 등록 데이터 회수">
-                            <span>🗑️</span> 회수
                         </button>
                         <button id="backToAdminBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold">
                             ← 대시보드
@@ -3335,7 +3333,7 @@ async function renderCutoffScreen(schoolName) {
 
         // 3. 중앙 서버 전송
         document.getElementById('exportBridgeCutoffBtn')?.addEventListener('click', async () => {
-            if (!confirm(`${currentAdmissionYear}학년도 커트라인 데이터를 중앙 데이터베이스로 전송하시겠습니까?`)) {
+            if (!confirm(`${currentAdmissionYear}학년도 제출 중학교명, 고등학교명, 학과(또는 전체), 최저 커트라인 점수만 제출합니다.\n학생·학급·교사 정보는 전송되지 않으며, 운영자 승인 전에는 공개되지 않습니다.\n\n계속하시겠습니까?`)) {
                 return;
             }
             const btn = document.getElementById('exportBridgeCutoffBtn');
@@ -3345,7 +3343,7 @@ async function renderCutoffScreen(schoolName) {
             try {
                 await saveAllCutoffs(true);
                 await window.go.main.App.SendCutoffsToBridge(currentAdmissionYear);
-                alert('데이터 전송이 성공적으로 완료되었습니다! 협조해 주셔서 감사합니다.');
+                alert('커트라인이 제출되었습니다. 운영자 승인 후 공개 자료에 반영됩니다.');
             } catch (err) {
                 alert('서버 전송 실패: ' + err);
             } finally {
@@ -3373,27 +3371,7 @@ async function renderCutoffScreen(schoolName) {
             }
         });
 
-        // 5. 서버 등록 회수(삭제)
-        document.getElementById('rollbackBridgeCutoffBtn')?.addEventListener('click', async () => {
-            if (!confirm(`정말로 우리 학교가 중앙 서버에 등록한 ${currentAdmissionYear}학년도 커트라인 데이터를 회수(삭제)하시겠습니까?\n\n회수 즉시 다른 학교에서 더 이상 우리 학교 데이터가 조회되지 않습니다.`)) {
-                return;
-            }
-            const btn = document.getElementById('rollbackBridgeCutoffBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 회수 중...';
-
-            try {
-                const msg = await window.go.main.App.RollbackSchoolCutoffs(currentAdmissionYear);
-                alert(msg || '서버 데이터 회수가 완료되었습니다.');
-            } catch (err) {
-                alert('서버 데이터 회수 실패: ' + err);
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span>🗑️</span> 회수';
-            }
-        });
-
-        // 6. 대시보드로 돌아가기
+        // 5. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });

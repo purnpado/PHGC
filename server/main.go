@@ -12,6 +12,7 @@ import (
 	"net/smtp"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +81,17 @@ func main() {
 		api.GET("/download/:filename", handleDownloadLatest)
 		api.POST("/webhook/gitea", handleGiteaWebhook)
 	}
+	admin := api.Group("/admin", requireAdmin())
+	{
+		admin.GET("/dashboard", handleAdminDashboard)
+		admin.GET("/cutoff-submissions", handleAdminCutoffSubmissions)
+		admin.GET("/merged-cutoffs", handleAdminGetMergedCutoffs)
+		admin.PUT("/merged-cutoffs", handleAdminSaveMergedCutoffs)
+		admin.GET("/notices", handleAdminGetNotices)
+		admin.PUT("/notices", handleAdminSaveNotices)
+		admin.GET("/feedback", handleAdminFeedbacks)
+		admin.POST("/feedback/:id/reply", handleAdminReplyFeedback)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -102,21 +114,30 @@ func getDataRepo() string {
 
 // handleCutoff 각 학교에서 업로드한 고교 커트라인 데이터를 Gitea에 저장
 func handleCutoff(c *gin.Context) {
-	var payload struct {
-		SchoolName string      `json:"schoolName"`
-		Year       int         `json:"year"`
-		Data       interface{} `json:"data"` // Raw array of cutoffs
-	}
-
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
+	var payload CutoffSubmission
+	decoder := json.NewDecoder(c.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "허용되지 않은 필드가 있거나 JSON 형식이 올바르지 않습니다."})
 		return
 	}
+	items, err := validatePublicCutoffs(payload.Items, payload.AdmissionYear)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	middleSchool := items[0].SourceMiddleSchoolName
+	for _, item := range items[1:] {
+		if item.SourceMiddleSchoolName != middleSchool {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "한 번의 제출에는 하나의 중학교 자료만 포함할 수 있습니다."})
+			return
+		}
+	}
 
-	jsonData, _ := json.MarshalIndent(payload.Data, "", "  ")
+	jsonData, _ := json.MarshalIndent(items, "", "  ")
 	b64Content := base64.StdEncoding.EncodeToString(jsonData)
 
-	fileName := fmt.Sprintf("server-data/cutoffs/%d_%s.json", payload.Year, payload.SchoolName)
+	fileName := cutoffSubmissionPath(payload.AdmissionYear, middleSchool)
 	targetRepo := getDataRepo()
 
 	// 1. 기존 파일이 있는지 확인하여 sha 확보 (덮어쓰기용)
@@ -138,7 +159,7 @@ func handleCutoff(c *gin.Context) {
 	// 2. 파일 생성 또는 수정 (PUT)
 	reqBody := map[string]interface{}{
 		"content": b64Content,
-		"message": fmt.Sprintf("Update cutoff data for %s (%d)", payload.SchoolName, payload.Year),
+		"message": fmt.Sprintf("Update public cutoff data (%d)", payload.AdmissionYear),
 	}
 	if existingSHA != "" {
 		reqBody["sha"] = existingSHA
@@ -167,12 +188,23 @@ func handleCutoff(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	c.JSON(http.StatusOK, gin.H{"message": "커트라인 데이터가 중앙 서버에 성공적으로 등록되었습니다."})
+	c.JSON(http.StatusOK, gin.H{"message": "공개 커트라인 자료가 등록되었습니다.", "count": len(items)})
 }
 
 // handleGetCutoffs 각 학교들이 보낸 커트라인 데이터를 취합하여 일괄 반환
 func handleGetCutoffs(c *gin.Context) {
 	yearStr := c.DefaultQuery("year", "2026")
+	var published []PublicCutoff
+	if exists, err := readRepoJSON(mergedCutoffsPath, &published); err == nil && exists {
+		filtered := make([]PublicCutoff, 0, len(published))
+		for _, item := range published {
+			if fmt.Sprint(item.AdmissionYear) == yearStr {
+				filtered = append(filtered, item)
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": filtered, "source": "approved"})
+		return
+	}
 	targetRepo := getDataRepo()
 
 	// Gitea API로 server-data/cutoffs/ 디렉터리 내의 파일 목록 조회
@@ -185,7 +217,7 @@ func handleGetCutoffs(c *gin.Context) {
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode >= 400 {
 		// 폴더가 없거나 빈 경우 기본 빈 배열 반환
-		c.JSON(http.StatusOK, []interface{}{})
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": []interface{}{}, "source": "submissions"})
 		return
 	}
 	defer resp.Body.Close()
@@ -197,7 +229,7 @@ func handleGetCutoffs(c *gin.Context) {
 	_ = json.NewDecoder(resp.Body).Decode(&fileList)
 
 	// 각 학교별 커트라인 파일을 읽어 병합 (동일 학교/전형/학과인 경우 최신값 유지)
-	cutoffMap := make(map[string]map[string]interface{})
+	cutoffMap := make(map[string]PublicCutoff)
 
 	prefix := yearStr + "_"
 	for _, f := range fileList {
@@ -210,10 +242,10 @@ func handleGetCutoffs(c *gin.Context) {
 		fReq.Header.Set("Authorization", "token "+giteaToken)
 
 		if fResp, fErr := client.Do(fReq); fErr == nil && fResp.StatusCode == 200 {
-			var schoolCutoffs []map[string]interface{}
+			var schoolCutoffs []PublicCutoff
 			if err := json.NewDecoder(fResp.Body).Decode(&schoolCutoffs); err == nil {
 				for _, item := range schoolCutoffs {
-					key := fmt.Sprintf("%v_%v_%v_%v", item["schoolName"], item["department"], item["track"], item["scoreType"])
+					key := item.SourceMiddleSchoolName + "\x00" + item.TargetHighSchoolName + "\x00" + item.Department
 					cutoffMap[key] = item
 				}
 			}
@@ -222,12 +254,12 @@ func handleGetCutoffs(c *gin.Context) {
 	}
 
 	// 맵을 슬라이스로 변환
-	var mergedList []map[string]interface{}
+	var mergedList []PublicCutoff
 	for _, item := range cutoffMap {
 		mergedList = append(mergedList, item)
 	}
 
-	c.JSON(http.StatusOK, mergedList)
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": mergedList, "source": "submissions"})
 }
 
 // handleDeleteCutoffs 학교별 커트라인 회수(삭제)
@@ -243,7 +275,12 @@ func handleDeleteCutoffs(c *gin.Context) {
 	}
 
 	// 특정 학교 데이터 단독 회수
-	fileName := fmt.Sprintf("server-data/cutoffs/%s_%s.json", yearStr, schoolName)
+	year, err := strconv.Atoi(yearStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "입학년도가 올바르지 않습니다."})
+		return
+	}
+	fileName := cutoffSubmissionPath(year, schoolName)
 	url := fmt.Sprintf("%s/api/v1/repos/%s/%s/contents/%s", giteaURL, giteaOwner, targetRepo, fileName)
 
 	chkReq, _ := http.NewRequest("GET", url, nil)

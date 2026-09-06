@@ -22,6 +22,10 @@ export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
 
+export function ExportTeacherPatch(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['ExportTeacherPatch'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function FetchCutoffsFromBridge(arg1) {
   return window['go']['main']['App']['FetchCutoffsFromBridge'](arg1);
 }
@@ -62,6 +66,10 @@ export function GetLocalFeedbacks() {
   return window['go']['main']['App']['GetLocalFeedbacks']();
 }
 
+export function GetLoginIndex() {
+  return window['go']['main']['App']['GetLoginIndex']();
+}
+
 export function GetSchoolConfig() {
   return window['go']['main']['App']['GetSchoolConfig']();
 }
@@ -82,8 +90,16 @@ export function GetUsers() {
   return window['go']['main']['App']['GetUsers']();
 }
 
+export function ImportTeacherPatch(arg1, arg2) {
+  return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
+}
+
 export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
+}
+
+export function OpenTeacherPatch(arg1) {
+  return window['go']['main']['App']['OpenTeacherPatch'](arg1);
 }
 
 export function PerformAutoUpdate(arg1) {
@@ -122,6 +138,10 @@ export function SaveStudentExtra(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['SaveStudentExtra'](arg1, arg2, arg3, arg4);
 }
 
+export function SaveTeacherPatch(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SaveTeacherPatch'](arg1, arg2, arg3, arg4);
+}
+
 export function SendCutoffsToBridge(arg1) {
   return window['go']['main']['App']['SendCutoffsToBridge'](arg1);
 }
@@ -140,6 +160,10 @@ export function SubmitFeedback(arg1, arg2, arg3, arg4, arg5) {
 
 export function SyncWithServer() {
   return window['go']['main']['App']['SyncWithServer']();
+}
+
+export function UnlockAndLogin(arg1, arg2) {
+  return window['go']['main']['App']['UnlockAndLogin'](arg1, arg2);
 }
 
 export function VerifyAdminPassword(arg1) {

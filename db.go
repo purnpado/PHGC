@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,80 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 )
+
+func (dm *DBManager) SealAllDatabases() error {
+	if len(dm.dataKey) != 32 {
+		return nil
+	}
+	files, err := filepath.Glob(filepath.Join(dm.dataDir, "*.db"))
+	if err != nil {
+		return err
+	}
+	password := hex.EncodeToString(dm.dataKey)
+	for _, file := range files {
+		// Every application DB connection is short-lived. Reopening it here lets
+		// SQLite checkpoint its WAL before we encrypt the main database file.
+		db, err := dm.openDB(file)
+		if err != nil {
+			return err
+		}
+		if _, err = db.Exec("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE"); err != nil {
+			db.Close()
+			return fmt.Errorf("DB 종료 정리 실패: %w", err)
+		}
+		db.Close()
+		if _, err := sealDatabaseFile(password, file); err != nil {
+			return err
+		}
+		removePlainDatabaseArtifacts(file)
+	}
+	return nil
+}
+
+// UnsealAllDatabases restores the encrypted package only after a user has
+// successfully opened their personal key envelope. Plain DB files exist only
+// while the application is running and are sealed again during shutdown.
+func (dm *DBManager) UnsealAllDatabases() error {
+	if len(dm.dataKey) != 32 {
+		return fmt.Errorf("데이터 잠금 키가 준비되지 않았습니다")
+	}
+	files, err := filepath.Glob(filepath.Join(dm.dataDir, "*.db.phgc"))
+	if err != nil {
+		return err
+	}
+	password := hex.EncodeToString(dm.dataKey)
+	for _, encryptedPath := range files {
+		workingPath := strings.TrimSuffix(encryptedPath, ".phgc")
+		if _, err := os.Stat(workingPath); err == nil {
+			// A prior version could create an empty config.db before login.
+			// The encrypted package remains the source of truth in that case.
+			if filepath.Base(workingPath) == "config.db" && !hasSchoolConfigTable(workingPath) {
+				removePlainDatabaseArtifacts(workingPath)
+			} else {
+				// A usable plaintext DB can only be left by abnormal termination.
+				// Keep it for recovery rather than silently discarding newer work.
+				continue
+			}
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		if err := unsealDatabaseFile(password, encryptedPath, workingPath); err != nil {
+			return fmt.Errorf("암호화된 DB 열기 실패: %w", err)
+		}
+	}
+	return nil
+}
+
+func hasSchoolConfigTable(path string) bool {
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return false
+	}
+	defer db.Close()
+	var name string
+	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'school_config'").Scan(&name)
+	return err == nil
+}
 
 // SchoolConfig 학교 설정 정보
 type SchoolConfig struct {
@@ -30,19 +105,24 @@ type SetupRequest struct {
 
 // CutoffInfo 고교 커트라인 정보 (연도 및 전형, 최고/최저/평균점 포함)
 type CutoffInfo struct {
-	Year        int     `json:"year"`
-	SchoolName  string  `json:"schoolName"`
-	Department  string  `json:"department"` // 후기고는 빈 문자열
-	Track       string  `json:"track"`      // 마이스터고(일반), 마이스터고(특별), 특성화고(취업), 특성화고(일반), 일반계고
-	ScoreType   string  `json:"scoreType"`  // percentile 또는 total_score
-	MaxValue    float64 `json:"maxValue"`
-	MinValue    float64 `json:"minValue"`
-	AvgValue    float64 `json:"avgValue"`   // 평균점
+	Year       int     `json:"year"`
+	SchoolName string  `json:"schoolName"`
+	Department string  `json:"department"` // 후기고는 빈 문자열
+	Track      string  `json:"track"`      // 마이스터고(일반), 마이스터고(특별), 특성화고(취업), 특성화고(일반), 일반계고
+	ScoreType  string  `json:"scoreType"`  // percentile 또는 total_score
+	MaxValue   float64 `json:"maxValue"`
+	MinValue   float64 `json:"minValue"`
+	AvgValue   float64 `json:"avgValue"` // 평균점
 }
 
 // DB 매니저
 type DBManager struct {
 	dataDir string
+	dataKey []byte
+}
+
+func (dm *DBManager) setDataKey(key []byte) {
+	dm.dataKey = append(dm.dataKey[:0], key...)
 }
 
 // NewDBManager 데이터 디렉토리를 초기화하고 매니저를 반환
@@ -63,7 +143,7 @@ func NewDBManager() *DBManager {
 		}
 	}
 
-	os.MkdirAll(dataDir, 0755)
+	os.MkdirAll(dataDir, 0700)
 	return &DBManager{dataDir: dataDir}
 }
 
@@ -85,13 +165,25 @@ func (dm *DBManager) getConfigDBPath() string {
 	return filepath.Join(dm.dataDir, "config.db")
 }
 
+func (dm *DBManager) hasEncryptedConfigDB() bool {
+	_, err := os.Stat(dm.getConfigDBPath() + ".phgc")
+	return err == nil
+}
+
 // openDB SQLite 데이터베이스 연결
 func (dm *DBManager) openDB(dbPath string) (*sql.DB, error) {
+	// Wails 바인딩은 화면 밖에서도 호출될 수 있다. 잠긴 암호화 패키지에
+	// 대해 SQLite가 빈 .db를 자동 생성하는 것을 막는다.
+	if len(dm.dataKey) != 32 {
+		if _, err := os.Stat(dbPath + ".phgc"); err == nil {
+			return nil, fmt.Errorf("데이터 잠금을 먼저 해제해주세요")
+		}
+	}
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("DB 연결 실패: %w", err)
 	}
-	// WAL 모드 활성화 (성능 향상)
+	// WAL 모드 활성화 (암호화 저장 계층 연결 전까지 기존 SQLite 동작 유지)
 	_, err = db.Exec("PRAGMA journal_mode=WAL")
 	if err != nil {
 		db.Close()
@@ -231,7 +323,7 @@ func (dm *DBManager) VerifyAdminPassword(password string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("비밀번호 조회 실패: %w", err)
 	}
-	
+
 	err = bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(password))
 	return err == nil, nil
 }
@@ -371,7 +463,7 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			extra_json TEXT DEFAULT ''
 		);
 	`)
-	
+
 	// 기존 테이블에 컬럼 추가 (오류 무시 - 이미 존재할 경우)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN attendance_json TEXT DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN volunteer_json TEXT DEFAULT ''`)
@@ -569,6 +661,27 @@ func (dm *DBManager) UpdateStudentExtra(classNum int, studentNum, name, extraJSO
 	return err
 }
 
+// ApplyPatchChange applies only the three fields teachers are allowed to edit.
+func (dm *DBManager) ApplyPatchChange(change PatchChange) error {
+	if change.ClassNum < 1 || change.StudentNum == "" || change.StudentName == "" {
+		return fmt.Errorf("변경분의 학생 정보가 올바르지 않습니다")
+	}
+	if change.Attendance != "" {
+		if _, err := dm.UpdateStudentAttendance(change.ClassNum, []StudentExcelData{{StudentNum: change.StudentNum, Name: change.StudentName, AttendanceData: change.Attendance}}); err != nil {
+			return err
+		}
+	}
+	if change.Volunteer != "" {
+		if _, err := dm.UpdateStudentVolunteer(change.ClassNum, []StudentExcelData{{StudentNum: change.StudentNum, Name: change.StudentName, VolunteerData: change.Volunteer}}); err != nil {
+			return err
+		}
+	}
+	if change.Extra != "" {
+		return dm.UpdateStudentExtra(change.ClassNum, change.StudentNum, change.StudentName, change.Extra)
+	}
+	return nil
+}
+
 // ResetAcademicYear 입시년도 전환 시 커트라인 데이터(highschool_cutoffs)를 제외한 모든 학급 데이터 삭제
 func (dm *DBManager) ResetAcademicYear(newYear int) error {
 	// 1. 모든 class_*.db 파일 삭제
@@ -618,7 +731,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 		if err != nil {
 			continue // 해당 반 데이터가 없으면 무시
 		}
-		
+
 		rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students")
 		if err != nil {
 			db.Close()
@@ -636,7 +749,7 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 		}
 		rows.Close()
 		db.Close()
-		
+
 		if len(students) > 0 {
 			allStudents[i] = students
 		}
@@ -644,7 +757,6 @@ func (dm *DBManager) GetAllStudents(classCount int) (map[int][]StudentExcelData,
 
 	return allStudents, nil
 }
-
 
 // User represents a system user
 type User struct {
@@ -660,7 +772,9 @@ type User struct {
 // 교사 계정은 처음엔 비밀번호 없이 생성되며, 마스터가 추후 세팅합니다.
 func (dm *DBManager) InitUsers(classCount int, adminPassword string) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	_, err = db.Exec("DELETE FROM users")
@@ -682,18 +796,19 @@ func (dm *DBManager) InitUsers(classCount int, adminPassword string) error {
 		return err
 	}
 
-	// 2. 뷰어 계정 (초기엔 접속 불가 상태)
+	// 2. 진로부장 계정 (초기엔 접속 불가 상태)
 	_, err = db.Exec(`
 		INSERT INTO users (username, password_hash, role, class_num, must_change_password)
 		VALUES (?, ?, ?, ?, ?)
-	`, "viewer", "", "viewer", 0, true)
+	`, "jinro", "", "viewer", 0, true)
 	if err != nil {
 		return err
 	}
 
 	// 3. 담임 계정 (1반 ~ classCount반) (초기엔 접속 불가 상태)
 	for i := 1; i <= classCount; i++ {
-		username := fmt.Sprintf("teacher%d", i)
+		// 3학년 1반은 301, 2반은 302처럼 학급 자체를 계정명으로 쓴다.
+		username := fmt.Sprintf("3%02d", i)
 		_, err = db.Exec(`
 			INSERT INTO users (username, password_hash, role, class_num, must_change_password)
 			VALUES (?, ?, ?, ?, ?)
@@ -709,10 +824,21 @@ func (dm *DBManager) InitUsers(classCount int, adminPassword string) error {
 // GetUsers 시스템 내 모든 사용자 목록 반환
 func (dm *DBManager) GetUsers() ([]User, error) {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT id, username, role, class_num, must_change_password FROM users ORDER BY class_num ASC, role DESC")
+	rows, err := db.Query(`
+		SELECT id, username, role, class_num, must_change_password
+		FROM users
+		ORDER BY CASE role
+			WHEN 'master' THEN 0
+			WHEN 'homeroom' THEN 1
+			WHEN 'viewer' THEN 2
+			ELSE 3
+		END, class_num ASC, username ASC
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +858,9 @@ func (dm *DBManager) GetUsers() ([]User, error) {
 // SetUserPassword 관리자가 특정 유저의 비밀번호를 설정/재설정
 func (dm *DBManager) SetUserPassword(username, newPassword string) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -751,7 +879,9 @@ func (dm *DBManager) SetUserPassword(username, newPassword string) error {
 // AddViewerUser 뷰어 권한을 가진 새 계정 추가
 func (dm *DBManager) AddViewerUser(username, password string) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -768,7 +898,9 @@ func (dm *DBManager) AddViewerUser(username, password string) error {
 // CreateUser 사용자 생성 (관리자, 뷰어, 담임 등 자유 생성)
 func (dm *DBManager) CreateUser(username, password, role string, classNum int) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -788,18 +920,21 @@ func (dm *DBManager) DeleteUser(username string) error {
 		return fmt.Errorf("최고 관리자(admin) 계정은 삭제할 수 없습니다")
 	}
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	_, err = db.Exec("DELETE FROM users WHERE username = ?", username)
 	return err
 }
 
-
 // VerifyUserLogin verifies login credentials
 func (dm *DBManager) VerifyUserLogin(username, password string) (*User, error) {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer db.Close()
 
 	var u User
@@ -822,11 +957,15 @@ func (dm *DBManager) VerifyUserLogin(username, password string) (*User, error) {
 // ChangeUserPassword changes the user password
 func (dm *DBManager) ChangeUserPassword(username, newPassword string) error {
 	db, err := dm.openDB(dm.getConfigDBPath())
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer db.Close()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = db.Exec("UPDATE users SET password_hash = ?, must_change_password = 0 WHERE username = ?", string(hash), username)
 	return err
@@ -876,4 +1015,3 @@ func (dm *DBManager) GetStudent(classNum int, studentNum, name string) (*Student
 	}
 	return &s, nil
 }
-

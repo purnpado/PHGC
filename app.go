@@ -7,13 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/bcrypt"
@@ -24,9 +22,10 @@ const BridgeServerURL = "https://go.gguk.link"
 
 // App struct
 type App struct {
-	ctx  context.Context
-	db   *DBManager
-	sync *SyncManager
+	ctx     context.Context
+	db      *DBManager
+	sync    *SyncManager
+	dataKey []byte
 }
 
 // NewApp creates a new App application struct
@@ -43,9 +42,18 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// config DB 초기화
-	if err := a.db.InitConfigDB(); err != nil {
-		fmt.Println("config DB 초기화 오류:", err)
+	// 이미 배포된 data 폴더는 config.db.phgc 상태로 시작한다. 로그인 전에는
+	// 절대 빈 config.db를 새로 만들지 않는다.
+	if !a.db.hasEncryptedConfigDB() {
+		if err := a.db.InitConfigDB(); err != nil {
+			fmt.Println("config DB 초기화 오류:", err)
+		}
+	}
+}
+
+func (a *App) shutdown(ctx context.Context) {
+	if err := a.db.SealAllDatabases(); err != nil {
+		fmt.Println("DB 암호화 종료 처리 오류:", err)
 	}
 }
 
@@ -53,6 +61,9 @@ func (a *App) startup(ctx context.Context) {
 
 // CheckSetupComplete 초기 설정 완료 여부 확인
 func (a *App) CheckSetupComplete() bool {
+	if a.db.hasEncryptedConfigDB() {
+		return true
+	}
 	return a.db.HasConfig()
 }
 
@@ -65,6 +76,14 @@ func (a *App) GetSchoolConfig() (*SchoolConfig, error) {
 func (a *App) SetupApp(req SetupRequest) error {
 	if req.SchoolName == "" || req.ClassCount <= 0 || req.AdminPassword == "" {
 		return fmt.Errorf("모든 설정 값을 올바르게 입력해주세요")
+	}
+	if len(a.dataKey) != 32 {
+		key, err := newDataKey()
+		if err != nil {
+			return fmt.Errorf("데이터 암호화 키 생성 실패: %w", err)
+		}
+		a.dataKey = key
+		a.db.setDataKey(key)
 	}
 
 	// 비밀번호 해싱 및 설정 저장
@@ -84,8 +103,36 @@ func (a *App) SetupApp(req SetupRequest) error {
 	if err != nil {
 		return fmt.Errorf("초기 계정 생성 실패: %w", err)
 	}
+	adminEnvelope, err := sealDataKeyForUser("admin", req.AdminPassword, a.dataKey)
+	if err != nil {
+		return err
+	}
+	if err := saveUserKeyEnvelope(a.db.dataDir, adminEnvelope); err != nil {
+		return err
+	}
+	return a.refreshLoginIndex()
+}
 
-	return nil
+// GetLoginIndex reads only the non-sensitive account selection list. It does
+// not open the encrypted database.
+func (a *App) GetLoginIndex() LoginIndex {
+	index, err := loadLoginIndex(a.db.dataDir)
+	if err != nil {
+		return LoginIndex{SchoolName: "암호화된 학교 데이터"}
+	}
+	return index
+}
+
+func (a *App) refreshLoginIndex() error {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return err
+	}
+	users, err := a.db.GetUsers()
+	if err != nil {
+		return err
+	}
+	return saveLoginIndex(a.db.dataDir, config.SchoolName, users)
 }
 
 // VerifyUserLogin 검증
@@ -93,9 +140,47 @@ func (a *App) VerifyUserLogin(username, password string) (*User, error) {
 	return a.db.VerifyUserLogin(username, password)
 }
 
+// UnlockAndLogin opens the user's encrypted data-key envelope with the same
+// personal password used for login. The data key only remains in memory.
+func (a *App) UnlockAndLogin(username, password string) (*User, error) {
+	envelope, err := loadUserKeyEnvelope(a.db.dataDir, username)
+	if err != nil {
+		return nil, fmt.Errorf("이 PC의 data 폴더에 %s 계정용 잠금 정보가 없습니다", username)
+	}
+	key, err := openDataKeyForUser(envelope, password)
+	if err != nil || len(key) != 32 {
+		return nil, fmt.Errorf("비밀번호가 올바르지 않거나 잠금 정보가 손상되었습니다")
+	}
+	a.dataKey = key
+	a.db.setDataKey(key)
+	if err := a.db.UnsealAllDatabases(); err != nil {
+		a.dataKey = nil
+		a.db.setDataKey(nil)
+		return nil, err
+	}
+	user, err := a.db.VerifyUserLogin(username, password)
+	if err != nil {
+		_ = a.db.SealAllDatabases()
+		a.dataKey = nil
+		a.db.setDataKey(nil)
+		return nil, err
+	}
+	return user, nil
+}
+
 // ChangeUserPassword 비밀번호 변경
 func (a *App) ChangeUserPassword(username, newPassword string) error {
-	return a.db.ChangeUserPassword(username, newPassword)
+	if err := a.db.ChangeUserPassword(username, newPassword); err != nil {
+		return err
+	}
+	if len(a.dataKey) != 32 {
+		return fmt.Errorf("데이터 잠금 키가 준비되지 않았습니다")
+	}
+	envelope, err := sealDataKeyForUser(username, newPassword, a.dataKey)
+	if err != nil {
+		return err
+	}
+	return saveUserKeyEnvelope(a.db.dataDir, envelope)
 }
 
 // GetUsers 사용자 목록 조회
@@ -105,12 +190,34 @@ func (a *App) GetUsers() ([]User, error) {
 
 // SetUserPassword 특정 사용자 비밀번호 설정 (관리자용)
 func (a *App) SetUserPassword(username, newPassword string) error {
-	return a.db.SetUserPassword(username, newPassword)
+	if err := a.db.SetUserPassword(username, newPassword); err != nil {
+		return err
+	}
+	if len(a.dataKey) == 32 {
+		envelope, err := sealDataKeyForUser(username, newPassword, a.dataKey)
+		if err != nil {
+			return err
+		}
+		return saveUserKeyEnvelope(a.db.dataDir, envelope)
+	}
+	return nil
 }
 
 // AddViewerUser 뷰어 계정 추가 (관리자용)
 func (a *App) AddViewerUser(username, newPassword string) error {
-	return a.db.AddViewerUser(username, newPassword)
+	if err := a.db.AddViewerUser(username, newPassword); err != nil {
+		return err
+	}
+	if len(a.dataKey) == 32 {
+		envelope, err := sealDataKeyForUser(username, newPassword, a.dataKey)
+		if err != nil {
+			return err
+		}
+		if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
+			return err
+		}
+	}
+	return a.refreshLoginIndex()
 }
 
 // VerifyAdminPassword 관리자 비밀번호 검증
@@ -239,10 +346,9 @@ func (a *App) GetCutoffs() ([]CutoffInfo, error) {
 
 func (a *App) SendCutoffsToBridge(year int) error {
 	config, err := a.db.GetSchoolConfig()
-	if err != nil {
-		return err
+	if err != nil || config == nil || strings.TrimSpace(config.SchoolName) == "" {
+		return fmt.Errorf("제출 중학교 설정을 확인해주세요")
 	}
-
 	cutoffs, err := a.db.GetCutoffs()
 	if err != nil {
 		return err
@@ -259,11 +365,27 @@ func (a *App) SendCutoffsToBridge(year int) error {
 		return fmt.Errorf("해당 연도의 데이터가 없습니다")
 	}
 
-	payload := map[string]interface{}{
-		"schoolName": config.SchoolName,
-		"year":       year,
-		"data":       yearData,
+	// 사용자가 명시적으로 제출한 공개 커트라인만 전송한다. 학생·학급·교사 정보는 전송하지 않는다.
+	type publicCutoff struct {
+		SourceMiddleSchoolName string  `json:"sourceMiddleSchoolName"`
+		TargetHighSchoolName   string  `json:"targetHighSchoolName"`
+		Department             string  `json:"department"`
+		CutoffScore            float64 `json:"cutoffScore"`
 	}
+	items := make([]publicCutoff, 0, len(yearData))
+	seen := make(map[string]bool)
+	for _, cutoff := range yearData {
+		key := cutoff.SchoolName + "\x00" + cutoff.Department
+		if cutoff.SchoolName == "" || cutoff.MinValue < 0 || seen[key] {
+			continue
+		}
+		seen[key] = true
+		items = append(items, publicCutoff{SourceMiddleSchoolName: config.SchoolName, TargetHighSchoolName: cutoff.SchoolName, Department: cutoff.Department, CutoffScore: cutoff.MinValue})
+	}
+	if len(items) == 0 {
+		return fmt.Errorf("제출할 학교명과 커트라인 점수 데이터가 없습니다")
+	}
+	payload := map[string]interface{}{"admissionYear": year, "items": items}
 
 	jsonBytes, _ := json.Marshal(payload)
 	resp, err := http.Post(BridgeServerURL+"/api/cutoff", "application/json", bytes.NewBuffer(jsonBytes))
@@ -294,55 +416,37 @@ func (a *App) FetchCutoffsFromBridge(year int) (int, error) {
 	}
 
 	var resData struct {
-		Success bool         `json:"success"`
-		Data    []CutoffInfo `json:"data"`
+		Success bool `json:"success"`
+		Data    []struct {
+			AdmissionYear          int     `json:"admissionYear"`
+			SourceMiddleSchoolName string  `json:"sourceMiddleSchoolName"`
+			TargetHighSchoolName   string  `json:"targetHighSchoolName"`
+			Department             string  `json:"department"`
+			CutoffScore            float64 `json:"cutoffScore"`
+		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&resData); err != nil {
 		return 0, fmt.Errorf("데이터 파싱 실패: %w", err)
 	}
 
-	if len(resData.Data) == 0 {
+	if !resData.Success || len(resData.Data) == 0 {
 		return 0, fmt.Errorf("중앙 서버에 등록된 %d학년도 커트라인 데이터가 아직 없습니다.", year)
 	}
 
-	if err := a.db.SaveCutoffs(resData.Data); err != nil {
+	cutoffs := make([]CutoffInfo, 0, len(resData.Data))
+	for _, item := range resData.Data {
+		cutoffs = append(cutoffs, CutoffInfo{Year: item.AdmissionYear, SchoolName: item.TargetHighSchoolName, Department: item.Department, Track: "공개 커트라인", ScoreType: "cutoff_score", MinValue: item.CutoffScore})
+	}
+	if err := a.db.SaveCutoffs(cutoffs); err != nil {
 		return 0, fmt.Errorf("로컬 DB 저장 실패: %w", err)
 	}
 
-	return len(resData.Data), nil
+	return len(cutoffs), nil
 }
 
 // RollbackSchoolCutoffs 우리 학교가 중앙 서버에 전송했던 커트라인 데이터를 회수(삭제)
 func (a *App) RollbackSchoolCutoffs(year int) (string, error) {
-	config, err := a.db.GetSchoolConfig()
-	if err != nil {
-		return "", err
-	}
-
-	url := fmt.Sprintf("%s/api/cutoff?year=%d&school=%s", BridgeServerURL, year, url.QueryEscape(config.SchoolName))
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("서버 연결 실패: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var resData struct {
-		Message string `json:"message"`
-		Error   string `json:"error"`
-	}
-	_ = json.NewDecoder(resp.Body).Decode(&resData)
-
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("%s", resData.Error)
-	}
-
-	return resData.Message, nil
+	return "", fmt.Errorf("공개 제출 자료의 철회는 운영센터 검토를 통해 처리됩니다")
 }
 
 func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB64 string) (int, error) {
@@ -519,6 +623,60 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 // SaveStudentExtra 학생의 수기 가산점 및 추가 봉사시간 저장
 func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string) error {
 	return a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON)
+}
+
+// ExportTeacherPatch writes an encrypted, class-scoped change package.
+func (a *App) ExportTeacherPatch(password, username string, classNum int, changes []PatchChange, outputPath string) error {
+	if classNum < 1 || username == "" || len(changes) == 0 {
+		return fmt.Errorf("변경분 내보내기 정보가 올바르지 않습니다")
+	}
+	for _, change := range changes {
+		if change.ClassNum != classNum {
+			return fmt.Errorf("다른 학급 변경분은 내보낼 수 없습니다")
+		}
+	}
+	return encryptPatchGCM(password, PatchFile{SourceUsername: username, ClassNum: classNum, Changes: changes}, outputPath)
+}
+
+// SaveTeacherPatch opens a native save dialog and writes an encrypted patch.
+func (a *App) SaveTeacherPatch(password, username string, classNum int, changes []PatchChange) (string, error) {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "담임 변경분 저장", DefaultFilename: fmt.Sprintf("PHGC-%s-%d.phgcpatch", username, classNum), Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := a.ExportTeacherPatch(password, username, classNum, changes, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// ImportTeacherPatch decrypts and applies only allowed teacher changes.
+func (a *App) ImportTeacherPatch(password, inputPath string) (int, error) {
+	patch, err := decryptPatchGCM(password, inputPath)
+	if err != nil {
+		return 0, err
+	}
+	if patch.ClassNum < 1 || patch.SourceUsername == "" {
+		return 0, fmt.Errorf("변경분 파일 정보가 올바르지 않습니다")
+	}
+	for _, change := range patch.Changes {
+		if change.ClassNum != patch.ClassNum {
+			return 0, fmt.Errorf("변경분에 다른 학급 데이터가 포함되어 있습니다")
+		}
+		if err := a.db.ApplyPatchChange(change); err != nil {
+			return 0, err
+		}
+	}
+	return len(patch.Changes), nil
+}
+
+// OpenTeacherPatch lets the administrator select and merge a patch file.
+func (a *App) OpenTeacherPatch(password string) (int, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "담임 변경분 가져오기", Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	if err != nil || path == "" {
+		return 0, err
+	}
+	return a.ImportTeacherPatch(password, path)
 }
 
 // StudentTranscriptData 학생의 전학년 교과/비교과 전체 상세 성적표
@@ -702,10 +860,26 @@ func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 
 // CreateUser 새 사용자 등록 (관리자, 뷰어, 담임교사 등)
 func (a *App) CreateUser(username, password, role string, classNum int) error {
-	return a.db.CreateUser(username, password, role, classNum)
+	if err := a.db.CreateUser(username, password, role, classNum); err != nil {
+		return err
+	}
+	if len(a.dataKey) == 32 {
+		envelope, err := sealDataKeyForUser(username, password, a.dataKey)
+		if err != nil {
+			return err
+		}
+		if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
+			return err
+		}
+	}
+	return a.refreshLoginIndex()
 }
 
 // DeleteUser 사용자 삭제
 func (a *App) DeleteUser(username string) error {
-	return a.db.DeleteUser(username)
+	if err := a.db.DeleteUser(username); err != nil {
+		return err
+	}
+	_ = os.Remove(userEnvelopePath(a.db.dataDir, username))
+	return a.refreshLoginIndex()
 }

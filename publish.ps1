@@ -55,7 +55,7 @@ Write-Host "==========================================" -ForegroundColor Cyan
 # ===== 3. server-data/version.json 업데이트 (BOM 없는 UTF-8) =====
 $json.latestVersion = $newVer
 $json.releaseNotes = "v$newVer - $Notes"
-$json.downloadUrl = "https://go.gguk.link/api/sync/server-data/PHGC.exe"
+$json.downloadUrl = "https://go.gguk.link/api/download/PHGC.exe"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $jsonString = $json | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText((Resolve-Path $versionFile), $jsonString, $utf8NoBom)
@@ -86,14 +86,9 @@ if (-not (Test-Path $exePath)) {
 }
 Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 
-# ===== 6-1. server-data/PHGC.exe 로 복사 (비공개 프록시 다운로드용) =====
-Copy-Item -Path $exePath -Destination "server-data\PHGC.exe" -Force
-Write-Host ">>> server-data\PHGC.exe 동기화 배포 파일 복사 완료" -ForegroundColor Green
-
-# ===== 7. Git 커밋 & 태그 & 푸시 =====
+# ===== 7. Git 커밋 & 태그 & 푸시 (바이너리는 제외하여 저장소 경량화 유지) =====
 Write-Host ">>> Git 커밋 및 태그 생성 중..." -ForegroundColor Cyan
 git add .
-git add -f server-data/PHGC.exe
 git commit -m "release: v$newVer - $Notes"
 git tag -a "v$newVer" -m "v$newVer - $Notes" -f
 if ($giteaToken) {

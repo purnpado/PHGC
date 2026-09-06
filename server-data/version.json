@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.32",
+  "latestVersion": "0.5.33",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.32 - 커트라인 서버 전체 초기화 제거 및 공개 데이터 편집 지원",
-  "downloadUrl": "https://go.gguk.link/api/sync/server-data/PHGC.exe"
+  "releaseNotes": "v0.5.33 - 암호화 DB, 학급 계정, 중계 서버 개인정보 최소 수집 적용",
+  "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

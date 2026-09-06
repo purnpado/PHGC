@@ -12,6 +12,8 @@ export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Prom
 
 export function DeleteUser(arg1:string):Promise<void>;
 
+export function ExportTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>,arg5:string):Promise<void>;
+
 export function FetchCutoffsFromBridge(arg1:number):Promise<number>;
 
 export function GetAppVersion():Promise<string>;
@@ -32,6 +34,8 @@ export function GetHighSchoolsData():Promise<main.HighSchoolData>;
 
 export function GetLocalFeedbacks():Promise<Array<main.FeedbackIssue>>;
 
+export function GetLoginIndex():Promise<main.LoginIndex>;
+
 export function GetSchoolConfig():Promise<main.SchoolConfig>;
 
 export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;
@@ -42,7 +46,11 @@ export function GetStudentTranscript(arg1:number,arg2:string,arg3:string):Promis
 
 export function GetUsers():Promise<Array<main.User>>;
 
+export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
+
 export function OpenExcelFile():Promise<string>;
+
+export function OpenTeacherPatch(arg1:string):Promise<number>;
 
 export function PerformAutoUpdate(arg1:string):Promise<void>;
 
@@ -62,6 +70,8 @@ export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
 
 export function SaveStudentExtra(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
 
+export function SaveTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>):Promise<string>;
+
 export function SendCutoffsToBridge(arg1:number):Promise<void>;
 
 export function SetUserPassword(arg1:string,arg2:string):Promise<void>;
@@ -71,6 +81,8 @@ export function SetupApp(arg1:main.SetupRequest):Promise<void>;
 export function SubmitFeedback(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<number>;
 
 export function SyncWithServer():Promise<main.SyncResult>;
+
+export function UnlockAndLogin(arg1:string,arg2:string):Promise<main.User>;
 
 export function VerifyAdminPassword(arg1:string):Promise<boolean>;
 
