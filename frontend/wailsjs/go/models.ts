@@ -49,6 +49,7 @@ export namespace main {
 	    type: string;
 	    area: string;
 	    note: string;
+	    departments: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new HighSchool(source);
@@ -60,6 +61,7 @@ export namespace main {
 	        this.type = source["type"];
 	        this.area = source["area"];
 	        this.note = source["note"];
+	        this.departments = source["departments"];
 	    }
 	}
 	export class HighSchoolData {

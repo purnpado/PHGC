@@ -34,6 +34,19 @@
     color: #64748b;
 }
 
+/* 숫자값은 직접 입력만 사용한다. WebView의 증감 화살표는 좁은 입력칸에서
+   값과 안내문을 가리므로 숨긴다. */
+input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 /* 기본 버튼 */
 .btn-primary {
     width: 100%;

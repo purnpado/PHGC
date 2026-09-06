@@ -1107,7 +1107,52 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     }
 }
 
-function renderStudentList(students, classNum) {
+function normalizeSchoolName(name) {
+    return String(name || '')
+        .replace(/고등학교$/u, '')
+        .replace(/\s+/gu, '')
+        .trim();
+}
+
+function isSameTrack(left, right) {
+    const a = String(left || '').replace('전형', '');
+    const b = String(right || '').replace('전형', '');
+    return a.includes(b) || b.includes(a);
+}
+
+function renderPredictionBadges(results, cutoffs, schoolGroup) {
+    const schoolNames = schoolGroup === 'meister'
+        ? new Set(['울산마이스터고', '울산에너지고', '현대공업고'])
+        : new Set(['울산상업고', '울산여자상업고', '울산생활과학고', '울산공업고', '울산산업고', '울산미용예술고', '울산기술공업고']);
+    const badges = [];
+    const seen = new Set();
+
+    (results || []).filter(r => schoolNames.has(normalizeSchoolName(r.schoolName))).forEach(r => {
+        const candidates = (cutoffs || [])
+            .filter(c => normalizeSchoolName(c.schoolName) === normalizeSchoolName(r.schoolName)
+                && isSameTrack(c.track, r.trackName)
+                && c.department && c.department !== '공통'
+                && Number(c.minValue) > 0)
+            .sort((a, b) => Number(b.year || 0) - Number(a.year || 0));
+
+        candidates.forEach(c => {
+            const key = `${normalizeSchoolName(r.schoolName)}_${c.department}_${r.trackName}`;
+            if (!seen.has(key) && Number(r.totalScore) >= Number(c.minValue)) {
+                seen.add(key);
+                badges.push(`<span class="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[11px] font-bold text-cyan-200">${r.schoolName} · ${c.department}</span>`);
+            }
+        });
+    });
+
+    if (!badges.length) {
+        return '<span class="text-xs text-slate-500">커트라인 입력 후 표시</span>';
+    }
+    const visible = badges.slice(0, 3).join('');
+    const extra = badges.length > 3 ? `<span class="text-[11px] text-cyan-300">+${badges.length - 3}</span>` : '';
+    return `<div class="flex flex-wrap justify-center gap-1.5">${visible}${extra}</div>`;
+}
+
+async function renderStudentList(students, classNum) {
     if (!students || students.length === 0) {
         document.getElementById('teacherContent').innerHTML = `
             <div class="text-center py-20 text-warning">
@@ -1118,9 +1163,18 @@ function renderStudentList(students, classNum) {
         return;
     }
 
+    const [fullStudents, cutoffs] = await Promise.all([
+        window.go.main.App.GetClassFullGrades(classNum).catch(() => []),
+        window.go.main.App.GetCutoffs().catch(() => []),
+    ]);
+    const fullByStudent = new Map((fullStudents || []).map(s => [`${s.studentNum}|${s.name}`, s]));
+
     let tbody = '';
     students.forEach((s) => {
         let generalBadge = getGeneralGuideBadge(s.Percentile);
+        const full = fullByStudent.get(`${s.StudentNum}|${s.Name}`);
+        const meisterBadges = renderPredictionBadges(full?.schoolResults, cutoffs, 'meister');
+        const specialBadges = renderPredictionBadges(full?.schoolResults, cutoffs, 'special');
 
         tbody += `
             <tr class="hover:bg-slate-800/60 transition-colors border-b border-slate-700/50">
@@ -1130,6 +1184,8 @@ function renderStudentList(students, classNum) {
                     ${s.Name}
                 </td>
                 <td class="p-4 text-center">${generalBadge}</td>
+                <td class="p-3 text-center min-w-52">${meisterBadges}</td>
+                <td class="p-3 text-center min-w-52">${specialBadges}</td>
                 <td class="p-4 text-center">
                     <button class="btn-primary text-xs px-4 py-2 font-bold flex items-center justify-center gap-1.5 mx-auto btn-student-counsel"
                             data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
@@ -1156,7 +1212,9 @@ function renderStudentList(students, classNum) {
                     <tr class="bg-slate-800/80 text-text-muted text-sm border-b border-slate-700/70">
                         <th class="p-4 font-semibold text-center w-20">번호</th>
                         <th class="p-4 font-semibold text-center w-36">성명</th>
-                        <th class="p-4 font-semibold text-center">후기 일반계고 지원 가이드</th>
+                        <th class="p-4 font-semibold text-center">일반계고 합격 예측</th>
+                        <th class="p-4 font-semibold text-center">마이스터고 지원 가능</th>
+                        <th class="p-4 font-semibold text-center">특성화고 지원 가능</th>
                         <th class="p-4 font-semibold text-center w-44">진학 상담</th>
                     </tr>
                 </thead>
@@ -2803,7 +2861,7 @@ async function renderCutoffScreen(schoolName) {
     ])).filter(year => Number.isInteger(year)).sort((a, b) => b - a);
 
     // 기본 등록 고교 및 학과 목록
-    const defaultSchoolSpecs = [
+    let defaultSchoolSpecs = [
         // 1. 마이스터고
         {
             name: "울산마이스터고",
@@ -2930,6 +2988,46 @@ async function renderCutoffScreen(schoolName) {
         }
     ];
 
+    // 학과·학교명은 화면에 별도 하드코딩하지 않고 공용 고교 목록을 기준으로
+    // 구성한다. 이 목록을 바꾸면 커트라인 입력 화면도 함께 바뀐다.
+    try {
+        const highSchoolData = await window.go.main.App.GetHighSchoolsData();
+        const schools = highSchoolData?.schools || [];
+        const catalogSpecs = schools
+            .filter(s => s.type === '마이스터고' || s.type === '특성화고')
+            .map(s => {
+                const isMeister = s.type === '마이스터고';
+                const tracks = isMeister ? ['일반', '특별'] : ['일반', '취업희망자'];
+                const shortName = normalizeSchoolName(s.name);
+                const totalMax = shortName === '울산마이스터고' ? '300점 만점'
+                    : shortName === '울산에너지고' ? '230점 만점'
+                    : shortName === '현대공업고' ? '200점 만점'
+                    : '100점 만점';
+                return {
+                    name: s.name,
+                    category: isMeister ? 'meister' : 'special',
+                    categoryLabel: s.type,
+                    totalMax,
+                    scoreType: 'total_score',
+                    unit: '점',
+                    placeholder: isMeister ? '예: 200.0' : '예: 75.0',
+                    items: (s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track }))),
+                };
+            });
+        if (catalogSpecs.length) {
+            defaultSchoolSpecs = [
+                ...catalogSpecs,
+                {
+                    name: '울산 후기 일반계고', category: 'general', categoryLabel: '후기 일반고',
+                    totalMax: '석차 백분율', scoreType: 'percentile', unit: '%', placeholder: '예: 85.00',
+                    items: [{ dept: '공통', track: '일반' }],
+                },
+            ];
+        }
+    } catch (e) {
+        console.warn('공용 고교 목록을 불러오지 못해 기본 목록을 사용합니다:', e);
+    }
+
     // 공식 공개 입결 레퍼런스 데이터 (최근 3개년 공개 통계)
     const publicOfficialDefaults = [
         { year: 2026, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 245.22, max: 300.00, avg: 272.60, unit: "점", note: "공식 합격선" },
@@ -2957,7 +3055,7 @@ async function renderCutoffScreen(schoolName) {
         // 현재 선택된 입학년도의 커트라인 매핑
         const savedMap = {};
         allSavedCutoffs.filter(c => c.year === currentAdmissionYear).forEach(c => {
-            savedMap[`${c.schoolName}_${c.department}_${c.track}`] = {
+            savedMap[`${normalizeSchoolName(c.schoolName)}_${c.department}_${c.track}`] = {
                 min: c.minValue,
                 max: c.maxValue,
                 avg: c.avgValue
@@ -2976,7 +3074,7 @@ async function renderCutoffScreen(schoolName) {
             filteredSchools.forEach((sch, sIdx) => {
                 // 저장된 커트라인 값 채우기 & 사용자 추가 학과 병합
                 const itemsToRender = [...sch.items];
-                allSavedCutoffs.filter(c => c.year === currentAdmissionYear && c.schoolName === sch.name).forEach(c => {
+                allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === normalizeSchoolName(sch.name)).forEach(c => {
                     const exists = itemsToRender.some(it => it.dept === c.department && it.track === c.track);
 					if (!exists && (c.department !== '공통')) {
                         itemsToRender.push({ dept: c.department, track: c.track });
@@ -2993,7 +3091,7 @@ async function renderCutoffScreen(schoolName) {
                 });
                 const rowsHTML = [...itemGroups.entries()].map(([dept, group], groupIndex) =>
                     group.map((item, itemIndex) => {
-                        const key = `${sch.name}_${item.dept}_${item.track}`;
+                        const key = `${normalizeSchoolName(sch.name)}_${item.dept}_${item.track}`;
                         const saved = savedMap[key] || {};
                         const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
                         const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';

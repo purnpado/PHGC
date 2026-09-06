@@ -42,10 +42,11 @@ type HighSchoolData struct {
 
 // HighSchool 고교 정보
 type HighSchool struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-	Area string `json:"area"`
-	Note string `json:"note"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	Area        string   `json:"area"`
+	Note        string   `json:"note"`
+	Departments []string `json:"departments"`
 }
 
 // SyncResult 동기화 결과
