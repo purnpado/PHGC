@@ -82,7 +82,7 @@ func (a *App) UpdateAdmissionYear(admissionYear int) error {
 
 // SetupApp 초기 설정 저장
 func (a *App) SetupApp(req SetupRequest) error {
-	if req.SchoolName == "" || req.ClassCount <= 0 || req.AdminPassword == "" {
+	if req.SchoolName == "" || req.ClassCount <= 0 || req.AdminPassword == "" || req.SharedDataPassword == "" {
 		return fmt.Errorf("모든 설정 값을 올바르게 입력해주세요")
 	}
 	if len(a.dataKey) != 32 {
@@ -117,6 +117,9 @@ func (a *App) SetupApp(req SetupRequest) error {
 	}
 	if err := saveUserKeyEnvelope(a.db.dataDir, adminEnvelope); err != nil {
 		return err
+	}
+	if err := saveSharedKeyEnvelope(a.db.dataDir, req.SharedDataPassword, a.dataKey); err != nil {
+		return fmt.Errorf("공용 데이터 암호 설정 실패: %w", err)
 	}
 	return a.refreshLoginIndex()
 }
@@ -176,6 +179,43 @@ func (a *App) UnlockAndLogin(username, password string) (*User, error) {
 	return user, nil
 }
 
+// NeedsSharedDataPassword reports whether this copy of data has completed the
+// user's one-time enrollment. It never opens the encrypted databases.
+func (a *App) NeedsSharedDataPassword(username string) bool {
+	_, err := loadUserKeyEnvelope(a.db.dataDir, username)
+	return err != nil
+}
+
+// UnlockSharedAndLogin is used only on the first run of a copied data folder.
+// The shared password opens the data key once; the user's own password then
+// creates a local personal envelope for all future logins.
+func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*User, error) {
+	key, err := openSharedKeyEnvelope(a.db.dataDir, sharedPassword)
+	if err != nil || len(key) != 32 {
+		return nil, fmt.Errorf("공용 데이터 암호가 올바르지 않거나 data 폴더가 손상되었습니다")
+	}
+	a.dataKey = key
+	a.db.setDataKey(key)
+	if err := a.db.UnsealAllDatabases(); err != nil {
+		return nil, err
+	}
+	user, err := a.db.VerifyUserLogin(username, password)
+	if err != nil {
+		_ = a.db.SealAllDatabases()
+		a.dataKey = nil
+		a.db.setDataKey(nil)
+		return nil, err
+	}
+	envelope, err := sealDataKeyForUser(username, password, key)
+	if err != nil {
+		return nil, err
+	}
+	if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 // ChangeUserPassword 비밀번호 변경
 func (a *App) ChangeUserPassword(username, newPassword string) error {
 	if err := a.db.ChangeUserPassword(username, newPassword); err != nil {
@@ -201,13 +241,6 @@ func (a *App) SetUserPassword(username, newPassword string) error {
 	if err := a.db.SetUserPassword(username, newPassword); err != nil {
 		return err
 	}
-	if len(a.dataKey) == 32 {
-		envelope, err := sealDataKeyForUser(username, newPassword, a.dataKey)
-		if err != nil {
-			return err
-		}
-		return saveUserKeyEnvelope(a.db.dataDir, envelope)
-	}
 	return nil
 }
 
@@ -215,15 +248,6 @@ func (a *App) SetUserPassword(username, newPassword string) error {
 func (a *App) AddViewerUser(username, newPassword string) error {
 	if err := a.db.AddViewerUser(username, newPassword); err != nil {
 		return err
-	}
-	if len(a.dataKey) == 32 {
-		envelope, err := sealDataKeyForUser(username, newPassword, a.dataKey)
-		if err != nil {
-			return err
-		}
-		if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
-			return err
-		}
 	}
 	return a.refreshLoginIndex()
 }
@@ -899,15 +923,6 @@ func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 func (a *App) CreateUser(username, password, role string, classNum int) error {
 	if err := a.db.CreateUser(username, password, role, classNum); err != nil {
 		return err
-	}
-	if len(a.dataKey) == 32 {
-		envelope, err := sealDataKeyForUser(username, password, a.dataKey)
-		if err != nil {
-			return err
-		}
-		if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
-			return err
-		}
 	}
 	return a.refreshLoginIndex()
 }

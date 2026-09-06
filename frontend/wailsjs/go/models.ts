@@ -230,6 +230,7 @@ export namespace main {
 	    schoolName: string;
 	    classCount: number;
 	    adminPassword: string;
+	    sharedDataPassword: string;
 	    isSmallSchool: boolean;
 	    admissionYear: number;
 	
@@ -242,6 +243,7 @@ export namespace main {
 	        this.schoolName = source["schoolName"];
 	        this.classCount = source["classCount"];
 	        this.adminPassword = source["adminPassword"];
+	        this.sharedDataPassword = source["sharedDataPassword"];
 	        this.isSmallSchool = source["isSmallSchool"];
 	        this.admissionYear = source["admissionYear"];
 	    }

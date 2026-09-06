@@ -98,6 +98,35 @@ func userEnvelopePath(dataDir, username string) string {
 	return filepath.Join(dataDir, "keys", username+".json")
 }
 
+func sharedEnvelopePath(dataDir string) string { return filepath.Join(dataDir, "shared-key.json") }
+
+func saveSharedKeyEnvelope(dataDir, sharedPassword string, dataKey []byte) error {
+	envelope, err := sealDataKeyForUser("shared-data", sharedPassword, dataKey)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(sharedEnvelopePath(dataDir), data, 0600)
+}
+
+func openSharedKeyEnvelope(dataDir, sharedPassword string) ([]byte, error) {
+	data, err := os.ReadFile(sharedEnvelopePath(dataDir))
+	if err != nil {
+		return nil, err
+	}
+	var envelope UserKeyEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return nil, err
+	}
+	if envelope.Username != "shared-data" {
+		return nil, fmt.Errorf("공용 데이터 잠금 정보가 올바르지 않습니다")
+	}
+	return openDataKeyForUser(envelope, sharedPassword)
+}
+
 func saveUserKeyEnvelope(dataDir string, envelope UserKeyEnvelope) error {
 	if envelope.Username == "" {
 		return fmt.Errorf("사용자명이 없습니다")

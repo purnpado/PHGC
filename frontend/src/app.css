@@ -65,6 +65,23 @@
     transform: none;
 }
 
+/* 보조 동작도 텍스트 링크가 아닌 명확한 버튼으로 표시한다. */
+.btn-secondary {
+    background: rgba(30, 41, 59, 0.82);
+    color: #e2e8f0;
+    border: 1px solid rgba(100, 116, 139, 0.72);
+    border-radius: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(51, 65, 85, 0.95);
+    border-color: rgba(129, 140, 248, 0.85);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
 /* 모드 선택 카드 */
 .mode-card {
     background: rgba(15, 23, 42, 0.6);

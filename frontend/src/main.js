@@ -75,6 +75,13 @@ function renderSetupScreen(existingConfig = null) {
                     <div id="passwordConfirmError" class="error-msg">비밀번호가 일치하지 않습니다.</div>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-semibold text-text-muted mb-2">공용 데이터 암호</label>
+                    <input type="password" id="sharedDataPassword" class="input-field" placeholder="data 폴더 수령 교사가 최초 1회 입력" autocomplete="off" required />
+                    <p class="text-xs text-text-muted mt-1">개인 로그인 비밀번호와 별도이며, 전달되는 data 폴더의 AES 잠금을 엽니다.</p>
+                    <div id="sharedDataPasswordError" class="error-msg">공용 데이터 암호를 입력해 주세요.</div>
+                </div>
+
                 <div class="pt-3">
                     <button type="submit" id="saveBtn" class="btn-primary">설정 완료</button>
                 </div>
@@ -109,12 +116,13 @@ async function handleSetupSubmit(isEdit = false) {
     const classCount = parseInt(document.getElementById('classCount').value, 10);
     const password = document.getElementById('adminPassword').value;
     const passwordConfirm = document.getElementById('adminPasswordConfirm').value;
+	const sharedDataPassword = document.getElementById('sharedDataPassword').value;
     const isSmallSchool = document.getElementById('isSmallSchool').checked;
 	const admissionYear = parseInt(document.getElementById('admissionYear').value, 10);
     const saveBtn = document.getElementById('saveBtn');
 
     // 에러 초기화
-    ['schoolNameError', 'classCountError', 'admissionYearError', 'passwordError', 'passwordConfirmError', 'generalError']
+    ['schoolNameError', 'classCountError', 'admissionYearError', 'passwordError', 'passwordConfirmError', 'sharedDataPasswordError', 'generalError']
         .forEach(id => document.getElementById(id).classList.remove('show'));
 
     // 유효성 검사
@@ -124,6 +132,7 @@ async function handleSetupSubmit(isEdit = false) {
 	if (!admissionYear || admissionYear < 2000 || admissionYear > 2100) { document.getElementById('admissionYearError').classList.add('show'); hasError = true; }
     if (!password) { document.getElementById('passwordError').classList.add('show'); hasError = true; }
     if (password !== passwordConfirm) { document.getElementById('passwordConfirmError').classList.add('show'); hasError = true; }
+	if (!sharedDataPassword) { document.getElementById('sharedDataPasswordError').classList.add('show'); hasError = true; }
     if (hasError) return;
 
     saveBtn.disabled = true;
@@ -134,6 +143,7 @@ async function handleSetupSubmit(isEdit = false) {
             schoolName: schoolName,
             classCount: classCount,
             adminPassword: password,
+			sharedDataPassword: sharedDataPassword,
             isSmallSchool: isSmallSchool,
             admissionYear: admissionYear
         });
@@ -579,10 +589,6 @@ async function renderAdminScreen(schoolName) {
                     <button id="goToTeacherBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
                         👩‍🏫 진학 상담 모드
                     </button>
-                    <button id="syncBtn" class="btn-primary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
-                        🔄 서버 동기화
-                    </button>
-
                     <button id="importPatchBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
                         📥 담임 변경분 가져오기
                     </button>
@@ -2338,6 +2344,10 @@ export async function renderLoginScreen(schoolName) {
                         <label class="block text-xs font-semibold text-text-muted mb-1.5">비밀번호</label>
                         <input type="password" id="loginPassword" class="input-field py-2 text-xs" placeholder="비밀번호 입력" required />
                     </div>
+                    <div id="sharedPasswordRow" class="hidden">
+                        <label class="block text-xs font-semibold text-amber-300 mb-1.5">공용 데이터 암호 <span class="text-slate-400 font-normal">(이 PC 첫 실행만)</span></label>
+                        <input type="password" id="sharedLoginPassword" class="input-field py-2 text-xs" placeholder="학년부장에게 받은 공용 데이터 암호" />
+                    </div>
                     <div class="pt-2">
                         <button type="submit" id="loginBtn" class="btn-primary py-2 text-xs font-bold">로그인</button>
                     </div>
@@ -2361,6 +2371,15 @@ export async function renderLoginScreen(schoolName) {
 
         // 로그인 화면이 로드되면 자동으로 백그라운드 서버 업데이트 검사 실행
         checkUpdateOnStartup(localVer);
+
+        const refreshSharedPasswordRequirement = async () => {
+            const username = document.getElementById('loginUsername').value;
+            const required = await window.go.main.App.NeedsSharedDataPassword(username);
+            document.getElementById('sharedPasswordRow').classList.toggle('hidden', !required);
+            document.getElementById('sharedLoginPassword').required = required;
+        };
+        document.getElementById('loginUsername').addEventListener('change', refreshSharedPasswordRequirement);
+        await refreshSharedPasswordRequirement();
 
         document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {
             const btn = document.getElementById('manualUpdateCheckBtn');
@@ -2390,6 +2409,7 @@ export async function renderLoginScreen(schoolName) {
             e.preventDefault();
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
+			const sharedPassword = document.getElementById('sharedLoginPassword').value;
             const btn = document.getElementById('loginBtn');
             const errorDiv = document.getElementById('loginError');
             
@@ -2398,7 +2418,9 @@ export async function renderLoginScreen(schoolName) {
             errorDiv.classList.remove('show');
 
             try {
-                const user = await window.go.main.App.UnlockAndLogin(username, password);
+                const user = sharedPassword
+                    ? await window.go.main.App.UnlockSharedAndLogin(username, password, sharedPassword)
+                    : await window.go.main.App.UnlockAndLogin(username, password);
                 window.currentUser = user;
 
                 if (user.MustChangePassword) {

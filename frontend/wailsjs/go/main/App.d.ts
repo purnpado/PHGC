@@ -48,6 +48,8 @@ export function GetUsers():Promise<Array<main.User>>;
 
 export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
 
+export function NeedsSharedDataPassword(arg1:string):Promise<boolean>;
+
 export function OpenExcelFile():Promise<string>;
 
 export function OpenTeacherPatch(arg1:string):Promise<number>;
@@ -83,6 +85,8 @@ export function SubmitFeedback(arg1:string,arg2:string,arg3:string,arg4:string,a
 export function SyncWithServer():Promise<main.SyncResult>;
 
 export function UnlockAndLogin(arg1:string,arg2:string):Promise<main.User>;
+
+export function UnlockSharedAndLogin(arg1:string,arg2:string,arg3:string):Promise<main.User>;
 
 export function UpdateAdmissionYear(arg1:number):Promise<void>;
 

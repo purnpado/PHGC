@@ -96,11 +96,12 @@ type SchoolConfig struct {
 
 // SetupRequest 초기 설정 요청
 type SetupRequest struct {
-	SchoolName    string `json:"schoolName"`
-	ClassCount    int    `json:"classCount"`
-	AdminPassword string `json:"adminPassword"`
-	IsSmallSchool bool   `json:"isSmallSchool"`
-	AdmissionYear int    `json:"admissionYear"`
+	SchoolName         string `json:"schoolName"`
+	ClassCount         int    `json:"classCount"`
+	AdminPassword      string `json:"adminPassword"`
+	SharedDataPassword string `json:"sharedDataPassword"`
+	IsSmallSchool      bool   `json:"isSmallSchool"`
+	AdmissionYear      int    `json:"admissionYear"`
 }
 
 // CutoffInfo 고교 커트라인 정보 (연도 및 전형, 최고/최저/평균점 포함)

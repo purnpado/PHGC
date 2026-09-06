@@ -94,6 +94,10 @@ export function ImportTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
 }
 
+export function NeedsSharedDataPassword(arg1) {
+  return window['go']['main']['App']['NeedsSharedDataPassword'](arg1);
+}
+
 export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
 }
@@ -164,6 +168,10 @@ export function SyncWithServer() {
 
 export function UnlockAndLogin(arg1, arg2) {
   return window['go']['main']['App']['UnlockAndLogin'](arg1, arg2);
+}
+
+export function UnlockSharedAndLogin(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UnlockSharedAndLogin'](arg1, arg2, arg3);
 }
 
 export function UpdateAdmissionYear(arg1) {
