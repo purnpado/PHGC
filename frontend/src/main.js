@@ -1670,6 +1670,8 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 const isViewer = window.currentUser && window.currentUser.Role === 'viewer';
                 const defaultAbsence = data.hasSeptAbsence ? data.septAbsenceDays : (data.rawAbsenceDays || 0);
                 const defaultLateEtc = data.hasSeptAbsence ? (data.septLateEtc || 0) : ((data.rawLateCount || 0) + (data.rawEarlyCount || 0) + (data.rawResultCount || 0));
+                const defaultOctAbsence = data.hasOctAbsence ? data.octAbsenceDays : defaultAbsence;
+                const defaultOctLateEtc = data.hasOctAbsence ? (data.octLateEtc || 0) : defaultLateEtc;
                 
                 return `
                 <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
@@ -1693,14 +1695,16 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
                         <section class="lg:col-span-4 bg-slate-900/60 p-3 rounded-lg border border-indigo-500/30 space-y-3">
-                            <div><b class="text-indigo-200 text-sm">① 전기고 비교과</b><span class="ml-2 text-slate-400">마이스터 9/30 · 특성화 취업 9/30</span></div>
+                            <div><b class="text-indigo-200 text-sm">① 마이스터·특성화고 비교과</b><span class="ml-2 text-slate-400">취업희망 9/30 · 특성화 일반 10/31</span></div>
                             <div class="grid grid-cols-2 gap-2">
-                                <label class="text-slate-300">미인정 결석(일)<input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultAbsence}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">지각·조퇴·결과(회)<input type="number" id="inputSeptLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">9/30 결석(일)<input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultAbsence}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">9/30 지각·조퇴·결과(회)<input type="number" id="inputSeptLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">10/31 결석(일)<input type="number" id="inputOctAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctAbsence}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">10/31 지각·조퇴·결과(회)<input type="number" id="inputOctLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
                                 <label class="text-slate-300">추가 봉사(시간)<input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field w-full text-center mt-1" value="${data.addVolunteerHours || 0}" ${isViewer ? 'disabled' : ''}/></label>
                                 <label class="text-slate-300">리더십 인정(학기)<input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field w-full text-center mt-1" value="${extra['leadership_terms'] || 0}" ${isViewer ? 'disabled' : ''}/></label>
                             </div>
-                            <p class="text-[10px] text-slate-400">출결은 결석 + 기타 3회당 1일입니다. 리더십은 반장·부반장·전교회장·부회장만, 한 학기 2.5점입니다.</p>
+                            <p class="text-[10px] text-slate-400">출결은 결석 + 기타 3회당 1일입니다. 10/31 확정 전에는 9/30과 같은 누적값을 넣어 예상 점수로 확인하세요. 리더십은 반장·부반장·전교회장·부회장만, 한 학기 2.5점입니다.</p>
                         </section>
 
                         <section class="lg:col-span-8 bg-slate-900/60 p-3 rounded-lg border border-emerald-500/30 space-y-3">
@@ -1801,10 +1805,14 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             const addVol = parseInt(document.getElementById('inputAddVolunteer').value) || 0;
             const septAbsence = parseInt(document.getElementById('inputSeptAbsence').value) || 0;
             const septLateEtc = parseInt(document.getElementById('inputSeptLateEtc').value) || 0;
+            const octAbsence = parseInt(document.getElementById('inputOctAbsence').value) || 0;
+            const octLateEtc = parseInt(document.getElementById('inputOctLateEtc').value) || 0;
             const newExtra = {
                 add_volunteer: addVol,
                 sept_absence: septAbsence,
                 sept_late_etc: septLateEtc,
+                oct_absence: octAbsence,
+                oct_late_etc: octLateEtc,
                 leadership_terms: Math.min(4, Math.max(0, parseInt(document.getElementById('inputLeadershipTerms').value) || 0)),
                 general_absence_1: parseInt(document.getElementById('inputGeneralAbsence1').value),
                 general_absence_2: parseInt(document.getElementById('inputGeneralAbsence2').value),

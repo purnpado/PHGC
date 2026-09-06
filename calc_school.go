@@ -15,21 +15,23 @@ type VolunteerTier struct {
 
 // SchoolRule 학교별 산출 규칙
 type SchoolRule struct {
-	SchoolName        string             // 학교명
-	TrackName         string             // "일반", "특별", "취업희망자"
-	TotalMax          float64            // 총점 만점 (면접 제외)
-	Semesters         []string           // 반영 학기 (예: ["1_2","2_1","2_2","3_1"])
-	SemesterWeights   map[string]float64 // 학기별 가중치 비율 (합=1.0, 비어있으면 균등)
-	AllSubjectMax     float64            // 전과목 배점 만점
-	WeightedSubjects  map[string]float64 // 과목별 가중치 배점 (예: {"영어":20,"수학":20,"기술가정":10})
-	AttendanceMax     float64            // 출결 만점
-	AbsencePenalty    float64            // 결석 1일당 감점
-	VolunteerMax      float64            // 봉사 만점
-	VolunteerTable    []VolunteerTier    // 봉사시간별 점수 테이블
-	ExcludeArts       bool               // 예체능은 전과목 평균에서 제외하고 별도 감점
-	UseScienceForTech bool               // 기술·가정 미이수 시 과학으로 대체(에너지고)
-	LateEtcPenalty    float64            // 지각·조퇴·결과 1회당 직접 감점(현대공고)
-	LeadershipMax     float64            // 리더십 배점(한 학기 2.5점)
+	SchoolName               string             // 학교명
+	TrackName                string             // "일반", "특별", "취업희망자"
+	TotalMax                 float64            // 총점 만점 (면접 제외)
+	Semesters                []string           // 반영 학기 (예: ["1_2","2_1","2_2","3_1"])
+	SemesterWeights          map[string]float64 // 학기별 가중치 비율 (합=1.0, 비어있으면 균등)
+	AllSubjectMax            float64            // 전과목 배점 만점
+	WeightedSubjects         map[string]float64 // 과목별 가중치 배점 (예: {"영어":20,"수학":20,"기술가정":10})
+	AttendanceMax            float64            // 출결 만점
+	AbsencePenalty           float64            // 결석 1일당 감점
+	VolunteerMax             float64            // 봉사 만점
+	VolunteerTable           []VolunteerTier    // 봉사시간별 점수 테이블
+	ExcludeArts              bool               // 예체능은 전과목 평균에서 제외하고 별도 감점
+	UseScienceForTech        bool               // 기술·가정 미이수 시 과학으로 대체(에너지고)
+	LateEtcPenalty           float64            // 지각·조퇴·결과 1회당 직접 감점(현대공고)
+	LeadershipMax            float64            // 리더십 배점(한 학기 2.5점)
+	AttendanceCutoff         string             // "9/30" 또는 "10/31" (비어 있으면 기존값)
+	FinalTermArtsPenaltyOnly bool               // 특성화고: 3-1 예체능 감점만 한 번 차감
 }
 
 // SchoolCalcResult 학교별 산출 결과
@@ -70,6 +72,9 @@ type StudentFullData struct {
 	SeptAbsenceDays      int                         `json:"septAbsenceDays"`     // 9.30 기준 전기고 미인정 결석일수 수기
 	SeptLateEtc          int                         `json:"septLateEtc"`         // 9.30 기준 미인정 지각·조퇴·결과 합산 횟수 수기
 	HasSeptAbsence       bool                        `json:"hasSeptAbsence"`      // 9.30 출결 수기 입력 여부
+	OctAbsenceDays       int                         `json:"octAbsenceDays"`      // 10.31 기준 미인정 결석일수 수기
+	OctLateEtc           int                         `json:"octLateEtc"`          // 10.31 기준 미인정 지각·조퇴·결과 합산 횟수 수기
+	HasOctAbsence        bool                        `json:"hasOctAbsence"`       // 10.31 출결 수기 입력 여부
 	VolunteerHours       int                         `json:"volunteerHours"`      // 기본 봉사 시간
 	AddVolunteerHours    int                         `json:"addVolunteerHours"`   // 수기 추가 봉사 시간
 	TotalVolunteerHours  int                         `json:"totalVolunteerHours"` // 최종 봉사 시간 (기본 + 추가)
@@ -179,101 +184,97 @@ func init() {
 		{
 			SchoolName: "울산상업고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax:    80,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 80,
 			WeightedSubjects: nil, // 가중치 없음
-			AttendanceMax:    20, AbsencePenalty: 2,
+			AttendanceMax:    20, AbsencePenalty: 2, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 			VolunteerMax: 0,
 		},
 		{
 			SchoolName: "울산상업고", TrackName: "취업희망자",
-			TotalMax: 50, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax:    20,
+			TotalMax: 60, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 20,
 			WeightedSubjects: nil,
-			AttendanceMax:    20, AbsencePenalty: 3,
-			VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{
-				{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0},
-			},
+			AttendanceMax:    30, AbsencePenalty: 3, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerMax:   10,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 		// ============ 울산여자상업고 ============
 		{
 			SchoolName: "울산여자상업고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax:    80,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 80,
 			WeightedSubjects: nil,
-			AttendanceMax:    20, AbsencePenalty: 2,
+			AttendanceMax:    20, AbsencePenalty: 2, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 			VolunteerMax: 0,
 		},
 		{
 			SchoolName: "울산여자상업고", TrackName: "취업희망자",
 			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax:    40,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 40,
 			WeightedSubjects: nil,
-			AttendanceMax:    30, AbsencePenalty: 3,
-			VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{
-				{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0},
-			},
+			AttendanceMax:    30, AbsencePenalty: 3, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerMax:   10,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 		// ============ 울산생활과학고 ============
 		{
 			SchoolName: "울산생활과학고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
+			SemesterWeights: map[string]float64{"1_2": .2, "2_1": .2, "2_2": .2, "3_1": .4}, AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 		},
 		{
 			SchoolName: "울산생활과학고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
+			TotalMax: 50, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .2, "2_1": .2, "2_2": .2, "3_1": .4}, AllSubjectMax: 25, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 5, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerTable: []VolunteerTier{{12, 5}, {10, 4.5}, {8, 4}, {7, 3.5}, {6, 3}, {5, 2.5}, {0, 2}},
 		},
 		// ============ 울산공업고 ============
 		{
 			SchoolName: "울산공업고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 		},
 		{
 			SchoolName: "울산공업고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
+			TotalMax: 50, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 20, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 10, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 		// ============ 울산산업고 ============
 		{
 			SchoolName: "울산산업고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 		},
 		{
 			SchoolName: "울산산업고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
+			TotalMax: 60, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 20, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 		// ============ 울산미용예술고 ============
 		{
 			SchoolName: "울산미용예술고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 60, AttendanceMax: 40, AbsencePenalty: 2, VolunteerMax: 0, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 		},
 		{
 			SchoolName: "울산미용예술고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
+			TotalMax: 50, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .25, "2_1": .25, "2_2": .25, "3_1": .25}, AllSubjectMax: 20, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 10, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 		// ============ 울산기술공업고 ============
 		{
 			SchoolName: "울산기술공업고", TrackName: "일반",
 			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0,
+			SemesterWeights: map[string]float64{"1_2": .2, "2_1": .2, "2_2": .2, "3_1": .4}, AllSubjectMax: 80, AttendanceMax: 20, AbsencePenalty: 2, VolunteerMax: 0, AttendanceCutoff: "10/31", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
 		},
 		{
 			SchoolName: "울산기술공업고", TrackName: "취업희망자",
-			TotalMax: 80, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
-			AllSubjectMax: 40, AttendanceMax: 30, AbsencePenalty: 3, VolunteerMax: 10,
-			VolunteerTable: []VolunteerTier{{12, 10}, {10, 8}, {8, 6}, {6, 4}, {4, 2}, {0, 0}},
+			TotalMax: 100, Semesters: []string{"1_2", "2_1", "2_2", "3_1"},
+			SemesterWeights: map[string]float64{"1_2": .2, "2_1": .2, "2_2": .2, "3_1": .4}, AllSubjectMax: 40, AttendanceMax: 50, AbsencePenalty: 5, VolunteerMax: 10, AttendanceCutoff: "9/30", ExcludeArts: true, FinalTermArtsPenaltyOnly: true,
+			VolunteerTable: []VolunteerTier{{12, 10}, {10, 9}, {8, 8}, {7, 7}, {6, 6}, {5, 5}, {0, 4}},
 		},
 	}
 }
@@ -466,6 +467,16 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 						result.SeptLateEtc = int(vf)
 						result.HasSeptAbsence = true
 					}
+				} else if k == "oct_absence" {
+					if vf, ok := v.(float64); ok {
+						result.OctAbsenceDays = int(vf)
+						result.HasOctAbsence = true
+					}
+				} else if k == "oct_late_etc" {
+					if vf, ok := v.(float64); ok {
+						result.OctLateEtc = int(vf)
+						result.HasOctAbsence = true
+					}
 				} else if k == "leadership_terms" {
 					if vf, ok := v.(float64); ok {
 						result.LeadershipTerms = int(vf)
@@ -524,21 +535,21 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 		// 학기별 차등 가중치 (현대공고)
 		var totalWeightedAvg float64
 		for _, sem := range rule.Semesters {
-			scores := student.SemesterScores[sem]
-			if rule.ExcludeArts {
-				scores = student.NonArtSemesterScores[sem]
-			}
+			scores := ruleSemesterScores(student, rule, sem)
 			if len(scores) == 0 {
 				continue
 			}
 			avg := calcAverage(scores)
 			weight := rule.SemesterWeights[sem]
 			totalWeightedAvg += (avg / 5.0) * weight
-			if rule.ExcludeArts {
+			if rule.ExcludeArts && !rule.FinalTermArtsPenaltyOnly {
 				totalWeightedAvg -= student.ArtPenaltyBySemester[sem] / rule.AllSubjectMax
 			}
 		}
 		result.AllSubjectScore = roundToTwoDecimals(totalWeightedAvg * rule.AllSubjectMax)
+		if rule.FinalTermArtsPenaltyOnly && len(student.SemesterScores["3_1"]) > 0 {
+			result.AllSubjectScore = roundToTwoDecimals(math.Max(0, result.AllSubjectScore-student.ArtPenaltyBySemester["3_1"]/float64(len(student.SemesterScores["3_1"]))))
+		}
 	} else {
 		// 학기별 균등 (마이스터고, 에너지고, 상업고 등)
 		allScores := []int{}
@@ -637,7 +648,10 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 	absenceDays := student.AbsenceDays
 	lateEtc := student.RawLateCount + student.RawEarlyCount + student.RawResultCount
 	// 전기고(마이스터고 및 특성화고)의 경우 9.30 기준 결석 일수 및 지각·조퇴·결과(3회당 1일)가 수기 입력되었으면 우선 적용
-	if student.HasSeptAbsence && (strings.Contains(rule.SchoolName, "마이스터") || strings.Contains(rule.SchoolName, "에너지") || strings.Contains(rule.SchoolName, "현대") || strings.Contains(rule.SchoolName, "고") || strings.Contains(rule.SchoolName, "상업") || strings.Contains(rule.SchoolName, "과학")) {
+	if rule.AttendanceCutoff == "10/31" && student.HasOctAbsence {
+		absenceDays = student.OctAbsenceDays + (student.OctLateEtc / 3)
+		lateEtc = student.OctLateEtc
+	} else if (rule.AttendanceCutoff == "9/30" || rule.AttendanceCutoff == "") && student.HasSeptAbsence {
 		absenceDays = student.SeptAbsenceDays + (student.SeptLateEtc / 3)
 		lateEtc = student.SeptLateEtc
 	}
@@ -667,6 +681,34 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 	result.TotalScore = roundToTwoDecimals(calcTotal)
 
 	return result
+}
+
+// ruleSemesterScores는 전형요강의 결측 성적 인정 원칙을 적용한다.
+// 해당 학기 성적이 없으면 같은 학년의 반대 학기, 그마저 없으면 인접 학기의
+// 성적을 사용한다. 예체능 제외 전형은 NonArtSemesterScores를 우선 사용한다.
+func ruleSemesterScores(student *StudentFullData, rule SchoolRule, semester string) []int {
+	scoreMap := student.SemesterScores
+	if rule.ExcludeArts && len(student.NonArtSemesterScores) > 0 {
+		scoreMap = student.NonArtSemesterScores
+	}
+	if scores := scoreMap[semester]; len(scores) > 0 {
+		return scores
+	}
+
+	// 자유학기 및 한 학년 전체 결측 시, 전형요강에 맞춰 가까운 학기의
+	// 성적을 인정한다. 순서는 같은 학년 반대 학기를 먼저 둔다.
+	candidates := map[string][]string{
+		"1_2": {"1_1", "2_1", "2_2"},
+		"2_1": {"2_2", "1_2", "3_1"},
+		"2_2": {"2_1", "3_1", "1_2"},
+		"3_1": {"3_2", "2_2", "2_1"},
+	}
+	for _, candidate := range candidates[semester] {
+		if scores := scoreMap[candidate]; len(scores) > 0 {
+			return scores
+		}
+	}
+	return nil
 }
 
 // calcAverage 정수 배열의 평균

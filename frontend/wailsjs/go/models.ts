@@ -315,6 +315,9 @@ export namespace main {
 	    septAbsenceDays: number;
 	    septLateEtc: number;
 	    hasSeptAbsence: boolean;
+	    octAbsenceDays: number;
+	    octLateEtc: number;
+	    hasOctAbsence: boolean;
 	    volunteerHours: number;
 	    addVolunteerHours: number;
 	    totalVolunteerHours: number;
@@ -351,6 +354,9 @@ export namespace main {
 	        this.septAbsenceDays = source["septAbsenceDays"];
 	        this.septLateEtc = source["septLateEtc"];
 	        this.hasSeptAbsence = source["hasSeptAbsence"];
+	        this.octAbsenceDays = source["octAbsenceDays"];
+	        this.octLateEtc = source["octLateEtc"];
+	        this.hasOctAbsence = source["hasOctAbsence"];
 	        this.volunteerHours = source["volunteerHours"];
 	        this.addVolunteerHours = source["addVolunteerHours"];
 	        this.totalVolunteerHours = source["totalVolunteerHours"];
