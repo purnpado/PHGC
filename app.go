@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -455,17 +457,32 @@ func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB6
 		return 0, err
 	}
 
-	payload := map[string]interface{}{
-		"schoolName":     config.SchoolName,
-		"email":          email,
-		"title":          title,
-		"content":        content,
-		"attachmentName": attachmentName,
-		"attachmentB64":  attachmentB64,
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("school", config.SchoolName)
+	_ = writer.WriteField("author", "PHGC 사용자")
+	_ = writer.WriteField("email", email)
+	_ = writer.WriteField("type", title)
+	_ = writer.WriteField("content", content)
+	_ = writer.WriteField("version", AppVersion)
+	if attachmentName != "" && attachmentB64 != "" {
+		image, err := base64.StdEncoding.DecodeString(attachmentB64)
+		if err != nil {
+			return 0, fmt.Errorf("첨부 이미지 형식이 올바르지 않습니다")
+		}
+		part, err := writer.CreateFormFile("image", attachmentName)
+		if err != nil {
+			return 0, fmt.Errorf("첨부 이미지 준비 실패: %w", err)
+		}
+		if _, err := part.Write(image); err != nil {
+			return 0, fmt.Errorf("첨부 이미지 저장 실패: %w", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return 0, err
 	}
 
-	jsonBytes, _ := json.Marshal(payload)
-	resp, err := http.Post(BridgeServerURL+"/api/feedback", "application/json", bytes.NewBuffer(jsonBytes))
+	resp, err := http.Post(BridgeServerURL+"/api/feedback", writer.FormDataContentType(), &body)
 	if err != nil {
 		return 0, fmt.Errorf("서버 연결 실패: %w", err)
 	}
@@ -479,7 +496,11 @@ func (a *App) SubmitFeedback(title, content, email, attachmentName, attachmentB6
 	var result map[string]interface{}
 	json.NewDecoder(resp.Body).Decode(&result)
 
-	issueID := int(result["issue_id"].(float64))
+	issueIDValue, ok := result["issueId"].(float64)
+	if !ok || issueIDValue <= 0 {
+		return 0, fmt.Errorf("서버가 피드백 번호를 반환하지 않았습니다")
+	}
+	issueID := int(issueIDValue)
 
 	// 로컬 DB에 기록 저장
 	a.db.SaveFeedbackIssue(issueID, title)

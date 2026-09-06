@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.33",
+  "latestVersion": "0.5.34",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.33 - 암호화 DB, 학급 계정, 중계 서버 개인정보 최소 수집 적용",
+  "releaseNotes": "v0.5.34 - EduBridge 피드백 문의 전송 호환성 수정",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }
