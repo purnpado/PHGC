@@ -919,6 +919,12 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     } catch (e) {
         console.error(e);
     }
+	// 저장된 과거 연도는 계속 남겨 둔다. 매년 새 연도가 추가되어도 최근 3·5년
+	// 비교를 위한 원자료를 삭제하거나 선택 목록에서 숨기지 않는다.
+	const admissionYears = Array.from(new Set([
+		...Array.from({ length: 12 }, (_, index) => currentMiddleSchoolYear + 1 - index),
+		...allSavedCutoffs.map(c => c.year)
+	])).filter(year => Number.isInteger(year)).sort((a, b) => b - a);
 
     let classOptions = '';
     if (window.currentUser && window.currentUser.Role === 'homeroom') {
@@ -1488,6 +1494,10 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
         let defaultCutoff = null;
         let defaultAvg = null;
+		const cutoffHistory = (cutoffs || []).filter(c =>
+			c.schoolName.includes(r.schoolName.substring(0, 4)) &&
+			(c.track.includes(r.trackName) || r.trackName.includes(c.track)) && c.minValue > 0
+		).sort((a, b) => b.year - a.year).slice(0, 5);
         if (deptsForSchool.length > 0) {
             defaultCutoff = deptsForSchool[0].minValue;
             defaultAvg = deptsForSchool[0].avgValue;
@@ -1557,6 +1567,12 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     </select>
                 </div>
                 ` : ''}
+
+				${cutoffHistory.length > 0 ? `
+				<div class="text-[11px] text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/40">
+					<span class="font-bold text-indigo-200">최근 ${Math.min(5, cutoffHistory.length)}년 기준:</span>
+					${cutoffHistory.map((c, index) => `<span class="ml-2 ${index === 0 ? 'text-emerald-300 font-bold' : ''}">${c.year} ${c.department || '학교 전체'} ${c.minValue}점</span>`).join('')}
+				</div>` : ''}
 
                 <div class="flex items-baseline justify-between">
                     <div class="text-xs text-text-muted">
@@ -2768,7 +2784,8 @@ export async function renderUserManagementScreen(schoolName) {
 async function renderCutoffScreen(schoolName) {
     app.className = 'wide-layout';
 
-    let currentAdmissionYear = 2026;
+    const currentMiddleSchoolYear = new Date().getFullYear();
+    let currentAdmissionYear = currentMiddleSchoolYear + 1;
     try {
         const config = await GetSchoolConfig();
         if (config && config.admissionYear) {
@@ -2961,7 +2978,7 @@ async function renderCutoffScreen(schoolName) {
                 const itemsToRender = [...sch.items];
                 allSavedCutoffs.filter(c => c.year === currentAdmissionYear && c.schoolName === sch.name).forEach(c => {
                     const exists = itemsToRender.some(it => it.dept === c.department && it.track === c.track);
-                    if (!exists && c.department && c.department !== '공통') {
+					if (!exists && (c.department !== '공통')) {
                         itemsToRender.push({ dept: c.department, track: c.track });
                     }
                 });
@@ -2976,7 +2993,7 @@ async function renderCutoffScreen(schoolName) {
                     return `
                         <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}">
                             <td class="p-3">
-                                <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${item.dept}" placeholder="학과명 (예: 공통, 정밀기계과)" />
+                                <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${item.dept}" placeholder="비우면 학교 전체" />
                             </td>
                             <td class="p-3">
                                 <input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="${item.track}" placeholder="전형 (예: 일반, 특별)" />
@@ -3023,18 +3040,18 @@ async function renderCutoffScreen(schoolName) {
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs cutoff-compact-table">
+                            <table class="w-full text-left border-collapse text-xs">
                                 <thead>
                                     <tr class="text-text-muted border-b border-slate-700/60 font-semibold bg-slate-900/40">
-                                        <th class="p-2.5">학과명</th>
-                                        <th class="p-2.5 w-36">전형 구분</th>
+								<th class="p-2.5 w-44">학과명 <span class="text-slate-500 font-normal">(비우면 학교 전체)</span></th>
+								<th class="p-2.5 w-28">전형</th>
                                         <th class="p-2.5 text-center w-36 text-emerald-300">최저점 (합격선/필수)</th>
-                                        <th class="p-2.5 text-center w-36 text-sky-300">최고점 (선택)</th>
+								<th class="p-2.5 text-center w-36 text-sky-300">최고 불합격점 (선택)</th>
                                         <th class="p-2.5 text-center w-36 text-amber-300">평균점 (선택)</th>
                                         <th class="p-2.5 text-center w-14">관리</th>
                                     </tr>
                                 </thead>
-                                <tbody class="cutoff-pair-grid">
+                                <tbody>
                                     ${rowsHTML}
                                 </tbody>
                             </table>
@@ -3116,10 +3133,7 @@ async function renderCutoffScreen(schoolName) {
                         <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-indigo-500/40 shadow-inner">
                             <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도(입시년도):</label>
                             <select id="admissionYearSelect" class="bg-slate-800 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-slate-700 outline-none cursor-pointer">
-                                <option value="2027" ${currentAdmissionYear === 2027 ? 'selected' : ''}>2027학년도 (2027년 3월 고교 입학)</option>
-                                <option value="2026" ${currentAdmissionYear === 2026 ? 'selected' : ''}>2026학년도 (2026년 3월 고교 입학 - 현재)</option>
-                                <option value="2025" ${currentAdmissionYear === 2025 ? 'selected' : ''}>2025학년도 (2025년 3월 고교 입학)</option>
-                                <option value="2024" ${currentAdmissionYear === 2024 ? 'selected' : ''}>2024학년도 (2024년 3월 고교 입학)</option>
+                                ${admissionYears.map(year => `<option value="${year}" ${currentAdmissionYear === year ? 'selected' : ''}>${year}학년도 (${year - 1}학년도 중3${year - 1 === currentMiddleSchoolYear ? ' - 현재' : ''})</option>`).join('')}
                             </select>
                         </div>
 
@@ -3205,7 +3219,7 @@ async function renderCutoffScreen(schoolName) {
                     const unit = scoreType === 'percentile' ? '%' : '점';
                     tr.innerHTML = `
                         <td class="p-3">
-                            <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="" placeholder="새 학과명 (예: 반도체과)" />
+                            <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="" placeholder="비우면 학교 전체" />
                         </td>
                         <td class="p-3">
                             <input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="일반" placeholder="전형 (예: 일반)" />
@@ -3315,7 +3329,7 @@ async function renderCutoffScreen(schoolName) {
             rows.forEach(tr => {
                 const school = tr.dataset.school;
                 const scoreType = tr.dataset.type;
-                const dept = tr.querySelector('.row-dept-name')?.value.trim() || '공통';
+				const dept = tr.querySelector('.row-dept-name')?.value.trim() || '';
                 const track = tr.querySelector('.row-track-name')?.value.trim() || '일반';
                 const minStr = tr.querySelector('.row-min-score')?.value.trim();
                 const maxStr = tr.querySelector('.row-max-score')?.value.trim();

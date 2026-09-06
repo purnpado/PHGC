@@ -256,11 +256,3 @@
         print-color-adjust: exact;
     }
 }
-/* 커트라인 입력: 같은 학과의 전형(일반/취업희망자)을 가로 두 칸으로 배치 */
-.cutoff-compact-table thead { display: none; }
-.cutoff-pair-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
-.cutoff-pair-grid .cutoff-item-row { display: grid; grid-template-columns: minmax(90px, 1fr) 72px 86px 32px; gap: .35rem; align-items: center; padding: .55rem; border: 1px solid rgb(51 65 85 / .8); border-radius: .6rem; }
-.cutoff-pair-grid .cutoff-item-row td { padding: 0; }
-.cutoff-pair-grid .cutoff-item-row td:nth-child(4), .cutoff-pair-grid .cutoff-item-row td:nth-child(5) { display: none; }
-.cutoff-pair-grid .cutoff-item-row .row-min-score { width: 100%; }
-@media (max-width: 900px) { .cutoff-pair-grid { grid-template-columns: 1fr; } }
