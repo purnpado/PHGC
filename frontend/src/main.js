@@ -1685,98 +1685,29 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         <div class="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2"><b class="text-emerald-200">후기 일반고</b> · 출결·봉사·행발·창체 <span class="text-amber-300">11/30 마감</span></div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
-                        <!-- 1) 9/30 기준 출결 상황 (미인정 결석 + 지각/조퇴/결과) -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <div class="flex items-center justify-between mb-1">
-                                <label class="text-indigo-200 font-bold">📅 전기고 누적 출결</label>
-                                <span class="text-[10px] text-slate-400">3회당 결석1일</span>
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
+                        <section class="lg:col-span-4 bg-slate-900/60 p-3 rounded-lg border border-indigo-500/30 space-y-3">
+                            <div><b class="text-indigo-200 text-sm">① 전기고 비교과</b><span class="ml-2 text-slate-400">마이스터 9/30 · 특성화 취업 9/30</span></div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label class="text-slate-300">미인정 결석(일)<input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultAbsence}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">지각·조퇴·결과(회)<input type="number" id="inputSeptLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">추가 봉사(시간)<input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field w-full text-center mt-1" value="${data.addVolunteerHours || 0}" ${isViewer ? 'disabled' : ''}/></label>
+                                <label class="text-slate-300">리더십 인정(학기)<input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field w-full text-center mt-1" value="${extra['leadership_terms'] || 0}" ${isViewer ? 'disabled' : ''}/></label>
                             </div>
-                            <div class="space-y-1.5">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-300 text-[11px]">미인정 결석:</span>
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field text-center py-0.5 font-bold text-indigo-200 text-xs"
-                                               value="${defaultAbsence}" style="width: 50px;" ${isViewer ? 'disabled' : ''} />
-                                        <span class="text-slate-400 text-[11px]">일</span>
-                                    </div>
-                                </div>
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-300 text-[11px]">지각·조퇴·결과:</span>
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="inputSeptLateEtc" min="0" max="100" class="input-field text-center py-0.5 font-bold text-amber-200 text-xs"
-                                               value="${defaultLateEtc}" style="width: 50px;" ${isViewer ? 'disabled' : ''} />
-                                        <span class="text-slate-400 text-[11px]">회</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-[10px] text-text-muted mt-1.5">마이스터고·특성화고 취업전형: 9/30 기준</div>
-                        </div>
+                            <p class="text-[10px] text-slate-400">출결은 결석 + 기타 3회당 1일입니다. 리더십은 반장·부반장·전교회장·부회장만, 한 학기 2.5점입니다.</p>
+                        </section>
 
-                        <!-- 2) 추가 봉사시간 -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50 col-span-full">
-                            <label class="block text-emerald-200 font-bold mb-1">🏫 후기 일반고 비교과 확정 입력 <span class="text-[10px] text-slate-400">(11/30 마감 · 마감 전에는 위 누적자료로 예상 산출)</span></label>
-                            <div class="grid grid-cols-3 gap-2 text-xs">
-                                ${[1,2,3].map(g => `<div class="flex items-center gap-1"><span>${g}학년</span><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center py-1" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center py-1" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사" ${isViewer ? 'disabled' : ''}/></div>`).join('')}
+                        <section class="lg:col-span-8 bg-slate-900/60 p-3 rounded-lg border border-emerald-500/30 space-y-3">
+                            <div><b class="text-emerald-200 text-sm">② 후기 일반고 비교과</b><span class="ml-2 text-slate-400">11/30 마감 · 현재는 3학년 1학기 누적자료로 예상 산출</span></div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                ${[1,2,3].map(g => `<div class="rounded border border-slate-700/70 p-2"><b class="text-slate-200">${g}학년</b><div class="grid grid-cols-2 gap-1 mt-1"><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석환산일" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사시간" ${isViewer ? 'disabled' : ''}/></div></div>`).join('')}
                             </div>
-                            <div class="text-[10px] text-text-muted mt-2">마감 시 각 학년별 미인정 결석 환산일수와 봉사시간을 확정 입력합니다. 그 전에는 3학년 1학기 누적자료로 일반고 예상 점수를 보여 줍니다.</div>
-                        </div>
-
-                        <!-- 2) 추가 봉사시간 -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-indigo-200 font-bold mb-1">🕒 전기고 추가 봉사</label>
-                            <div class="flex items-center gap-1.5 pt-1">
-                                <input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field text-center py-1 font-bold"
-                                       value="${data.addVolunteerHours || 0}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
-                                <span class="text-slate-300">시간 추가</span>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div class="rounded border border-slate-700/70 p-2"><b class="text-emerald-200">창체 가산점</b><span class="ml-1 text-slate-400">(+1점씩)</span><div class="flex gap-3 mt-2">${[1,2,3].map(g => `<label><input type="checkbox" id="checkChangche${g}" ${extra['changche_'+g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/> ${g}학년</label>`).join('')}</div></div>
+                                <div class="rounded border border-slate-700/70 p-2"><b class="text-emerald-200">행발 가산점</b><span class="ml-1 text-slate-400">(+1점씩)</span><div class="flex gap-3 mt-2">${[1,2,3].map(g => `<label><input type="checkbox" id="checkHaengbal${g}" ${extra['haengbal_'+g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/> ${g}학년</label>`).join('')}</div></div>
                             </div>
-                            <div class="text-[10px] text-text-muted mt-2">마이스터고·특성화고 취업전형 9/30까지 인정분</div>
-                        </div>
-
-                        <!-- 3) 창의적체험활동 (임원 등) 가산점 -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-slate-300 font-bold mb-1">👑 전기고 리더십 인정 학기</label>
-                            <div class="flex items-center gap-1.5 pt-1">
-                                <input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field text-center py-1 font-bold"
-                                       value="${extra['leadership_terms'] || 0}" style="width: 65px;" ${isViewer ? 'disabled' : ''} />
-                                <span class="text-slate-300">학기</span>
-                            </div>
-                            <div class="text-[10px] text-text-muted mt-2">반장·부반장·전교 학생회장·부회장만 인정. 1학기당 2.5점, 3학년은 1학기까지만 입력합니다.</div>
-                        </div>
-
-                        <!-- 4) 창의적체험활동 (임원 등) 가산점 -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-emerald-200 font-bold mb-1">🏅 후기 일반고 창체 가산점 (+1점씩)</label>
-                            <div class="flex items-center gap-2.5 pt-1">
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkChangche1" ${extra['changche_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
-                                </label>
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkChangche2" ${extra['changche_2'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 2년
-                                </label>
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkChangche3" ${extra['changche_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
-                                </label>
-                            </div>
-                            <div class="text-[10px] text-text-muted mt-1">11/30 기준 · 학생회/반장 등 인정 임원</div>
-                        </div>
-
-                        <!-- 4) 행동특성및종합의견 (표창 등) 가산점 -->
-                        <div class="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
-                            <label class="block text-emerald-200 font-bold mb-1">🎖️ 후기 일반고 행발 가산점 (+1점씩)</label>
-                            <div class="flex items-center gap-2.5 pt-1">
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkHaengbal1" ${extra['haengbal_1'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 1년
-                                </label>
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkHaengbal2" ${extra['haengbal_2'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 2년
-                                </label>
-                                <label class="flex items-center gap-1 cursor-pointer">
-                                    <input type="checkbox" id="checkHaengbal3" ${extra['haengbal_3'] ? 'checked' : ''} ${isViewer ? 'disabled' : ''} /> 3년
-                                </label>
-                            </div>
-                            <div class="text-[10px] text-text-muted mt-1">11/30 기준 · 모범상/표창장 등 승인 대상</div>
-                        </div>
+                            <p class="text-[10px] text-slate-400">11/30에 학년별 결석 환산일수·봉사시간을 확정 입력하면 예상 점수가 확정 점수로 바뀝니다.</p>
+                        </section>
                     </div>
                 </div>
                 `;
