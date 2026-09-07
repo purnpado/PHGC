@@ -62,6 +62,8 @@ export function ImportPasswordResetPackage(arg1:string):Promise<string>;
 
 export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
 
+export function ImportTeacherPatchSelected(arg1:string,arg2:string,arg3:Array<main.PatchMergeSelection>):Promise<number>;
+
 export function InspectTeacherPatch(arg1:string,arg2:string):Promise<main.PatchPreview>;
 
 export function Logout():Promise<void>;

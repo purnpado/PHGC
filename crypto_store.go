@@ -58,14 +58,35 @@ type PatchFile struct {
 // PatchPreview contains only merge metadata. It does not expose attendance,
 // volunteer, or other student values in the import confirmation screen.
 type PatchPreview struct {
-	Path                string   `json:"path"`
-	SourceUsername      string   `json:"sourceUsername"`
-	ClassNum            int      `json:"classNum"`
-	ChangeCount         int      `json:"changeCount"`
-	StudentNames        []string `json:"studentNames"`
-	BaseRevision        int      `json:"baseRevision"`
-	CurrentRevision     int      `json:"currentRevision"`
-	HasRevisionConflict bool     `json:"hasRevisionConflict"`
+	Path                string             `json:"path"`
+	SourceUsername      string             `json:"sourceUsername"`
+	ClassNum            int                `json:"classNum"`
+	ChangeCount         int                `json:"changeCount"`
+	StudentNames        []string           `json:"studentNames"`
+	BaseRevision        int                `json:"baseRevision"`
+	CurrentRevision     int                `json:"currentRevision"`
+	HasRevisionConflict bool               `json:"hasRevisionConflict"`
+	Items               []PatchPreviewItem `json:"items"`
+}
+
+// PatchPreviewItem lists only the categories a grade head may choose to
+// merge. It intentionally does not expose raw student values in the preview.
+type PatchPreviewItem struct {
+	StudentNum   string `json:"studentNum"`
+	StudentName  string `json:"studentName"`
+	Attendance   bool   `json:"attendance"`
+	Volunteer    bool   `json:"volunteer"`
+	Extra        bool   `json:"extra"`
+	Applications bool   `json:"applications"`
+}
+
+// PatchMergeSelection describes the selected categories for one student.
+type PatchMergeSelection struct {
+	StudentNum   string `json:"studentNum"`
+	Attendance   bool   `json:"attendance"`
+	Volunteer    bool   `json:"volunteer"`
+	Extra        bool   `json:"extra"`
+	Applications bool   `json:"applications"`
 }
 
 // UserKeyEnvelope lets a teacher unlock the shared package with a personal

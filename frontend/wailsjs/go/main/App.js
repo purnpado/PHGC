@@ -122,6 +122,10 @@ export function ImportTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
 }
 
+export function ImportTeacherPatchSelected(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ImportTeacherPatchSelected'](arg1, arg2, arg3);
+}
+
 export function InspectTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['InspectTeacherPatch'](arg1, arg2);
 }

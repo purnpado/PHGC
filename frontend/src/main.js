@@ -880,16 +880,56 @@ async function renderAdminScreen(schoolName) {
         if (!password) return;
         try {
             const preview = await window.go.main.App.OpenTeacherPatchPreview(password);
-            const names = (preview.studentNames || []).slice(0, 8).join(', ') + ((preview.studentNames || []).length > 8 ? ' 외' : '');
-            const conflict = preview.hasRevisionConflict ? `\n\n⚠ 기준 배포본 버전이 다릅니다.\n담임 파일: ${preview.baseRevision} / 현재 자료: ${preview.currentRevision}\n현재 자료를 확인한 뒤 병합하세요.` : '';
-            if (!confirm(`담임 변경분 미리보기\n\n담임 계정: ${preview.sourceUsername}\n학급: ${preview.classNum}반\n변경 학생: ${preview.changeCount}명\n대상: ${names || '-'}${conflict}\n\n확인 후 이 변경분을 병합할까요?`)) return;
-            const count = await window.go.main.App.ImportTeacherPatch(password, preview.path);
-            alert(`${count}건의 담임 변경분을 병합했습니다. 결과를 확인한 뒤 최신 data 폴더를 재배포하세요.`);
-            renderAdminScreen(schoolName);
+            openPatchMergeSelection(preview, password, schoolName);
         } catch (err) {
             alert('변경분 가져오기 실패: ' + err);
         }
     });
+}
+
+function openPatchMergeSelection(preview, password, schoolName) {
+    document.getElementById('patchMergeSelectionModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'patchMergeSelectionModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto';
+    const items = Array.isArray(preview.items) ? preview.items : [];
+    const conflict = preview.hasRevisionConflict
+        ? `<div class="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-200 mb-4">⚠ 기준 배포본 버전이 다릅니다. 담임 파일 ${preview.baseRevision} · 현재 자료 ${preview.currentRevision}. 필요한 항목만 선택해 병합하세요.</div>`
+        : `<div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200 mb-4">✓ 기준 배포본 버전이 일치합니다. 그래도 적용할 항목을 확인한 뒤 병합하세요.</div>`;
+    const rows = items.length ? items.map((item, index) => {
+        const checks = [
+            ['attendance', '출결', item.attendance], ['volunteer', '봉사', item.volunteer],
+            ['extra', '수기 가산점', item.extra], ['applications', '지원현황', item.applications],
+        ].filter(([, , available]) => available).map(([field, label]) => `<label class="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-xs"><input type="checkbox" class="patch-choice" data-index="${index}" data-field="${field}" checked> ${label}</label>`).join('');
+        return `<tr class="border-b border-slate-700/60"><td class="p-3 text-center">${item.studentNum}</td><td class="p-3 font-bold">${item.studentName}</td><td class="p-3"><div class="flex flex-wrap gap-2">${checks || '<span class="text-text-muted">변경 항목 없음</span>'}</div></td></tr>`;
+    }).join('') : '<tr><td colspan="3" class="p-8 text-center text-text-muted">확인할 변경 항목이 없습니다.</td></tr>';
+    modal.innerHTML = `<div class="glass-card p-7 w-full max-w-4xl"><div class="flex justify-between items-start gap-4 mb-4"><div><h2 class="text-2xl font-bold text-white">📥 담임 변경분 선택 병합</h2><p class="text-sm text-text-muted mt-1">담임 계정 ${preview.sourceUsername} · ${preview.classNum}반 · 변경 학생 ${preview.changeCount}명</p></div><button id="closePatchMergeSelection" class="text-3xl text-text-muted">×</button></div>${conflict}<p class="text-xs text-text-muted mb-3">학생별로 가져올 항목만 선택합니다. 원본 수치와 학생 개인정보는 이 화면에 표시하지 않습니다.</p><div class="overflow-auto max-h-[55vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">번호</th><th class="p-3">학생</th><th class="p-3 text-left">가져올 항목</th></tr></thead><tbody>${rows}</tbody></table></div><div class="flex justify-end gap-2 mt-5"><button id="closePatchMergeSelection2" class="btn-secondary w-auto px-4 py-2">취소</button><button id="applyPatchMergeSelection" class="btn-primary w-auto px-4 py-2">선택 항목 병합</button></div></div>`;
+    const close = () => modal.remove();
+    document.getElementById('closePatchMergeSelection').onclick = close;
+    document.getElementById('closePatchMergeSelection2').onclick = close;
+    document.getElementById('applyPatchMergeSelection').onclick = async () => {
+        const selections = items.map((item, index) => ({
+            studentNum: item.studentNum,
+            attendance: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="attendance"]`)?.checked || false,
+            volunteer: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="volunteer"]`)?.checked || false,
+            extra: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="extra"]`)?.checked || false,
+            applications: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="applications"]`)?.checked || false,
+        }));
+        if (!selections.some(item => item.attendance || item.volunteer || item.extra || item.applications)) return alert('병합할 항목을 하나 이상 선택해주세요.');
+        const button = document.getElementById('applyPatchMergeSelection');
+        button.disabled = true;
+        button.textContent = '병합 중...';
+        try {
+            const count = await window.go.main.App.ImportTeacherPatchSelected(password, preview.path, selections);
+            alert(`${count}명의 선택 항목을 병합했습니다. 결과를 확인한 뒤 최신 data 폴더를 재배포하세요.`);
+            close();
+            renderAdminScreen(schoolName);
+        } catch (err) {
+            button.disabled = false;
+            button.textContent = '선택 항목 병합';
+            alert('변경분 병합 실패: ' + err);
+        }
+    };
 }
 
 // ===== 일반고 지원가이드 판정 기준선 전역 헬퍼 (기본 80%) =====

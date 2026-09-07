@@ -310,6 +310,48 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class PatchMergeSelection {
+	    studentNum: string;
+	    attendance: boolean;
+	    volunteer: boolean;
+	    extra: boolean;
+	    applications: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new PatchMergeSelection(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.studentNum = source["studentNum"];
+	        this.attendance = source["attendance"];
+	        this.volunteer = source["volunteer"];
+	        this.extra = source["extra"];
+	        this.applications = source["applications"];
+	    }
+	}
+	export class PatchPreviewItem {
+	    studentNum: string;
+	    studentName: string;
+	    attendance: boolean;
+	    volunteer: boolean;
+	    extra: boolean;
+	    applications: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new PatchPreviewItem(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.studentNum = source["studentNum"];
+	        this.studentName = source["studentName"];
+	        this.attendance = source["attendance"];
+	        this.volunteer = source["volunteer"];
+	        this.extra = source["extra"];
+	        this.applications = source["applications"];
+	    }
+	}
 	export class PatchPreview {
 	    path: string;
 	    sourceUsername: string;
@@ -319,6 +361,7 @@ export namespace main {
 	    baseRevision: number;
 	    currentRevision: number;
 	    hasRevisionConflict: boolean;
+	    items: PatchPreviewItem[];
 
 	    static createFrom(source: any = {}) {
 	        return new PatchPreview(source);
@@ -334,8 +377,28 @@ export namespace main {
 	        this.baseRevision = source["baseRevision"];
 	        this.currentRevision = source["currentRevision"];
 	        this.hasRevisionConflict = source["hasRevisionConflict"];
+	        this.items = this.convertValues(source["items"], PatchPreviewItem);
 	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
+
 	export class SchoolCalcResult {
 	    schoolName: string;
 	    trackName: string;

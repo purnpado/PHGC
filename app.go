@@ -1142,6 +1142,58 @@ func (a *App) ImportTeacherPatch(password, inputPath string) (int, error) {
 	return len(patch.Changes), nil
 }
 
+// ImportTeacherPatchSelected applies only the categories explicitly selected
+// by the grade head after previewing a teacher patch.
+func (a *App) ImportTeacherPatchSelected(password, inputPath string, selections []PatchMergeSelection) (int, error) {
+	patch, err := decryptPatchGCM(password, inputPath)
+	if err != nil {
+		return 0, err
+	}
+	if patch.ClassNum < 1 || patch.SourceUsername == "" {
+		return 0, fmt.Errorf("변경분 파일 정보가 올바르지 않습니다")
+	}
+	selected := make(map[string]PatchMergeSelection, len(selections))
+	for _, item := range selections {
+		if item.StudentNum != "" {
+			selected[item.StudentNum] = item
+		}
+	}
+	applied := 0
+	for _, change := range patch.Changes {
+		if change.ClassNum != patch.ClassNum {
+			return 0, fmt.Errorf("변경분에 다른 학급 데이터가 포함되어 있습니다")
+		}
+		choice, ok := selected[change.StudentNum]
+		if !ok {
+			continue
+		}
+		filtered := PatchChange{ClassNum: change.ClassNum, StudentNum: change.StudentNum, StudentName: change.StudentName}
+		if choice.Attendance {
+			filtered.Attendance = change.Attendance
+		}
+		if choice.Volunteer {
+			filtered.Volunteer = change.Volunteer
+		}
+		if choice.Extra {
+			filtered.Extra = change.Extra
+		}
+		if choice.Applications {
+			filtered.Applications = change.Applications
+		}
+		if filtered.Attendance == "" && filtered.Volunteer == "" && filtered.Extra == "" && len(filtered.Applications) == 0 {
+			continue
+		}
+		if err := a.db.ApplyPatchChange(filtered); err != nil {
+			return applied, err
+		}
+		applied++
+	}
+	if applied == 0 {
+		return 0, fmt.Errorf("병합할 변경 항목을 하나 이상 선택해주세요")
+	}
+	return applied, nil
+}
+
 // InspectTeacherPatch decrypts only long enough to show safe merge metadata
 // before the grade head decides whether to apply the changes.
 func (a *App) InspectTeacherPatch(password, inputPath string) (PatchPreview, error) {
@@ -1158,6 +1210,11 @@ func (a *App) InspectTeacherPatch(password, inputPath string) (PatchPreview, err
 			return PatchPreview{}, fmt.Errorf("변경분에 다른 학급 데이터가 포함되어 있습니다")
 		}
 		preview.StudentNames = append(preview.StudentNames, change.StudentName)
+		preview.Items = append(preview.Items, PatchPreviewItem{
+			StudentNum: change.StudentNum, StudentName: change.StudentName,
+			Attendance: change.Attendance != "", Volunteer: change.Volunteer != "",
+			Extra: change.Extra != "", Applications: len(change.Applications) > 0,
+		})
 	}
 	manifestBytes, err := os.ReadFile(manifestPath(a.db.dataDir))
 	if err == nil {
