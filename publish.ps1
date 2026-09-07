@@ -1,6 +1,7 @@
 # PHGC 자동 버전업 & 빌드 & 푸시 & 릴리즈 스크립트
 param (
-    [string]$Notes = "기능 개선 및 안정화 업데이트"
+    [string]$Notes = "기능 개선 및 안정화 업데이트",
+    [switch]$SkipBindings
 )
 
 $ErrorActionPreference = "Stop"
@@ -63,7 +64,12 @@ Stop-Process -Name "PHGC" -Force -ErrorAction SilentlyContinue
 # ===== 6. Wails 빌드 =====
 Write-Host ">>> Wails 빌드 실행 중..." -ForegroundColor Cyan
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-wails build
+$wailsArgs = @("build")
+if ($SkipBindings) {
+    # UI/CSS만 변경된 릴리즈에서는 Go 바인딩 재생성이 필요하지 않다.
+    $wailsArgs += "-skipbindings"
+}
+& wails @wailsArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ">>> 빌드 실패!" -ForegroundColor Red
