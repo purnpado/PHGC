@@ -55,6 +55,19 @@ type PatchFile struct {
 	Changes        []PatchChange `json:"changes"`
 }
 
+// PatchPreview contains only merge metadata. It does not expose attendance,
+// volunteer, or other student values in the import confirmation screen.
+type PatchPreview struct {
+	Path                string   `json:"path"`
+	SourceUsername      string   `json:"sourceUsername"`
+	ClassNum            int      `json:"classNum"`
+	ChangeCount         int      `json:"changeCount"`
+	StudentNames        []string `json:"studentNames"`
+	BaseRevision        int      `json:"baseRevision"`
+	CurrentRevision     int      `json:"currentRevision"`
+	HasRevisionConflict bool     `json:"hasRevisionConflict"`
+}
+
 // UserKeyEnvelope lets a teacher unlock the shared package with a personal
 // password after completing the one-time shared-password onboarding.
 type UserKeyEnvelope struct {

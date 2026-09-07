@@ -118,6 +118,10 @@ export function ImportTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
 }
 
+export function InspectTeacherPatch(arg1, arg2) {
+  return window['go']['main']['App']['InspectTeacherPatch'](arg1, arg2);
+}
+
 export function Logout() {
   return window['go']['main']['App']['Logout']();
 }
@@ -136,6 +140,10 @@ export function OpenPasswordResetPackage() {
 
 export function OpenTeacherPatch(arg1) {
   return window['go']['main']['App']['OpenTeacherPatch'](arg1);
+}
+
+export function OpenTeacherPatchPreview(arg1) {
+  return window['go']['main']['App']['OpenTeacherPatchPreview'](arg1);
 }
 
 export function PerformAutoUpdate(arg1) {

@@ -988,6 +988,43 @@ func (a *App) ImportTeacherPatch(password, inputPath string) (int, error) {
 	return len(patch.Changes), nil
 }
 
+// InspectTeacherPatch decrypts only long enough to show safe merge metadata
+// before the grade head decides whether to apply the changes.
+func (a *App) InspectTeacherPatch(password, inputPath string) (PatchPreview, error) {
+	patch, err := decryptPatchGCM(password, inputPath)
+	if err != nil {
+		return PatchPreview{}, err
+	}
+	if patch.ClassNum < 1 || patch.SourceUsername == "" {
+		return PatchPreview{}, fmt.Errorf("변경분 파일 정보가 올바르지 않습니다")
+	}
+	preview := PatchPreview{Path: inputPath, SourceUsername: patch.SourceUsername, ClassNum: patch.ClassNum, ChangeCount: len(patch.Changes), BaseRevision: patch.BaseRevision}
+	for _, change := range patch.Changes {
+		if change.ClassNum != patch.ClassNum {
+			return PatchPreview{}, fmt.Errorf("변경분에 다른 학급 데이터가 포함되어 있습니다")
+		}
+		preview.StudentNames = append(preview.StudentNames, change.StudentName)
+	}
+	manifestBytes, err := os.ReadFile(manifestPath(a.db.dataDir))
+	if err == nil {
+		var manifest DataManifest
+		if json.Unmarshal(manifestBytes, &manifest) == nil {
+			preview.CurrentRevision = manifest.Revision
+			preview.HasRevisionConflict = patch.BaseRevision > 0 && manifest.Revision > 0 && patch.BaseRevision != manifest.Revision
+		}
+	}
+	return preview, nil
+}
+
+// OpenTeacherPatchPreview selects a patch without applying it.
+func (a *App) OpenTeacherPatchPreview(password string) (PatchPreview, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "담임 변경분 미리보기", Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	if err != nil || path == "" {
+		return PatchPreview{}, err
+	}
+	return a.InspectTeacherPatch(password, path)
+}
+
 // OpenTeacherPatch lets the administrator select and merge a patch file.
 func (a *App) OpenTeacherPatch(password string) (int, error) {
 	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "담임 변경분 가져오기", Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})

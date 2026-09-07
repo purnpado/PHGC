@@ -278,6 +278,32 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class PatchPreview {
+	    path: string;
+	    sourceUsername: string;
+	    classNum: number;
+	    changeCount: number;
+	    studentNames: string[];
+	    baseRevision: number;
+	    currentRevision: number;
+	    hasRevisionConflict: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new PatchPreview(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.sourceUsername = source["sourceUsername"];
+	        this.classNum = source["classNum"];
+	        this.changeCount = source["changeCount"];
+	        this.studentNames = source["studentNames"];
+	        this.baseRevision = source["baseRevision"];
+	        this.currentRevision = source["currentRevision"];
+	        this.hasRevisionConflict = source["hasRevisionConflict"];
+	    }
+	}
 	export class SchoolCalcResult {
 	    schoolName: string;
 	    trackName: string;

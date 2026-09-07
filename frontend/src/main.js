@@ -879,7 +879,11 @@ async function renderAdminScreen(schoolName) {
         const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
         if (!password) return;
         try {
-            const count = await window.go.main.App.OpenTeacherPatch(password);
+            const preview = await window.go.main.App.OpenTeacherPatchPreview(password);
+            const names = (preview.studentNames || []).slice(0, 8).join(', ') + ((preview.studentNames || []).length > 8 ? ' 외' : '');
+            const conflict = preview.hasRevisionConflict ? `\n\n⚠ 기준 배포본 버전이 다릅니다.\n담임 파일: ${preview.baseRevision} / 현재 자료: ${preview.currentRevision}\n현재 자료를 확인한 뒤 병합하세요.` : '';
+            if (!confirm(`담임 변경분 미리보기\n\n담임 계정: ${preview.sourceUsername}\n학급: ${preview.classNum}반\n변경 학생: ${preview.changeCount}명\n대상: ${names || '-'}${conflict}\n\n확인 후 이 변경분을 병합할까요?`)) return;
+            const count = await window.go.main.App.ImportTeacherPatch(password, preview.path);
             alert(`${count}건의 담임 변경분을 병합했습니다. 결과를 확인한 뒤 최신 data 폴더를 재배포하세요.`);
             renderAdminScreen(schoolName);
         } catch (err) {

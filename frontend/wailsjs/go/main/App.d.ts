@@ -60,6 +60,8 @@ export function ImportPasswordResetPackage(arg1:string):Promise<string>;
 
 export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
 
+export function InspectTeacherPatch(arg1:string,arg2:string):Promise<main.PatchPreview>;
+
 export function Logout():Promise<void>;
 
 export function NeedsSharedDataPassword(arg1:string):Promise<boolean>;
@@ -69,6 +71,8 @@ export function OpenExcelFile():Promise<string>;
 export function OpenPasswordResetPackage():Promise<string>;
 
 export function OpenTeacherPatch(arg1:string):Promise<number>;
+
+export function OpenTeacherPatchPreview(arg1:string):Promise<main.PatchPreview>;
 
 export function PerformAutoUpdate(arg1:string):Promise<void>;
 
