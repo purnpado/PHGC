@@ -66,6 +66,10 @@ export function GetDataUpdateStatus() {
   return window['go']['main']['App']['GetDataUpdateStatus']();
 }
 
+export function GetExpectedSupportAggregate() {
+  return window['go']['main']['App']['GetExpectedSupportAggregate']();
+}
+
 export function GetFeedbackDetails(arg1) {
   return window['go']['main']['App']['GetFeedbackDetails'](arg1);
 }
@@ -208,6 +212,10 @@ export function SetUserPassword(arg1, arg2) {
 
 export function SetupApp(arg1) {
   return window['go']['main']['App']['SetupApp'](arg1);
+}
+
+export function SubmitExpectedSupport() {
+  return window['go']['main']['App']['SubmitExpectedSupport']();
 }
 
 export function SubmitFeedback(arg1, arg2, arg3, arg4, arg5) {

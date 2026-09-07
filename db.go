@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -158,6 +159,9 @@ type ApplicationSummary struct {
 	MaxAcceptedScore float64 `json:"maxAcceptedScore"`
 	AvgAcceptedScore float64 `json:"avgAcceptedScore"`
 	MaxRejectedScore float64 `json:"maxRejectedScore"`
+	MinExpectedScore float64 `json:"minExpectedScore"`
+	MaxExpectedScore float64 `json:"maxExpectedScore"`
+	AvgExpectedScore float64 `json:"avgExpectedScore"`
 }
 
 // DB 매니저
@@ -253,6 +257,7 @@ func (dm *DBManager) InitConfigDB() error {
 			admin_password TEXT NOT NULL DEFAULT '',
 			is_small_school BOOLEAN DEFAULT 0,
 			admission_year  INTEGER DEFAULT 2025,
+			expected_support_token TEXT NOT NULL DEFAULT '',
 			grade       INTEGER DEFAULT 3,
 			created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -293,6 +298,7 @@ func (dm *DBManager) InitConfigDB() error {
 
 	// 기존 DB 마이그레이션 (avg_value 컬럼 추가)
 	_, _ = db.Exec("ALTER TABLE highschool_cutoffs ADD COLUMN avg_value REAL DEFAULT 0")
+	_, _ = db.Exec("ALTER TABLE school_config ADD COLUMN expected_support_token TEXT NOT NULL DEFAULT ''")
 
 	// 기본 커트라인 실데이터 시드 (울산마이스터고 2024-2026 실데이터 & 후기일반고 기본값)
 	_, _ = db.Exec(`
@@ -352,6 +358,36 @@ func (dm *DBManager) GetSchoolConfig() (*SchoolConfig, error) {
 		return nil, fmt.Errorf("학교 설정 조회 실패: %w", err)
 	}
 	return &config, nil
+}
+
+// GetExpectedSupportToken returns an opaque, random participation key for the
+// optional expected-support service. It is stored only in the encrypted local
+// config DB and is not derived from a user's password or device identity.
+func (dm *DBManager) GetExpectedSupportToken() (string, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return "", err
+	}
+	defer db.Close()
+	var token string
+	if err := db.QueryRow("SELECT expected_support_token FROM school_config WHERE id = 1").Scan(&token); err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("학교 초기 설정을 먼저 완료해주세요")
+		}
+		return "", fmt.Errorf("예상 지원현황 참여 키 조회 실패: %w", err)
+	}
+	if strings.TrimSpace(token) != "" {
+		return token, nil
+	}
+	bytes := make([]byte, 24)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("예상 지원현황 참여 키 생성 실패: %w", err)
+	}
+	token = hex.EncodeToString(bytes)
+	if _, err := db.Exec("UPDATE school_config SET expected_support_token = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1", token); err != nil {
+		return "", fmt.Errorf("예상 지원현황 참여 키 저장 실패: %w", err)
+	}
+	return token, nil
 }
 
 // UpdateAdmissionYear changes only the default admission year.  It intentionally
@@ -835,9 +871,13 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	}
 	type accumulator struct {
 		ApplicationSummary
-		acceptedSum float64
-		hasMin      bool
-		hasMax      bool
+		acceptedSum    float64
+		expectedSum    float64
+		expectedCount  int
+		hasMin         bool
+		hasMax         bool
+		hasExpectedMin bool
+		hasExpectedMax bool
 	}
 	groups := map[string]*accumulator{}
 	add := func(r ApplicationRecord, department string, rank int) {
@@ -859,6 +899,16 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 		case "최종 진학":
 			a.FinalCount++
 			a.AcceptedCount++
+		}
+		if (r.Status == "지원 예정" || r.Status == "지원 완료") && r.Score > 0 {
+			a.expectedSum += r.Score
+			a.expectedCount++
+			if !a.hasExpectedMin || r.Score < a.MinExpectedScore {
+				a.MinExpectedScore, a.hasExpectedMin = r.Score, true
+			}
+			if !a.hasExpectedMax || r.Score > a.MaxExpectedScore {
+				a.MaxExpectedScore, a.hasExpectedMax = r.Score, true
+			}
 		}
 		if (r.Status == "합격" || r.Status == "최종 진학") && r.Score > 0 {
 			a.acceptedSum += r.Score
@@ -927,6 +977,9 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	for _, a := range groups {
 		if a.AcceptedCount > 0 && a.acceptedSum > 0 {
 			a.AvgAcceptedScore = a.acceptedSum / float64(a.AcceptedCount)
+		}
+		if a.expectedCount > 0 {
+			a.AvgExpectedScore = a.expectedSum / float64(a.expectedCount)
 		}
 		out = append(out, a.ApplicationSummary)
 	}

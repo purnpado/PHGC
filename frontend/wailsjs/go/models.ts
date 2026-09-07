@@ -54,6 +54,9 @@ export namespace main {
 	    maxAcceptedScore: number;
 	    avgAcceptedScore: number;
 	    maxRejectedScore: number;
+	    minExpectedScore: number;
+	    maxExpectedScore: number;
+	    avgExpectedScore: number;
 
 	    static createFrom(source: any = {}) {
 	        return new ApplicationSummary(source);
@@ -76,6 +79,9 @@ export namespace main {
 	        this.maxAcceptedScore = source["maxAcceptedScore"];
 	        this.avgAcceptedScore = source["avgAcceptedScore"];
 	        this.maxRejectedScore = source["maxRejectedScore"];
+	        this.minExpectedScore = source["minExpectedScore"];
+	        this.maxExpectedScore = source["maxExpectedScore"];
+	        this.avgExpectedScore = source["avgExpectedScore"];
 	    }
 	}
 	export class CutoffInfo {
@@ -102,6 +108,32 @@ export namespace main {
 	        this.maxValue = source["maxValue"];
 	        this.minValue = source["minValue"];
 	        this.avgValue = source["avgValue"];
+	    }
+	}
+	export class ExpectedSupportAggregate {
+	    admissionYear: number;
+	    category: string;
+	    targetSchool: string;
+	    department: string;
+	    track: string;
+	    preferenceRank: number;
+	    plannedCount: number;
+	    submittedCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ExpectedSupportAggregate(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.admissionYear = source["admissionYear"];
+	        this.category = source["category"];
+	        this.targetSchool = source["targetSchool"];
+	        this.department = source["department"];
+	        this.track = source["track"];
+	        this.preferenceRank = source["preferenceRank"];
+	        this.plannedCount = source["plannedCount"];
+	        this.submittedCount = source["submittedCount"];
 	    }
 	}
 	export class FeedbackIssue {

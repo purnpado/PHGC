@@ -34,6 +34,8 @@ export function GetCutoffs():Promise<Array<main.CutoffInfo>>;
 
 export function GetDataUpdateStatus():Promise<Record<string, any>>;
 
+export function GetExpectedSupportAggregate():Promise<Array<main.ExpectedSupportAggregate>>;
+
 export function GetFeedbackDetails(arg1:number):Promise<Record<string, any>>;
 
 export function GetHighSchoolsData():Promise<main.HighSchoolData>;
@@ -105,6 +107,8 @@ export function SendCutoffsToBridge(arg1:number):Promise<void>;
 export function SetUserPassword(arg1:string,arg2:string):Promise<void>;
 
 export function SetupApp(arg1:main.SetupRequest):Promise<void>;
+
+export function SubmitExpectedSupport():Promise<number>;
 
 export function SubmitFeedback(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<number>;
 

@@ -23,6 +23,40 @@ import (
 // 브릿지 서버 주소 (배포 환경에 맞게 수정)
 const BridgeServerURL = "https://go.gguk.link"
 
+// ExpectedSupportItem contains only an aggregate per target school/department.
+// It deliberately has no student, class, teacher or individual-score field.
+type ExpectedSupportItem struct {
+	Category       string  `json:"category"`
+	TargetSchool   string  `json:"targetSchool"`
+	Department     string  `json:"department"`
+	Track          string  `json:"track"`
+	PreferenceRank int     `json:"preferenceRank"`
+	PlannedCount   int     `json:"plannedCount"`
+	SubmittedCount int     `json:"submittedCount"`
+	MaxScore       float64 `json:"maxScore"`
+	MinScore       float64 `json:"minScore"`
+	AvgScore       float64 `json:"avgScore"`
+}
+
+type ExpectedSupportSubmission struct {
+	AdmissionYear          int                   `json:"admissionYear"`
+	SourceMiddleSchoolName string                `json:"sourceMiddleSchoolName"`
+	Items                  []ExpectedSupportItem `json:"items"`
+}
+
+// ExpectedSupportAggregate is the participant-facing Ulsan-wide result. It
+// excludes submitting-school names and all score information.
+type ExpectedSupportAggregate struct {
+	AdmissionYear  int    `json:"admissionYear"`
+	Category       string `json:"category"`
+	TargetSchool   string `json:"targetSchool"`
+	Department     string `json:"department"`
+	Track          string `json:"track"`
+	PreferenceRank int    `json:"preferenceRank"`
+	PlannedCount   int    `json:"plannedCount"`
+	SubmittedCount int    `json:"submittedCount"`
+}
+
 // App struct
 type App struct {
 	ctx     context.Context
@@ -171,6 +205,12 @@ func (a *App) UnlockAndLogin(username, password string) (*User, error) {
 		a.db.setDataKey(nil)
 		return nil, err
 	}
+	if err := a.db.InitConfigDB(); err != nil {
+		_ = a.db.SealAllDatabases()
+		a.dataKey = nil
+		a.db.setDataKey(nil)
+		return nil, err
+	}
 	user, err := a.db.VerifyUserLogin(username, password)
 	if err != nil {
 		_ = a.db.SealAllDatabases()
@@ -200,6 +240,12 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 	a.dataKey = key
 	a.db.setDataKey(key)
 	if err := a.db.UnsealAllDatabases(); err != nil {
+		return nil, err
+	}
+	if err := a.db.InitConfigDB(); err != nil {
+		_ = a.db.SealAllDatabases()
+		a.dataKey = nil
+		a.db.setDataKey(nil)
 		return nil, err
 	}
 	user, err := a.db.VerifyUserLogin(username, password)
@@ -917,6 +963,114 @@ func (a *App) ApplyApplicationCutoffs() (int, error) {
 		return 0, fmt.Errorf("합격 결과 커트라인 반영은 학년부장 계정만 할 수 있습니다")
 	}
 	return a.db.ApplyApplicationCutoffs()
+}
+
+// SubmitExpectedSupport sends an explicit, school-level aggregate to
+// EduBridge. It is available only to the grade head and never sends student,
+// class, teacher, name, number or individual score data.
+func (a *App) SubmitExpectedSupport() (int, error) {
+	if a.user == nil || a.user.Role != "master" {
+		return 0, fmt.Errorf("예상 지원현황 제출은 학년부장 계정만 할 수 있습니다")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil || config == nil {
+		if err != nil {
+			return 0, err
+		}
+		return 0, fmt.Errorf("학교 초기 설정을 먼저 완료해주세요")
+	}
+	token, err := a.db.GetExpectedSupportToken()
+	if err != nil {
+		return 0, err
+	}
+	summaries, err := a.db.GetApplicationSummaries()
+	if err != nil {
+		return 0, err
+	}
+	items := make([]ExpectedSupportItem, 0)
+	for _, summary := range summaries {
+		if summary.AdmissionYear != config.AdmissionYear || summary.Category == "other" {
+			continue
+		}
+		if summary.PlannedCount == 0 && summary.SubmittedCount == 0 {
+			continue
+		}
+		targetSchool := summary.SchoolName
+		if summary.Category == "general" && targetSchool == "" {
+			targetSchool = "울산 후기 일반계고"
+		}
+		if targetSchool == "" {
+			continue
+		}
+		items = append(items, ExpectedSupportItem{
+			Category: summary.Category, TargetSchool: targetSchool, Department: summary.Department,
+			Track: summary.Track, PreferenceRank: summary.PreferenceRank,
+			PlannedCount: summary.PlannedCount, SubmittedCount: summary.SubmittedCount,
+			MaxScore: summary.MaxExpectedScore, MinScore: summary.MinExpectedScore, AvgScore: summary.AvgExpectedScore,
+		})
+	}
+	payload, err := json.Marshal(ExpectedSupportSubmission{AdmissionYear: config.AdmissionYear, SourceMiddleSchoolName: config.SchoolName, Items: items})
+	if err != nil {
+		return 0, fmt.Errorf("예상 지원현황 변환 실패: %w", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, BridgeServerURL+"/api/phgc/expected-support", bytes.NewReader(payload))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Expected-Support-Token", token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("중앙 서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return 0, fmt.Errorf("중앙 서버 제출 실패: %s", strings.TrimSpace(string(body)))
+	}
+	return len(items), nil
+}
+
+// GetExpectedSupportAggregate gets only Ulsan-wide counts after this school
+// has explicitly participated. The server never returns other school names or
+// scores to this method.
+func (a *App) GetExpectedSupportAggregate() ([]ExpectedSupportAggregate, error) {
+	if a.user == nil || (a.user.Role != "master" && a.user.Role != "viewer") {
+		return nil, fmt.Errorf("예상 지원현황은 학년부장·진로부장만 조회할 수 있습니다")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil || config == nil {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("학교 초기 설정을 먼저 완료해주세요")
+	}
+	token, err := a.db.GetExpectedSupportToken()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("%s/api/phgc/expected-support?year=%d", BridgeServerURL, config.AdmissionYear)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-Expected-Support-Token", token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("중앙 서버 연결 실패: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("중앙 서버 조회 실패: %s", strings.TrimSpace(string(body)))
+	}
+	var result struct {
+		Items []ExpectedSupportAggregate `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("중앙 서버 응답 처리 실패: %w", err)
+	}
+	return result.Items, nil
 }
 
 // ExportTeacherPatch writes an encrypted, class-scoped change package.

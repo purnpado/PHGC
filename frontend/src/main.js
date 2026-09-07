@@ -1334,7 +1334,8 @@ async function openApplicationSummaryModal() {
         const summaries = await window.go.main.App.GetApplicationSummaries();
         const rows = summaries.length ? summaries.map(s => `<tr class="border-b border-slate-700/60"><td class="p-3">${s.admissionYear}학년도</td><td class="p-3">${s.category === 'meister' ? '마이스터고' : s.category === 'special' ? '특성화고' : s.category === 'self_foreign' ? '자사고·외고' : s.category === 'general' ? '후기 일반고' : '기타'}</td><td class="p-3 font-bold">${s.schoolName || '후기 일반고'}</td><td class="p-3">${s.track || '-'}</td><td class="p-3">${s.department || '-'}</td><td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${s.plannedCount}</td><td class="p-3 text-center">${s.submittedCount}</td><td class="p-3 text-center text-success">${s.acceptedCount}</td><td class="p-3 text-center text-danger">${s.rejectedCount}</td><td class="p-3 text-center">${s.finalCount}</td><td class="p-3 text-right">${s.acceptedCount ? `${s.maxAcceptedScore.toFixed(2)} / ${s.minAcceptedScore.toFixed(2)} / ${s.avgAcceptedScore.toFixed(2)}` : '-'}</td><td class="p-3 text-right">${s.rejectedCount ? s.maxRejectedScore.toFixed(2) : '-'}</td></tr>`).join('') : '<tr><td colspan="13" class="p-10 text-center text-text-muted">기록된 지원현황이 없습니다.</td></tr>';
         const canApplyCutoffs = window.currentUser?.Role === 'master';
-        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-7xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 우리 학교 지원현황</h2><p class="text-sm text-text-muted mt-1">학교 내부 암호화 자료를 집계한 화면입니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최고 / 최저 / 평균</th><th class="p-3">최고 불합격</th></tr></thead><tbody>${rows}</tbody></table></div><div class="flex flex-wrap justify-between items-center gap-3 mt-4"><p class="text-xs text-text-muted">* 최고·최저·평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p>${canApplyCutoffs ? '<button id="applyApplicationCutoffs" class="btn-primary w-auto px-4 py-2 text-sm">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}</div></div>`;
+        const canViewExpected = window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer';
+        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-7xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 우리 학교 지원현황</h2><p class="text-sm text-text-muted mt-1">기본 화면은 학교 내부 암호화 자료입니다. 중앙 전송은 학년부장이 아래 버튼을 눌러야만 진행됩니다.</p></div><button id="closeApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최고 / 최저 / 평균</th><th class="p-3">최고 불합격</th></tr></thead><tbody>${rows}</tbody></table></div><div class="flex flex-wrap justify-between items-center gap-3 mt-4"><p class="text-xs text-text-muted">* 최고·최저·평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p><div class="flex flex-wrap gap-2">${canViewExpected ? '<button id="viewExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">👥 울산 예상 지원현황 보기</button>' : ''}${canApplyCutoffs ? '<button id="submitExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">☁️ 예상 지원현황 제출</button><button id="applyApplicationCutoffs" class="btn-primary w-auto px-4 py-2 text-sm">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}</div></div></div>`;
         document.getElementById('closeApplicationSummary').onclick = () => modal.remove();
         document.getElementById('applyApplicationCutoffs')?.addEventListener('click', async () => {
             if (!confirm('합격·최종진학 결과의 최고·최저·평균 점수를 우리 학교 커트라인으로 반영할까요?\n기존 같은 연도·학교·전형·학과의 커트라인은 결과값으로 갱신됩니다.')) return;
@@ -1343,7 +1344,34 @@ async function openApplicationSummaryModal() {
                 alert(count ? `${count}건의 우리 학교 커트라인을 반영했습니다.` : '반영할 합격 결과가 없습니다.');
             } catch (err) { alert('커트라인 반영 실패: ' + err); }
         });
+		document.getElementById('submitExpectedSupport')?.addEventListener('click', async () => {
+			if (!confirm('현재 입학년도 지원 예정·지원 완료 집계만 중앙 서버에 제출할까요?\n학생·학급·교사·개별 점수는 전송하지 않으며, 참여 학교는 울산 전체 인원 집계만 조회할 수 있습니다.')) return;
+			try {
+				const count = await window.go.main.App.SubmitExpectedSupport();
+				alert(`${count}개 집계 항목을 제출했습니다. 이후 참여 학교 전용 울산 전체 현황을 조회할 수 있습니다.`);
+			} catch (err) { alert('예상 지원현황 제출 실패: ' + err); }
+		});
+		document.getElementById('viewExpectedSupport')?.addEventListener('click', openExpectedSupportModal);
     } catch (err) { modal.innerHTML = `<div class="glass-card p-7">지원현황 집계 실패: ${err}</div>`; }
+}
+
+async function openExpectedSupportModal() {
+    document.getElementById('expectedSupportModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'expectedSupportModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto';
+    modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 울산 전체 예상 지원현황을 불러오는 중...</div>';
+    document.body.appendChild(modal);
+    try {
+        const items = await window.go.main.App.GetExpectedSupportAggregate();
+        const categoryLabel = category => ({ meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고' }[category] || category);
+        const rows = items.length ? items.map(item => `<tr class="border-b border-slate-700/60"><td class="p-3">${item.admissionYear}학년도</td><td class="p-3">${categoryLabel(item.category)}</td><td class="p-3 font-bold">${item.targetSchool}</td><td class="p-3">${item.department || '전체'}</td><td class="p-3">${item.track || '-'}</td><td class="p-3 text-center">${item.preferenceRank ? `${item.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${item.plannedCount}</td><td class="p-3 text-center">${item.submittedCount}</td></tr>`).join('') : '<tr><td colspan="8" class="p-10 text-center text-text-muted">현재 참여 학교의 제출 자료가 없습니다.</td></tr>';
+        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-5xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">👥 울산 전체 예상 지원현황</h2><p class="text-sm text-text-muted mt-1">참여 학교 전체의 인원만 합산합니다. 다른 중학교명·학생·학급·교사·점수는 표시하지 않습니다.</p></div><button id="closeExpectedSupport" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">지원 고교</th><th class="p-3">학과</th><th class="p-3">전형</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+        document.getElementById('closeExpectedSupport').onclick = () => modal.remove();
+    } catch (err) {
+        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">예상 지원현황을 조회할 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeExpectedSupport" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
+        document.getElementById('closeExpectedSupport').onclick = () => modal.remove();
+    }
 }
 
 // ===== 학생별 지원·합격 결과 (학교 내부 암호화 DB 전용) =====
