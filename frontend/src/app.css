@@ -346,15 +346,39 @@ input[type="number"]::-webkit-inner-spin-button {
         word-break: keep-all;
     }
     .print-document,
-    .print-document * {
+    .print-document *,
+    .print-modal,
+    .print-modal * {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+    /* 상담표는 화면에서 5:7로 나뉘지만 A4에서는 한 영역씩 배치해야
+       후기 일반고 입력 표와 학교별 결과 카드가 충분한 폭을 확보한다. */
+    body.printing[data-print-kind="report"] .print-modal .grid.grid-cols-1.lg\:grid-cols-12 {
+        display: block !important;
+    }
+    body.printing[data-print-kind="report"] .print-modal .grid.grid-cols-1.lg\:grid-cols-12 > section {
+        width: 100% !important;
+        margin: 0 0 4mm 0 !important;
+    }
+    body.printing[data-print-kind="report"] .print-modal input.input-field {
+        min-width: 0 !important;
+        padding: 1.5mm 1mm !important;
+        font-size: 9pt !important;
+    }
+    .print-modal .school-counsel-card {
+        background: white !important;
+        border: 1px solid #bbb !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
     .print-modal .gauge-bg {
         background: #eee !important;
+        border: 1px solid #bbb !important;
     }
     .print-modal .gauge-fill {
         background: #4f46e5 !important;
+        min-width: 3mm;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

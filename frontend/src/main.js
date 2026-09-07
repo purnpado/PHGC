@@ -1674,8 +1674,8 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
 
                 <!-- 게이지 바 -->
-                <div class="w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
-                    <div id="gauge_${rIdx}" class="${initialColor} h-2.5 rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(5, initialPct))}%;"></div>
+                <div class="gauge-bg w-full bg-slate-700/50 rounded-full h-2.5 overflow-hidden">
+                    <div id="gauge_${rIdx}" class="gauge-fill ${initialColor} h-2.5 rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(5, initialPct))}%;"></div>
                 </div>
 
                 <div id="diff_${rIdx}" class="flex justify-between text-[11px] text-slate-400 pt-0.5">
@@ -1691,7 +1691,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     const extra = data.extraData || {};
 
     modalEl.innerHTML = `
-        <div class="glass-card p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
+        <div class="glass-card print-document p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
             <!-- 모달 헤더 (인쇄 제외 버튼 포함) -->
             <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                 <div>
@@ -1778,7 +1778,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         <section class="lg:col-span-7 bg-slate-900/60 p-4 rounded-lg border border-emerald-500/30 space-y-3">
                             <div><b class="text-emerald-200 text-sm">② 후기 일반고 비교과</b><span class="ml-2 text-slate-400">11/30 마감 · 현재는 3학년 1학기 누적자료로 예상 산출</span></div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                ${[1,2,3].map(g => `<div class="rounded border border-slate-700/70 p-2"><b class="text-slate-200">${g}학년</b><div class="grid grid-cols-2 gap-1 mt-1"><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center" value="${extra['general_absence_'+g] ?? ''}" placeholder="결석환산일" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉사시간" ${isViewer ? 'disabled' : ''}/></div></div>`).join('')}
+                                ${[1,2,3].map(g => `<div class="rounded border border-slate-700/70 p-2"><b class="text-slate-200">${g}학년</b><div class="grid grid-cols-2 gap-1 mt-1"><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center" value="${extra['general_absence_'+g] ?? ''}" placeholder="결" title="미인정 결석 환산일수" aria-label="${g}학년 미인정 결석 환산일수" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center" value="${extra['general_volunteer_'+g] ?? ''}" placeholder="봉" title="봉사시간" aria-label="${g}학년 봉사시간" ${isViewer ? 'disabled' : ''}/></div></div>`).join('')}
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <div class="rounded border border-slate-700/70 p-2"><b class="text-emerald-200">창체 가산점</b><span class="ml-1 text-slate-400">(+1점씩)</span><div class="flex gap-3 mt-2">${[1,2,3].map(g => `<label><input type="checkbox" id="checkChangche${g}" ${extra['changche_'+g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/> ${g}학년</label>`).join('')}</div></div>
