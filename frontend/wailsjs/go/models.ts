@@ -39,6 +39,7 @@ export namespace main {
 	    }
 	}
 	export class ApplicationSummary {
+	    admissionYear: number;
 	    category: string;
 	    schoolName: string;
 	    track: string;
@@ -50,6 +51,7 @@ export namespace main {
 	    rejectedCount: number;
 	    finalCount: number;
 	    minAcceptedScore: number;
+	    maxAcceptedScore: number;
 	    avgAcceptedScore: number;
 	    maxRejectedScore: number;
 
@@ -59,6 +61,7 @@ export namespace main {
 
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.admissionYear = source["admissionYear"];
 	        this.category = source["category"];
 	        this.schoolName = source["schoolName"];
 	        this.track = source["track"];
@@ -70,6 +73,7 @@ export namespace main {
 	        this.rejectedCount = source["rejectedCount"];
 	        this.finalCount = source["finalCount"];
 	        this.minAcceptedScore = source["minAcceptedScore"];
+	        this.maxAcceptedScore = source["maxAcceptedScore"];
 	        this.avgAcceptedScore = source["avgAcceptedScore"];
 	        this.maxRejectedScore = source["maxRejectedScore"];
 	    }

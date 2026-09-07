@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AddViewerUser(arg1:string,arg2:string):Promise<void>;
 
+export function ApplyApplicationCutoffs():Promise<number>;
+
 export function ChangeUserPassword(arg1:string,arg2:string):Promise<void>;
 
 export function CheckSetupComplete():Promise<boolean>;

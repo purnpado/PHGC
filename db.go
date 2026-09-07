@@ -143,6 +143,7 @@ type ApplicationRecord struct {
 // student, class, teacher or middle-school identifier and can be used for the
 // grade-head's application dashboard.
 type ApplicationSummary struct {
+	AdmissionYear    int     `json:"admissionYear"`
 	Category         string  `json:"category"`
 	SchoolName       string  `json:"schoolName"`
 	Track            string  `json:"track"`
@@ -154,6 +155,7 @@ type ApplicationSummary struct {
 	RejectedCount    int     `json:"rejectedCount"`
 	FinalCount       int     `json:"finalCount"`
 	MinAcceptedScore float64 `json:"minAcceptedScore"`
+	MaxAcceptedScore float64 `json:"maxAcceptedScore"`
 	AvgAcceptedScore float64 `json:"avgAcceptedScore"`
 	MaxRejectedScore float64 `json:"maxRejectedScore"`
 }
@@ -839,10 +841,10 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	}
 	groups := map[string]*accumulator{}
 	add := func(r ApplicationRecord, department string, rank int) {
-		key := strings.Join([]string{r.Category, r.SchoolName, r.Track, department, strconv.Itoa(rank)}, "\x1f")
+		key := strings.Join([]string{strconv.Itoa(r.AdmissionYear), r.Category, r.SchoolName, r.Track, department, strconv.Itoa(rank)}, "\x1f")
 		a := groups[key]
 		if a == nil {
-			a = &accumulator{ApplicationSummary: ApplicationSummary{Category: r.Category, SchoolName: r.SchoolName, Track: r.Track, Department: department, PreferenceRank: rank}}
+			a = &accumulator{ApplicationSummary: ApplicationSummary{AdmissionYear: r.AdmissionYear, Category: r.Category, SchoolName: r.SchoolName, Track: r.Track, Department: department, PreferenceRank: rank}}
 			groups[key] = a
 		}
 		switch r.Status {
@@ -862,6 +864,9 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 			a.acceptedSum += r.Score
 			if !a.hasMin || r.Score < a.MinAcceptedScore {
 				a.MinAcceptedScore, a.hasMin = r.Score, true
+			}
+			if !a.hasMax || r.Score > a.MaxAcceptedScore {
+				a.MaxAcceptedScore, a.hasMax = r.Score, true
 			}
 		}
 		if r.Status == "불합격" && r.Score > 0 && (!a.hasMax || r.Score > a.MaxRejectedScore) {
@@ -887,10 +892,28 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err == nil {
 				_ = json.Unmarshal([]byte(prefs), &r.Preferences)
 				if r.Category == "meister" || r.Category == "special" {
-					for i, department := range r.Preferences {
-						if department != "" {
-							add(r, department, i+1)
+					// 예정·지원 단계에서만 여러 지망을 각각 집계한다. 합격·불합격
+					// 결과는 실제 배정 학과 한 곳(미입력 시 학교 전체)에만 반영해
+					// 한 학생이 여러 학과 합격자로 중복 집계되는 것을 막는다.
+					if r.Status == "지원 예정" || r.Status == "지원 완료" {
+						for i, department := range r.Preferences {
+							if department != "" {
+								add(r, department, i+1)
+							}
 						}
+					} else {
+						department := r.AssignedDepartment
+						if department == "" {
+							department = "전체"
+						}
+						rank := 0
+						for i, preferred := range r.Preferences {
+							if preferred == department {
+								rank = i + 1
+								break
+							}
+						}
+						add(r, department, rank)
 					}
 				} else {
 					add(r, "", 0)
@@ -908,6 +931,9 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 		out = append(out, a.ApplicationSummary)
 	}
 	sort.Slice(out, func(i, j int) bool {
+		if out[i].AdmissionYear != out[j].AdmissionYear {
+			return out[i].AdmissionYear > out[j].AdmissionYear
+		}
 		if out[i].Category != out[j].Category {
 			return out[i].Category < out[j].Category
 		}
@@ -917,6 +943,38 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 		return out[i].PreferenceRank < out[j].PreferenceRank
 	})
 	return out, nil
+}
+
+// ApplyApplicationCutoffs writes only result-derived, school-internal cutoff
+// values. It never sends student records outside this encrypted data folder.
+func (dm *DBManager) ApplyApplicationCutoffs() (int, error) {
+	summaries, err := dm.GetApplicationSummaries()
+	if err != nil {
+		return 0, err
+	}
+	cutoffs := make([]CutoffInfo, 0)
+	for _, summary := range summaries {
+		if summary.AcceptedCount == 0 || summary.SchoolName == "" || summary.Category == "other" || summary.Category == "general" {
+			continue
+		}
+		cutoffs = append(cutoffs, CutoffInfo{
+			Year:       summary.AdmissionYear,
+			SchoolName: summary.SchoolName,
+			Department: summary.Department,
+			Track:      summary.Track,
+			ScoreType:  "total_score",
+			MaxValue:   summary.MaxAcceptedScore,
+			MinValue:   summary.MinAcceptedScore,
+			AvgValue:   summary.AvgAcceptedScore,
+		})
+	}
+	if len(cutoffs) == 0 {
+		return 0, nil
+	}
+	if err := dm.SaveCutoffs(cutoffs); err != nil {
+		return 0, err
+	}
+	return len(cutoffs), nil
 }
 
 // ApplyPatchChange applies teacher changes, including class-scoped application

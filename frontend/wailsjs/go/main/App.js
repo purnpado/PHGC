@@ -6,6 +6,10 @@ export function AddViewerUser(arg1, arg2) {
   return window['go']['main']['App']['AddViewerUser'](arg1, arg2);
 }
 
+export function ApplyApplicationCutoffs() {
+  return window['go']['main']['App']['ApplyApplicationCutoffs']();
+}
+
 export function ChangeUserPassword(arg1, arg2) {
   return window['go']['main']['App']['ChangeUserPassword'](arg1, arg2);
 }

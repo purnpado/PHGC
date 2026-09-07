@@ -910,6 +910,15 @@ func (a *App) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	return a.db.GetApplicationSummaries()
 }
 
+// ApplyApplicationCutoffs reflects completed school-internal admission results
+// into the local cutoff table. Only the grade-head can perform this operation.
+func (a *App) ApplyApplicationCutoffs() (int, error) {
+	if a.user != nil && a.user.Role != "master" {
+		return 0, fmt.Errorf("합격 결과 커트라인 반영은 학년부장 계정만 할 수 있습니다")
+	}
+	return a.db.ApplyApplicationCutoffs()
+}
+
 // ExportTeacherPatch writes an encrypted, class-scoped change package.
 func (a *App) ExportTeacherPatch(password, username string, classNum int, changes []PatchChange, outputPath string) error {
 	if classNum < 1 || username == "" || len(changes) == 0 {
