@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -135,6 +137,25 @@ type ApplicationRecord struct {
 	Preferences        []string `json:"preferences"`
 	AssignedDepartment string   `json:"assignedDepartment"`
 	UpdatedAt          string   `json:"updatedAt"`
+}
+
+// ApplicationSummary is a school-internal aggregate. It intentionally has no
+// student, class, teacher or middle-school identifier and can be used for the
+// grade-head's application dashboard.
+type ApplicationSummary struct {
+	Category         string  `json:"category"`
+	SchoolName       string  `json:"schoolName"`
+	Track            string  `json:"track"`
+	Department       string  `json:"department"`
+	PreferenceRank   int     `json:"preferenceRank"`
+	PlannedCount     int     `json:"plannedCount"`
+	SubmittedCount   int     `json:"submittedCount"`
+	AcceptedCount    int     `json:"acceptedCount"`
+	RejectedCount    int     `json:"rejectedCount"`
+	FinalCount       int     `json:"finalCount"`
+	MinAcceptedScore float64 `json:"minAcceptedScore"`
+	AvgAcceptedScore float64 `json:"avgAcceptedScore"`
+	MaxRejectedScore float64 `json:"maxRejectedScore"`
 }
 
 // DB 매니저
@@ -782,6 +803,120 @@ func (dm *DBManager) GetStudentApplications(classNum int, studentNum, name strin
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// GetClassPatchChanges creates an encrypted-transfer snapshot of the fields a
+// homeroom teacher may maintain for their own class. The caller encrypts it
+// with the shared package password before it leaves the computer.
+func (dm *DBManager) GetClassPatchChanges(classNum int) ([]PatchChange, error) {
+	students, err := dm.GetClassStudents(classNum)
+	if err != nil {
+		return nil, err
+	}
+	changes := make([]PatchChange, 0, len(students))
+	for _, student := range students {
+		applications, err := dm.GetStudentApplications(classNum, student.StudentNum, student.Name)
+		if err != nil {
+			return nil, err
+		}
+		changes = append(changes, PatchChange{ClassNum: classNum, StudentNum: student.StudentNum, StudentName: student.Name, Attendance: student.AttendanceData, Volunteer: student.VolunteerData, Extra: student.ExtraData, Applications: applications})
+	}
+	return changes, nil
+}
+
+// GetApplicationSummaries aggregates only data held inside this school's
+// encrypted class DBs. It never sends records to a network service.
+func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
+	config, err := dm.GetSchoolConfig()
+	if err != nil {
+		return nil, err
+	}
+	type accumulator struct {
+		ApplicationSummary
+		acceptedSum float64
+		hasMin      bool
+		hasMax      bool
+	}
+	groups := map[string]*accumulator{}
+	add := func(r ApplicationRecord, department string, rank int) {
+		key := strings.Join([]string{r.Category, r.SchoolName, r.Track, department, strconv.Itoa(rank)}, "\x1f")
+		a := groups[key]
+		if a == nil {
+			a = &accumulator{ApplicationSummary: ApplicationSummary{Category: r.Category, SchoolName: r.SchoolName, Track: r.Track, Department: department, PreferenceRank: rank}}
+			groups[key] = a
+		}
+		switch r.Status {
+		case "지원 예정":
+			a.PlannedCount++
+		case "지원 완료":
+			a.SubmittedCount++
+		case "합격":
+			a.AcceptedCount++
+		case "불합격":
+			a.RejectedCount++
+		case "최종 진학":
+			a.FinalCount++
+			a.AcceptedCount++
+		}
+		if (r.Status == "합격" || r.Status == "최종 진학") && r.Score > 0 {
+			a.acceptedSum += r.Score
+			if !a.hasMin || r.Score < a.MinAcceptedScore {
+				a.MinAcceptedScore, a.hasMin = r.Score, true
+			}
+		}
+		if r.Status == "불합격" && r.Score > 0 && (!a.hasMax || r.Score > a.MaxRejectedScore) {
+			a.MaxRejectedScore, a.hasMax = r.Score, true
+		}
+	}
+	for classNum := 1; classNum <= config.ClassCount; classNum++ {
+		db, err := dm.openDB(dm.getClassDBPath(classNum))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications`)
+		if err != nil {
+			db.Close()
+			continue
+		}
+		for rows.Next() {
+			var r ApplicationRecord
+			var prefs string
+			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err == nil {
+				_ = json.Unmarshal([]byte(prefs), &r.Preferences)
+				if r.Category == "meister" || r.Category == "special" {
+					for i, department := range r.Preferences {
+						if department != "" {
+							add(r, department, i+1)
+						}
+					}
+				} else {
+					add(r, "", 0)
+				}
+			}
+		}
+		rows.Close()
+		db.Close()
+	}
+	out := make([]ApplicationSummary, 0, len(groups))
+	for _, a := range groups {
+		if a.AcceptedCount > 0 && a.acceptedSum > 0 {
+			a.AvgAcceptedScore = a.acceptedSum / float64(a.AcceptedCount)
+		}
+		out = append(out, a.ApplicationSummary)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Category != out[j].Category {
+			return out[i].Category < out[j].Category
+		}
+		if out[i].SchoolName != out[j].SchoolName {
+			return out[i].SchoolName < out[j].SchoolName
+		}
+		return out[i].PreferenceRank < out[j].PreferenceRank
+	})
+	return out, nil
 }
 
 // ApplyPatchChange applies teacher changes, including class-scoped application

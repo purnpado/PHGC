@@ -698,7 +698,8 @@ async function renderAdminScreen(schoolName) {
     `;
 
     // 이벤트 바인딩
-    document.getElementById('backBtn').addEventListener('click', () => {
+    document.getElementById('backBtn').addEventListener('click', async () => {
+        await window.go.main.App.Logout?.().catch(() => {});
         window.currentUser = null; // 로그아웃
         renderLoginScreen(schoolName);
     });
@@ -1052,6 +1053,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="classGridHomeBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" style="display: none;">
                         <span>🗂️</span> 학급 목록
                     </button>
+                    ${window.currentUser && window.currentUser.Role === 'homeroom' ? `<button id="exportCurrentClassPatchBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5"><span>📤</span> 내 반 변경분 내보내기</button>` : ''}
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
@@ -1117,9 +1119,10 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         loadClass(null);
     });
 
-    document.getElementById('backBtn').addEventListener('click', () => {
+    document.getElementById('backBtn').addEventListener('click', async () => {
         app.className = '';
         if (window.currentUser && (window.currentUser.Role === 'homeroom' || window.currentUser.Role === 'viewer')) {
+            await window.go.main.App.Logout?.().catch(() => {});
             window.currentUser = null;
             renderLoginScreen(schoolName);
         } else {
@@ -1243,6 +1246,7 @@ async function renderStudentList(students, classNum) {
             <button id="openMatrixBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">
                 📊 우리 반 전체 고교별 신호등 매트릭스 보기
             </button>
+            ${(window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer') ? `<button id="openApplicationSummaryBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">📋 우리 학교 지원현황</button>` : ''}
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
@@ -1272,6 +1276,18 @@ async function renderStudentList(students, classNum) {
     document.getElementById('openMatrixBtn').addEventListener('click', () => {
         openMatrixModal(classNum);
     });
+
+    document.getElementById('exportCurrentClassPatchBtn')?.addEventListener('click', async () => {
+        const password = prompt('학년부장이 안내한 공용 데이터 암호를 입력하세요.');
+        if (!password) return;
+        try {
+            const path = await window.go.main.App.SaveCurrentClassPatch(password);
+            alert(`변경분 파일을 저장했습니다.\n${path}\n\n이 파일을 학년부장에게 전달하세요.`);
+        } catch (err) {
+            alert('변경분 내보내기 실패: ' + err);
+        }
+    });
+    document.getElementById('openApplicationSummaryBtn')?.addEventListener('click', openApplicationSummaryModal);
 
     // 1. 학생 고교별 진학 상담 버튼 클릭 이벤트 바인딩
     document.querySelectorAll('.btn-student-counsel').forEach(el => {
@@ -1303,6 +1319,21 @@ async function renderStudentList(students, classNum) {
     });
 }
 
+async function openApplicationSummaryModal() {
+    document.getElementById('applicationSummaryModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'applicationSummaryModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 우리 학교 지원현황을 집계하는 중...</div>';
+    document.body.appendChild(modal);
+    try {
+        const summaries = await window.go.main.App.GetApplicationSummaries();
+        const rows = summaries.length ? summaries.map(s => `<tr class="border-b border-slate-700/60"><td class="p-3">${s.category === 'meister' ? '마이스터고' : s.category === 'special' ? '특성화고' : s.category === 'self_foreign' ? '자사고·외고' : s.category === 'general' ? '후기 일반고' : '기타'}</td><td class="p-3 font-bold">${s.schoolName || '후기 일반고'}</td><td class="p-3">${s.track || '-'}</td><td class="p-3">${s.department || '-'}</td><td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${s.plannedCount}</td><td class="p-3 text-center">${s.submittedCount}</td><td class="p-3 text-center text-success">${s.acceptedCount}</td><td class="p-3 text-center text-danger">${s.rejectedCount}</td><td class="p-3 text-center">${s.finalCount}</td><td class="p-3 text-right">${s.acceptedCount ? `${s.minAcceptedScore.toFixed(2)} / ${s.avgAcceptedScore.toFixed(2)}` : '-'}</td><td class="p-3 text-right">${s.rejectedCount ? s.maxRejectedScore.toFixed(2) : '-'}</td></tr>`).join('') : '<tr><td colspan="12" class="p-10 text-center text-text-muted">기록된 지원현황이 없습니다.</td></tr>';
+        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-7xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 우리 학교 지원현황</h2><p class="text-sm text-text-muted mt-1">학교 내부 암호화 자료를 집계한 화면입니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최저 / 평균</th><th class="p-3">최고 불합격</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-3 text-xs text-text-muted">* 합격 평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p></div>`;
+        document.getElementById('closeApplicationSummary').onclick = () => modal.remove();
+    } catch (err) { modal.innerHTML = `<div class="glass-card p-7">지원현황 집계 실패: ${err}</div>`; }
+}
+
 // ===== 학생별 지원·합격 결과 (학교 내부 암호화 DB 전용) =====
 async function openStudentApplicationModal(classNum, studentNum, name) {
     document.getElementById('studentApplicationModal')?.remove();
@@ -1314,6 +1345,17 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     const canEdit = !window.currentUser || window.currentUser.Role !== 'viewer';
     const statusOptions = ['미입력', '지원 예정', '지원 완료', '합격', '불합격', '포기', '최종 진학'];
     const categoryOptions = [['meister','마이스터고'], ['special','특성화고'], ['self_foreign','자사고·외고'], ['general','후기 일반고'], ['other','기타(집계 제외)']];
+    const highSchoolData = await window.go.main.App.GetHighSchoolsData().catch(() => ({ schools: [] }));
+    const catalog = highSchoolData?.schools || [];
+    const schoolOptions = (category, selected = '') => {
+        const type = category === 'meister' ? '마이스터고' : category === 'special' ? '특성화고' : '';
+        if (!type) return '<option value="">해당 없음</option>';
+        return `<option value="">학교 선택</option>${catalog.filter(s => s.type === type).map(s => `<option value="${s.name}" ${s.name === selected ? 'selected' : ''}>${s.name}</option>`).join('')}`;
+    };
+    const departmentOptions = (schoolName, selected = '', placeholder = '') => {
+        const school = catalog.find(s => s.name === schoolName);
+        return `<option value="">${placeholder}</option>${(school?.departments || []).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
+    };
     const render = async (selectedIndex = 0) => {
         const records = await window.go.main.App.GetStudentApplications(classNum, studentNum, name).catch(() => []);
         const record = records[selectedIndex] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '미입력', preferences: [] };
@@ -1325,29 +1367,46 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-700 p-5 bg-slate-900/40">
             <label class="text-sm font-bold">입학년도<input id="appYear" type="text" inputmode="numeric" value="${record.admissionYear || ''}" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
             <label class="text-sm font-bold">전형 구분<select id="appCategory" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${categoryOptions.map(([v,t]) => `<option value="${v}" ${record.category === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-            <label class="text-sm font-bold">지원 학교<input id="appSchool" value="${record.schoolName || ''}" placeholder="학교명 입력" class="input-field mt-1 w-full" ${isGeneral || !canEdit ? 'disabled' : ''}></label>
+            <label class="text-sm font-bold">지원 학교<select id="appSchool" class="input-field mt-1 w-full" ${isGeneral || !canEdit ? 'disabled' : ''}>${schoolOptions(record.category, record.schoolName)}</select></label>
             <label class="text-sm font-bold">전형 / 지원 유형<input id="appTrack" value="${record.track || ''}" placeholder="예: 일반전형, 취업희망자" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
             <label class="text-sm font-bold">지원 상태<select id="appStatus" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${statusOptions.map(v => `<option ${record.status === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
             <label class="text-sm font-bold">점수 스냅샷<input id="appScore" type="text" inputmode="decimal" value="${record.score || ''}" placeholder="지원 당시 산출 점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
             <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${record.scoreBasis || ''}" placeholder="예: 3-1 누적 예상, 1차 서류점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
-            <div id="appPreferenceArea" class="md:col-span-2 ${isGeneral ? 'hidden' : ''}"><p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(최대 5지망, 중복 불가)</span></p><div class="grid grid-cols-1 md:grid-cols-5 gap-2">${[0,1,2,3,4].map(i => `<input class="input-field app-pref" value="${record.preferences?.[i] || ''}" placeholder="${i+1}지망" ${canEdit ? '' : 'disabled'}>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<input id="appAssigned" value="${record.assignedDepartment || ''}" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label></div>
+            <div id="appPreferenceArea" class="md:col-span-2 ${isGeneral ? 'hidden' : ''}"><p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(최대 5지망, 중복 불가)</span></p><div class="grid grid-cols-1 md:grid-cols-5 gap-2">${[0,1,2,3,4].map(i => `<select class="input-field app-pref" ${canEdit ? '' : 'disabled'}>${departmentOptions(record.schoolName, record.preferences?.[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${departmentOptions(record.schoolName, record.assignedDepartment || '', '최종 배정 학과 선택')}</select></label></div>
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
           <div class="flex justify-end gap-2 mt-5">${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 font-bold">💾 지원 현황 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}</div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
+        const refreshDepartments = () => {
+            const schoolName = document.getElementById('appSchool').value;
+            modal.querySelectorAll('.app-pref').forEach((el, index) => { const selected = el.value; el.innerHTML = departmentOptions(schoolName, selected, `${index + 1}지망`); });
+            const assigned = document.getElementById('appAssigned');
+            assigned.innerHTML = departmentOptions(schoolName, assigned.value, '최종 배정 학과 선택');
+        };
         document.getElementById('appCategory').onchange = () => {
-            const general = document.getElementById('appCategory').value === 'general';
+            const category = document.getElementById('appCategory').value;
+            const general = category === 'general';
             document.getElementById('appSchool').disabled = general || !canEdit;
-            document.getElementById('appSchool').value = general ? '' : document.getElementById('appSchool').value;
+            document.getElementById('appSchool').innerHTML = schoolOptions(category);
             document.getElementById('appPreferenceArea').classList.toggle('hidden', general);
             document.getElementById('generalApplicationGuide').classList.toggle('hidden', !general);
+            refreshDepartments();
         };
+        document.getElementById('appSchool').onchange = refreshDepartments;
         document.getElementById('saveApplication')?.addEventListener('click', async () => {
             const category = document.getElementById('appCategory').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value.trim()).filter(Boolean);
             if (new Set(preferences).size !== preferences.length) return alert('학과 지망은 중복해서 입력할 수 없습니다.');
             const payload = { classNum, studentNum, studentName: name, admissionYear: parseInt(document.getElementById('appYear').value), category, schoolName: category === 'general' ? '' : document.getElementById('appSchool').value.trim(), track: document.getElementById('appTrack').value.trim(), status: document.getElementById('appStatus').value, score: parseFloat(document.getElementById('appScore').value) || 0, scoreBasis: document.getElementById('appBasis').value.trim(), preferences: category === 'general' ? [] : preferences, assignedDepartment: category === 'general' ? '' : document.getElementById('appAssigned').value.trim() };
+            const sameYear = records.filter(r => r.admissionYear === payload.admissionYear && r.id !== record.id);
+            const active = r => ['지원 예정', '지원 완료', '합격', '최종 진학'].includes(r.status);
+            const activeIn = categoryName => sameYear.some(r => r.category === categoryName && active(r));
+            if ((category === 'meister' || category === 'special') && !payload.schoolName) return alert('마이스터고·특성화고는 목록에서 지원 학교를 선택해주세요.');
+            if ((category === 'meister' || category === 'special') && activeIn('self_foreign')) return alert('자사고·외고 지원이 진행 중이거나 합격한 학생은 마이스터고·특성화고 전형을 함께 진행할 수 없습니다.');
+            if (category === 'self_foreign' && (activeIn('meister') || activeIn('special'))) return alert('마이스터고·특성화고 지원이 진행 중이거나 합격한 학생은 자사고·외고 전형을 함께 진행할 수 없습니다.');
+            if (category === 'special' && activeIn('meister')) return alert('마이스터고 결과가 확정되기 전에는 특성화고 지원을 기록할 수 없습니다. 불합격 또는 포기 처리 후 진행해주세요.');
+            if (category === 'general' && (activeIn('meister') || activeIn('special') || activeIn('self_foreign'))) return alert('선행 전형의 결과가 불합격 또는 포기로 확정된 뒤 후기 일반고 지원을 기록할 수 있습니다.');
             try { await window.go.main.App.SaveStudentApplication(payload); await render(0); } catch (err) { alert('지원 현황 저장 실패: ' + err); }
         });
     };

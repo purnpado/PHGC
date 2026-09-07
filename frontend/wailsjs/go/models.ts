@@ -38,6 +38,42 @@ export namespace main {
 	        this.updatedAt = source["updatedAt"];
 	    }
 	}
+	export class ApplicationSummary {
+	    category: string;
+	    schoolName: string;
+	    track: string;
+	    department: string;
+	    preferenceRank: number;
+	    plannedCount: number;
+	    submittedCount: number;
+	    acceptedCount: number;
+	    rejectedCount: number;
+	    finalCount: number;
+	    minAcceptedScore: number;
+	    avgAcceptedScore: number;
+	    maxRejectedScore: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ApplicationSummary(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.category = source["category"];
+	        this.schoolName = source["schoolName"];
+	        this.track = source["track"];
+	        this.department = source["department"];
+	        this.preferenceRank = source["preferenceRank"];
+	        this.plannedCount = source["plannedCount"];
+	        this.submittedCount = source["submittedCount"];
+	        this.acceptedCount = source["acceptedCount"];
+	        this.rejectedCount = source["rejectedCount"];
+	        this.finalCount = source["finalCount"];
+	        this.minAcceptedScore = source["minAcceptedScore"];
+	        this.avgAcceptedScore = source["avgAcceptedScore"];
+	        this.maxRejectedScore = source["maxRejectedScore"];
+	    }
+	}
 	export class CutoffInfo {
 	    year: number;
 	    schoolName: string;
@@ -51,7 +87,7 @@ export namespace main {
 	    static createFrom(source: any = {}) {
 	        return new CutoffInfo(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.year = source["year"];
@@ -116,7 +152,7 @@ export namespace main {
 	        this.updatedAt = source["updatedAt"];
 	        this.description = source["description"];
 	        this.schools = this.convertValues(source["schools"], HighSchool);
-	}
+	    }
 
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {

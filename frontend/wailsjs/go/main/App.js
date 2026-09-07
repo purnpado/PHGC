@@ -38,6 +38,10 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetApplicationSummaries() {
+  return window['go']['main']['App']['GetApplicationSummaries']();
+}
+
 export function GetClassFullGrades(arg1) {
   return window['go']['main']['App']['GetClassFullGrades'](arg1);
 }
@@ -106,6 +110,10 @@ export function ImportTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
 }
 
+export function Logout() {
+  return window['go']['main']['App']['Logout']();
+}
+
 export function NeedsSharedDataPassword(arg1) {
   return window['go']['main']['App']['NeedsSharedDataPassword'](arg1);
 }
@@ -148,6 +156,10 @@ export function ResetAllData() {
 
 export function RollbackSchoolCutoffs(arg1) {
   return window['go']['main']['App']['RollbackSchoolCutoffs'](arg1);
+}
+
+export function SaveCurrentClassPatch(arg1) {
+  return window['go']['main']['App']['SaveCurrentClassPatch'](arg1);
 }
 
 export function SaveCutoffs(arg1) {

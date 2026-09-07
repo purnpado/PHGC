@@ -200,6 +200,44 @@ func TestApplicationRecordPersistsAndTeacherPatchMerges(t *testing.T) {
 	}
 }
 
+func TestApplicationSummaryCalculatesAcceptedAndRejectedScores(t *testing.T) {
+	dir := t.TempDir()
+	dm := &DBManager{dataDir: dir}
+	dm.setDataKey(make([]byte, 32))
+	if err := dm.InitConfigDB(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dm.SaveSchoolConfig("테스트중학교", 2, "", false, 2027); err != nil {
+		t.Fatal(err)
+	}
+	for _, classNum := range []int{1, 2} {
+		if err := dm.InitClassDB(classNum); err != nil {
+			t.Fatal(err)
+		}
+	}
+	entries := []ApplicationRecord{
+		{ClassNum: 1, StudentNum: "1", StudentName: "가", AdmissionYear: 2027, Category: "special", SchoolName: "울산산업고등학교", Track: "일반", Status: "합격", Score: 82, Preferences: []string{"보건간호과"}},
+		{ClassNum: 2, StudentNum: "1", StudentName: "나", AdmissionYear: 2027, Category: "special", SchoolName: "울산산업고등학교", Track: "일반", Status: "최종 진학", Score: 86, Preferences: []string{"보건간호과"}},
+		{ClassNum: 2, StudentNum: "2", StudentName: "다", AdmissionYear: 2027, Category: "special", SchoolName: "울산산업고등학교", Track: "일반", Status: "불합격", Score: 88, Preferences: []string{"보건간호과"}},
+	}
+	for _, entry := range entries {
+		if err := dm.SaveApplication(entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+	summaries, err := dm.GetApplicationSummaries()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("expected one summary, got %#v", summaries)
+	}
+	s := summaries[0]
+	if s.AcceptedCount != 2 || s.RejectedCount != 1 || s.MinAcceptedScore != 82 || s.AvgAcceptedScore != 84 || s.MaxRejectedScore != 88 {
+		t.Fatalf("unexpected summary: %#v", s)
+	}
+}
+
 func copyTestFile(t *testing.T, source, destination string) {
 	t.Helper()
 	data, err := os.ReadFile(source)

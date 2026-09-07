@@ -29,6 +29,7 @@ type App struct {
 	db      *DBManager
 	sync    *SyncManager
 	dataKey []byte
+	user    *User
 }
 
 // NewApp creates a new App application struct
@@ -177,6 +178,7 @@ func (a *App) UnlockAndLogin(username, password string) (*User, error) {
 		a.db.setDataKey(nil)
 		return nil, err
 	}
+	a.user = user
 	return user, nil
 }
 
@@ -214,7 +216,14 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 	if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
 		return nil, err
 	}
+	a.user = user
 	return user, nil
+}
+
+// Logout clears the in-memory role. Encrypted files are sealed only at
+// application shutdown so the active UI can still complete its transition.
+func (a *App) Logout() {
+	a.user = nil
 }
 
 // ChangeUserPassword 비밀번호 변경
@@ -879,10 +888,26 @@ func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string)
 }
 
 func (a *App) SaveStudentApplication(record ApplicationRecord) error {
+	if a.user != nil {
+		if a.user.Role == "viewer" {
+			return fmt.Errorf("진로부장 계정은 지원현황을 수정할 수 없습니다")
+		}
+		if a.user.Role == "homeroom" && a.user.ClassNum != record.ClassNum {
+			return fmt.Errorf("담임 계정은 본인 학급의 지원현황만 수정할 수 있습니다")
+		}
+	}
 	return a.db.SaveApplication(record)
 }
 func (a *App) GetStudentApplications(classNum int, studentNum, name string) ([]ApplicationRecord, error) {
 	return a.db.GetStudentApplications(classNum, studentNum, name)
+}
+
+// GetApplicationSummaries returns school-internal aggregate counts only.
+func (a *App) GetApplicationSummaries() ([]ApplicationSummary, error) {
+	if a.user != nil && a.user.Role != "master" && a.user.Role != "viewer" {
+		return nil, fmt.Errorf("우리 학교 지원현황은 학년부장·진로부장만 조회할 수 있습니다")
+	}
+	return a.db.GetApplicationSummaries()
 }
 
 // ExportTeacherPatch writes an encrypted, class-scoped change package.
@@ -916,6 +941,22 @@ func (a *App) SaveTeacherPatch(password, username string, classNum int, changes 
 		return "", err
 	}
 	return path, nil
+}
+
+// SaveCurrentClassPatch lets a homeroom teacher export their own class
+// snapshot without choosing records manually.
+func (a *App) SaveCurrentClassPatch(password string) (string, error) {
+	if a.user == nil || a.user.Role != "homeroom" || a.user.ClassNum < 1 {
+		return "", fmt.Errorf("담임 계정으로 로그인한 뒤에만 변경분을 내보낼 수 있습니다")
+	}
+	changes, err := a.db.GetClassPatchChanges(a.user.ClassNum)
+	if err != nil {
+		return "", err
+	}
+	if len(changes) == 0 {
+		return "", fmt.Errorf("내보낼 학생 데이터가 없습니다")
+	}
+	return a.SaveTeacherPatch(password, a.user.Username, a.user.ClassNum, changes)
 }
 
 // ImportTeacherPatch decrypts and applies only allowed teacher changes.

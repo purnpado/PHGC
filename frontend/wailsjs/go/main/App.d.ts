@@ -20,6 +20,8 @@ export function FetchCutoffsFromBridge(arg1:number):Promise<number>;
 
 export function GetAppVersion():Promise<string>;
 
+export function GetApplicationSummaries():Promise<Array<main.ApplicationSummary>>;
+
 export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;
 
 export function GetClassGrades(arg1:number):Promise<Array<main.StudentCalcResult>>;
@@ -54,6 +56,8 @@ export function ImportPasswordResetPackage(arg1:string):Promise<string>;
 
 export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
 
+export function Logout():Promise<void>;
+
 export function NeedsSharedDataPassword(arg1:string):Promise<boolean>;
 
 export function OpenExcelFile():Promise<string>;
@@ -75,6 +79,8 @@ export function ResetAcademicYear(arg1:number):Promise<void>;
 export function ResetAllData():Promise<void>;
 
 export function RollbackSchoolCutoffs(arg1:number):Promise<string>;
+
+export function SaveCurrentClassPatch(arg1:string):Promise<string>;
 
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
 
