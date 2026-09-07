@@ -1662,10 +1662,13 @@ async function openStudentModal(classNum, studentNum, name) {
     document.body.appendChild(modalEl);
 
     try {
-        const fullData = await window.go.main.App.GetStudentFullDetail(classNum, studentNum, name);
-        const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
+        const [fullData, cutoffs, official] = await Promise.all([
+            window.go.main.App.GetStudentFullDetail(classNum, studentNum, name),
+            window.go.main.App.GetCutoffs().catch(() => []),
+            window.go.main.App.GetOfficialAdmissionData().catch(() => ({ items: [] })),
+        ]);
 
-        renderStudentModalContent(modalEl, classNum, studentNum, name, fullData, cutoffs);
+        renderStudentModalContent(modalEl, classNum, studentNum, name, fullData, cutoffs, official?.items || []);
     } catch (err) {
         modalEl.innerHTML = `
             <div class="glass-card p-8 w-full max-w-md text-center">
@@ -1679,11 +1682,16 @@ async function openStudentModal(classNum, studentNum, name) {
 }
 
 // 모달 내용 렌더링
-function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs) {
+function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs, officialItems = []) {
     // 학교별 합격 가능성 카드 목록 생성
     let cardsHTML = '';
     
     data.schoolResults.forEach((r, rIdx) => {
+        const officialForSchool = (officialItems || []).filter(item =>
+            String(item.schoolName || '').includes(r.schoolName.substring(0, 4)) &&
+            (!item.track || String(item.track).includes(r.trackName) || r.trackName.includes(String(item.track)))
+        ).sort((a, b) => Number(b.admissionYear || 0) - Number(a.admissionYear || 0));
+        const officialPrimary = officialForSchool.find(item => Number(item.minAcceptedScore || item.minValue || 0) > 0);
         // 해당 학교 및 전형의 학과별 커트라인 목록 찾기
         const deptsForSchool = (cutoffs || []).filter(c => 
             c.schoolName.includes(r.schoolName.substring(0, 4)) && 
@@ -1715,7 +1723,9 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         };
         const recent3Average = averageMin(3);
         const recent5Average = averageMin(5);
-        if (deptsForSchool.length > 0) {
+        if (officialPrimary) {
+            defaultCutoff = Number(officialPrimary.minAcceptedScore || officialPrimary.minValue);
+        } else if (deptsForSchool.length > 0) {
             defaultCutoff = deptsForSchool[0].minValue;
             defaultAvg = deptsForSchool[0].avgValue;
         } else if (cutoffs && cutoffs.length > 0) {
@@ -1785,8 +1795,15 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
                 ` : ''}
 
-				${cutoffHistory.length > 0 ? `
-				<div class="text-[11px] text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/40 space-y-1">
+                ${officialForSchool.length > 0 ? `
+                <div class="text-[11px] text-cyan-100 bg-cyan-950/30 px-3 py-2 rounded-lg border border-cyan-500/30 space-y-1">
+                    <div class="font-bold text-cyan-300">📘 공식·교육청 공개자료 <span class="font-normal text-slate-400">(읽기 전용)</span></div>
+                    ${officialForSchool.slice(0, 3).map(item => `<div>${item.admissionYear || '-'}학년도 · ${item.department || '학교 전체'} · ${item.track || r.trackName} · 최저합격 ${Number(item.minAcceptedScore || item.minValue || 0) || '-'}점${Number(item.maxFailedScore || item.maxValue || 0) > 0 ? ` · 최고불합격 ${Number(item.maxFailedScore || item.maxValue)}점` : ''}<span class="text-slate-400"> · 출처: ${item.source || '-'} · 확인: ${item.verifiedAt || '-'}</span></div>`).join('')}
+                </div>` : ''}
+
+                ${cutoffHistory.length > 0 ? `
+                <div class="text-[11px] text-slate-300 bg-slate-900/50 px-3 py-2 rounded-lg border border-slate-700/40 space-y-1">
+					<div class="font-bold text-violet-200">🏫 우리 학교 누적 결과 <span class="font-normal text-slate-400">(수기 입력·합격자 결과)</span></div>
 					<div><span class="font-bold text-indigo-200">연도별 합격선:</span>
 					${cutoffHistory.map((c, index) => `<span class="ml-2 ${index === 0 ? 'text-emerald-300 font-bold' : ''}">${c.year} ${c.department || '학교 전체'} ${c.minValue}점</span>`).join('')}</div>
 					<div class="text-slate-400">직전 ${cutoffHistory[0].year}학년도 ${cutoffHistory[0].minValue}점 · 최근 ${Math.min(3, cutoffHistory.length)}년 평균 ${recent3Average.toFixed(2)}점${cutoffHistory.length >= 4 ? ` · 최근 ${Math.min(5, cutoffHistory.length)}년 평균 ${recent5Average.toFixed(2)}점` : ''}</div>
