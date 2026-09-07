@@ -311,9 +311,40 @@ input[type="number"]::-webkit-inner-spin-button {
         box-shadow: none !important;
         border: 0 !important;
     }
+    /* 본문은 문서 기본색을 상속한다. 모든 요소를 검정으로 덮어쓰면
+       신호등·배지의 글자가 배경과 섞여 보이지 않게 된다. */
     .print-document *, .print-modal * {
-        color: black !important;
+        color: inherit !important;
         border-color: #ccc !important;
+    }
+    .print-document, .print-modal {
+        color: #111 !important;
+    }
+    /* 상담 판단 색상은 프린터의 배경 그래픽 옵션 없이도 식별되도록
+       진한 글자 + 매우 옅은 배경으로 고정한다. */
+    .print-document .text-success, .print-modal .text-success {
+        color: #166534 !important;
+    }
+    .print-document .text-warning, .print-modal .text-warning {
+        color: #92400e !important;
+    }
+    .print-document .text-danger, .print-modal .text-danger {
+        color: #b91c1c !important;
+    }
+    .print-document .text-primary, .print-modal .text-primary {
+        color: #4338ca !important;
+    }
+    .print-document [class*="bg-success"], .print-modal [class*="bg-success"] {
+        background: #dcfce7 !important;
+        border-color: #86efac !important;
+    }
+    .print-document [class*="bg-warning"], .print-modal [class*="bg-warning"] {
+        background: #fef3c7 !important;
+        border-color: #fcd34d !important;
+    }
+    .print-document [class*="bg-danger"], .print-modal [class*="bg-danger"] {
+        background: #fee2e2 !important;
+        border-color: #fca5a5 !important;
     }
     .print-document .overflow-x-auto,
     .print-document .overflow-y-auto,
