@@ -83,7 +83,7 @@ export namespace main {
 	    maxValue: number;
 	    minValue: number;
 	    avgValue: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new CutoffInfo(source);
 	    }
@@ -105,11 +105,11 @@ export namespace main {
 	    title: string;
 	    status: string;
 	    created_at: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new FeedbackIssue(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.issue_id = source["issue_id"];
@@ -124,11 +124,11 @@ export namespace main {
 	    area: string;
 	    note: string;
 	    departments: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new HighSchool(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
@@ -142,11 +142,11 @@ export namespace main {
 	    updatedAt: string;
 	    description: string;
 	    schools: HighSchool[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new HighSchoolData(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.updatedAt = source["updatedAt"];
@@ -176,11 +176,11 @@ export namespace main {
 	    username: string;
 	    role: string;
 	    classNum: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LoginAccount(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.username = source["username"];
@@ -191,17 +191,17 @@ export namespace main {
 	export class LoginIndex {
 	    schoolName: string;
 	    accounts: LoginAccount[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LoginIndex(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schoolName = source["schoolName"];
 	        this.accounts = this.convertValues(source["accounts"], LoginAccount);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -220,6 +220,18 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class OfficialAdmissionData {
+	    items: any[];
+
+	    static createFrom(source: any = {}) {
+	        return new OfficialAdmissionData(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = source["items"];
+	    }
+	}
 	export class PatchChange {
 	    classNum: number;
 	    studentNum: string;
@@ -228,11 +240,11 @@ export namespace main {
 	    volunteer?: string;
 	    extra?: string;
 	    applications?: ApplicationRecord[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new PatchChange(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.classNum = source["classNum"];
@@ -279,11 +291,11 @@ export namespace main {
 	    leadershipMax: number;
 	    extraScore: number;
 	    totalScore: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SchoolCalcResult(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schoolName = source["schoolName"];
@@ -309,11 +321,11 @@ export namespace main {
 	    classCount: number;
 	    isSmallSchool: boolean;
 	    admissionYear: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SchoolConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schoolName = source["schoolName"];
@@ -329,11 +341,11 @@ export namespace main {
 	    sharedDataPassword: string;
 	    isSmallSchool: boolean;
 	    admissionYear: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SetupRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.schoolName = source["schoolName"];
@@ -366,11 +378,11 @@ export namespace main {
 	    GeneralTotalScore: number;
 	    GeneralDataComplete: boolean;
 	    GeneralProjected: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new StudentCalcResult(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ClassNum = source["ClassNum"];
@@ -429,11 +441,11 @@ export namespace main {
 	    generalHSDataComplete: boolean;
 	    generalHSProjected: boolean;
 	    schoolResults: SchoolCalcResult[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new StudentFullData(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.classNum = source["classNum"];
@@ -469,7 +481,7 @@ export namespace main {
 	        this.generalHSProjected = source["generalHSProjected"];
 	        this.schoolResults = this.convertValues(source["schoolResults"], SchoolCalcResult);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -499,11 +511,11 @@ export namespace main {
 	    percentile: number;
 	    rank: number;
 	    totalStudents: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new StudentTranscriptData(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.classNum = source["classNum"];
@@ -527,11 +539,11 @@ export namespace main {
 	    currentVersion: string;
 	    releaseNotes: string;
 	    downloadUrl: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SyncResult(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.success = source["success"];
@@ -551,11 +563,11 @@ export namespace main {
 	    Role: string;
 	    ClassNum: number;
 	    MustChangePassword: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new User(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ID = source["ID"];

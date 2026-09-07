@@ -78,6 +78,10 @@ export function GetLoginIndex() {
   return window['go']['main']['App']['GetLoginIndex']();
 }
 
+export function GetOfficialAdmissionData() {
+  return window['go']['main']['App']['GetOfficialAdmissionData']();
+}
+
 export function GetSchoolConfig() {
   return window['go']['main']['App']['GetSchoolConfig']();
 }
