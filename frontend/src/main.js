@@ -916,6 +916,32 @@ window.getGeneralGuideCutoff = getGeneralGuideCutoff;
 window.setGeneralGuideCutoff = setGeneralGuideCutoff;
 window.getGeneralGuideBadge = getGeneralGuideBadge;
 
+// 화면 전체가 아닌 선택한 문서만 A4로 인쇄한다.
+// 매트릭스는 열 수가 많아 A4 가로, 개인 문서는 A4 세로를 기본값으로 사용한다.
+function printOnly(kind, orientation = 'portrait') {
+    const allowedKinds = new Set(['report', 'transcript', 'matrix']);
+    const safeKind = allowedKinds.has(kind) ? kind : 'report';
+    const safeOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
+    const previous = document.getElementById('runtimePrintPageStyle');
+    previous?.remove();
+
+    const pageStyle = document.createElement('style');
+    pageStyle.id = 'runtimePrintPageStyle';
+    pageStyle.textContent = `@page { size: A4 ${safeOrientation}; margin: 10mm; }`;
+    document.head.appendChild(pageStyle);
+    document.body.classList.add('printing');
+    document.body.dataset.printKind = safeKind;
+
+    const cleanup = () => {
+        document.body.classList.remove('printing');
+        delete document.body.dataset.printKind;
+        pageStyle.remove();
+    };
+    window.addEventListener('afterprint', cleanup, { once: true });
+    // 인쇄 CSS가 적용된 뒤 브라우저 미리보기를 열도록 두 프레임을 기다린다.
+    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
+
 // ===== 담임 교사 모드 화면 =====
 async function renderTeacherScreen(schoolName, targetClassNum = null) {
     let classCount = 8;
@@ -1361,7 +1387,7 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         let totalResult = attObj['result'] || (Number(attObj['1_result']||0) + Number(attObj['2_result']||0) + Number(attObj['3_result']||0));
 
         modalEl.innerHTML = `
-            <div class="glass-card p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto space-y-6">
+            <div class="glass-card print-document p-6 md:p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto space-y-6">
                 <!-- 헤더 -->
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                     <div>
@@ -1370,7 +1396,7 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                         </h2>
                         <p class="text-xs text-text-muted mt-1">나이스 생활기록부 교과 성적(전학년) 및 출결·봉사활동 상세 내역</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 no-print">
                         <button id="printTranscriptBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1">
                             <span>🖨️</span> 성적표 인쇄
                         </button>
@@ -1468,7 +1494,7 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         `;
 
         document.getElementById('closeTranscriptBtn').addEventListener('click', () => modalEl.remove());
-        document.getElementById('printTranscriptBtn').addEventListener('click', () => window.print());
+        document.getElementById('printTranscriptBtn').addEventListener('click', () => printOnly('transcript'));
         modalEl.addEventListener('click', (e) => {
             if (e.target === modalEl) modalEl.remove();
         });
@@ -1883,9 +1909,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     }
 
     // 인쇄/PDF 저장
-    document.getElementById('printReportBtn').addEventListener('click', () => {
-        window.print();
-    });
+    document.getElementById('printReportBtn').addEventListener('click', () => printOnly('report'));
 }
 
 // ===== 우리 반 전체 고교 신호등 매트릭스 모달 =====
@@ -1966,7 +1990,7 @@ async function openMatrixModal(classNum) {
         });
 
         modalEl.innerHTML = `
-            <div class="glass-card p-6 md:p-8 w-full max-w-[1760px] max-h-[92vh] overflow-y-auto space-y-5">
+            <div class="glass-card print-document p-6 md:p-8 w-full max-w-[1760px] max-h-[92vh] overflow-y-auto space-y-5">
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                     <div>
                         <h2 class="text-2xl font-black text-white flex items-center gap-2">
@@ -1974,7 +1998,7 @@ async function openMatrixModal(classNum) {
                         </h2>
                         <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 즉시 이동합니다. (초록: 안정 / 노랑: 경계 / 빨강: 주의 ※ 실기고사를 치르는 학교는 제외)</p>
                     </div>
-                    <button id="closeMatrixBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
+                    <button id="closeMatrixBtn" class="no-print text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
                 </div>
 
                 <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
@@ -2004,13 +2028,13 @@ async function openMatrixModal(classNum) {
                 </div>
                 <div class="flex justify-between items-center text-xs text-text-muted">
                     <div>* 점수 뒤 신호등은 등록된 커트라인 대비 5점 이상 초과 시 안정(🟢), 기준점 이상 시 경계(🟡), 미만 시 주의(🔴)로 표시됩니다.</div>
-                    <button id="matrixPrintBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold">🖨️ 매트릭스 인쇄</button>
+                    <button id="matrixPrintBtn" class="no-print btn-secondary text-xs px-3 py-1.5 font-bold">🖨️ 매트릭스 인쇄</button>
                 </div>
             </div>
         `;
 
         document.getElementById('closeMatrixBtn').addEventListener('click', () => modalEl.remove());
-        document.getElementById('matrixPrintBtn').addEventListener('click', () => window.print());
+        document.getElementById('matrixPrintBtn').addEventListener('click', () => printOnly('matrix', 'landscape'));
 
         // 학생 이름 클릭 시 해당 학생의 상담창으로 이동
         modalEl.querySelectorAll('.matrix-student-name').forEach(el => {
