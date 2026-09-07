@@ -49,6 +49,13 @@ type HighSchool struct {
 	Departments []string `json:"departments"`
 }
 
+// OfficialAdmissionData is published only by the EduBridge operator after a
+// manual check of a high-school or education-office source. PHGC consumes it
+// read-only and never sends changes back.
+type OfficialAdmissionData struct {
+	Items []map[string]interface{} `json:"items"`
+}
+
 // SyncResult 동기화 결과
 type SyncResult struct {
 	Success        bool   `json:"success"`
@@ -257,40 +264,23 @@ func (sm *SyncManager) GetHighSchools() (*HighSchoolData, error) {
 	return nil, fmt.Errorf("고교 목록 데이터를 찾을 수 없습니다. 서버 동기화를 먼저 실행해 주세요.")
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error) {
+	const filename = "official_admission_data.json"
+	localPath := filepath.Join(sm.dataDir, filename)
+	if data, err := os.ReadFile(localPath); err == nil {
+		var result OfficialAdmissionData
+		if err := json.Unmarshal(data, &result.Items); err == nil {
+			return &result, nil
+		}
+	}
+	data, err := sm.downloadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	var result OfficialAdmissionData
+	if err := json.Unmarshal(data, &result.Items); err != nil {
+		return nil, err
+	}
+	_ = sm.saveToFile(filename, data)
+	return &result, nil
+}

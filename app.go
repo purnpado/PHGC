@@ -1172,6 +1172,12 @@ func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 	return data, nil
 }
 
+// GetOfficialAdmissionData returns central operator-published material only.
+// School accounts have no save API for this data.
+func (a *App) GetOfficialAdmissionData() (*OfficialAdmissionData, error) {
+	return a.sync.GetOfficialAdmissionData()
+}
+
 // CreateUser 새 사용자 등록 (관리자, 뷰어, 담임교사 등)
 func (a *App) CreateUser(username, password, role string, classNum int) error {
 	if err := a.db.CreateUser(username, password, role, classNum); err != nil {
