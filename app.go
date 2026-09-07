@@ -878,6 +878,13 @@ func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string)
 	return a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON)
 }
 
+func (a *App) SaveStudentApplication(record ApplicationRecord) error {
+	return a.db.SaveApplication(record)
+}
+func (a *App) GetStudentApplications(classNum int, studentNum, name string) ([]ApplicationRecord, error) {
+	return a.db.GetStudentApplications(classNum, studentNum, name)
+}
+
 // ExportTeacherPatch writes an encrypted, class-scoped change package.
 func (a *App) ExportTeacherPatch(password, username string, classNum int, changes []PatchChange, outputPath string) error {
 	if classNum < 1 || username == "" || len(changes) == 0 {
@@ -886,6 +893,14 @@ func (a *App) ExportTeacherPatch(password, username string, classNum int, change
 	for _, change := range changes {
 		if change.ClassNum != classNum {
 			return fmt.Errorf("다른 학급 변경분은 내보낼 수 없습니다")
+		}
+		for _, record := range change.Applications {
+			if record.ClassNum != 0 && record.ClassNum != classNum {
+				return fmt.Errorf("다른 학급 지원 기록은 내보낼 수 없습니다")
+			}
+			if record.StudentNum != "" && record.StudentNum != change.StudentNum {
+				return fmt.Errorf("지원 기록의 학생 번호가 변경분과 일치하지 않습니다")
+			}
 		}
 	}
 	return encryptPatchGCM(password, PatchFile{SourceUsername: username, ClassNum: classNum, Changes: changes}, outputPath)

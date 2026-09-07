@@ -82,6 +82,10 @@ export function GetSchoolRuleList() {
   return window['go']['main']['App']['GetSchoolRuleList']();
 }
 
+export function GetStudentApplications(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetStudentApplications'](arg1, arg2, arg3);
+}
+
 export function GetStudentFullDetail(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetStudentFullDetail'](arg1, arg2, arg3);
 }
@@ -152,6 +156,10 @@ export function SaveCutoffs(arg1) {
 
 export function SavePasswordResetPackage(arg1) {
   return window['go']['main']['App']['SavePasswordResetPackage'](arg1);
+}
+
+export function SaveStudentApplication(arg1) {
+  return window['go']['main']['App']['SaveStudentApplication'](arg1);
 }
 
 export function SaveStudentExtra(arg1, arg2, arg3, arg4) {

@@ -42,6 +42,8 @@ export function GetSchoolConfig():Promise<main.SchoolConfig>;
 
 export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;
 
+export function GetStudentApplications(arg1:number,arg2:string,arg3:string):Promise<Array<main.ApplicationRecord>>;
+
 export function GetStudentFullDetail(arg1:number,arg2:string,arg3:string):Promise<main.StudentFullData>;
 
 export function GetStudentTranscript(arg1:number,arg2:string,arg3:string):Promise<main.StudentTranscriptData>;
@@ -77,6 +79,8 @@ export function RollbackSchoolCutoffs(arg1:number):Promise<string>;
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
 
 export function SavePasswordResetPackage(arg1:string):Promise<string>;
+
+export function SaveStudentApplication(arg1:main.ApplicationRecord):Promise<void>;
 
 export function SaveStudentExtra(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
 

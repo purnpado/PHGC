@@ -34,15 +34,17 @@ type DataManifest struct {
 	AdmissionYear int    `json:"admissionYear"`
 }
 
-// PatchChange is the only student-data mutation that a homeroom teacher may
-// export: attendance, volunteer, student-activity and behaviour additions.
+// PatchChange is the class-scoped mutation that a homeroom teacher may export.
+// It is encrypted and merged only by the grade head on an offline computer.
+// Application records never leave the school through the central server.
 type PatchChange struct {
-	ClassNum    int    `json:"classNum"`
-	StudentNum  string `json:"studentNum"`
-	StudentName string `json:"studentName"`
-	Attendance  string `json:"attendance,omitempty"`
-	Volunteer   string `json:"volunteer,omitempty"`
-	Extra       string `json:"extra,omitempty"`
+	ClassNum     int                 `json:"classNum"`
+	StudentNum   string              `json:"studentNum"`
+	StudentName  string              `json:"studentName"`
+	Attendance   string              `json:"attendance,omitempty"`
+	Volunteer    string              `json:"volunteer,omitempty"`
+	Extra        string              `json:"extra,omitempty"`
+	Applications []ApplicationRecord `json:"applications,omitempty"`
 }
 
 type PatchFile struct {

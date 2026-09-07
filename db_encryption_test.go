@@ -170,6 +170,36 @@ func TestTeacherPasswordResetPackageRestoresLoginWithoutClassDatabase(t *testing
 	}
 }
 
+func TestApplicationRecordPersistsAndTeacherPatchMerges(t *testing.T) {
+	dir := t.TempDir()
+	dm := &DBManager{dataDir: dir}
+	dm.setDataKey(make([]byte, 32))
+	if err := dm.InitClassDB(301); err != nil {
+		t.Fatalf("InitClassDB: %v", err)
+	}
+	record := ApplicationRecord{
+		ClassNum: 301, StudentNum: "1", StudentName: "홍길동", AdmissionYear: 2027,
+		Category: "special", SchoolName: "울산산업고등학교", Track: "일반전형",
+		Status: "지원 예정", Score: 81.25, ScoreBasis: "3-1 누적 예상", Preferences: []string{"보건간호과", "식품가공과", "반려동물과", "원예디자인과", "그린스마트팜과"},
+	}
+	if err := dm.ApplyPatchChange(PatchChange{ClassNum: 301, StudentNum: "1", StudentName: "홍길동", Applications: []ApplicationRecord{record}}); err != nil {
+		t.Fatalf("ApplyPatchChange: %v", err)
+	}
+	records, err := dm.GetStudentApplications(301, "1", "홍길동")
+	if err != nil {
+		t.Fatalf("GetStudentApplications: %v", err)
+	}
+	if len(records) != 1 || records[0].SchoolName != "울산산업고등학교" || len(records[0].Preferences) != 5 {
+		t.Fatalf("unexpected application records: %#v", records)
+	}
+	if err := dm.SaveApplication(ApplicationRecord{ClassNum: 301, StudentNum: "1", StudentName: "홍길동", AdmissionYear: 2027, Category: "general", Status: "지원 예정", Score: 123.45, ScoreBasis: "3-1 누적 예상"}); err != nil {
+		t.Fatalf("Save general application: %v", err)
+	}
+	if err := dm.SaveApplication(ApplicationRecord{ClassNum: 301, StudentNum: "1", StudentName: "홍길동", AdmissionYear: 2027, Category: "special", SchoolName: "울산산업고등학교", Status: "지원 예정", Preferences: []string{"1", "2", "3", "4", "5", "6"}}); err == nil {
+		t.Fatal("more than five department preferences must be rejected")
+	}
+}
+
 func copyTestFile(t *testing.T, source, destination string) {
 	t.Helper()
 	data, err := os.ReadFile(source)

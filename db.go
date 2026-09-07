@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,6 +115,26 @@ type CutoffInfo struct {
 	MaxValue   float64 `json:"maxValue"`
 	MinValue   float64 `json:"minValue"`
 	AvgValue   float64 `json:"avgValue"` // 평균점
+}
+
+// ApplicationRecord is a local-only student admission application. Scores are
+// frozen at the time of application so later formula changes do not alter
+// historical results.
+type ApplicationRecord struct {
+	ID                 int      `json:"id"`
+	ClassNum           int      `json:"classNum"`
+	StudentNum         string   `json:"studentNum"`
+	StudentName        string   `json:"studentName"`
+	AdmissionYear      int      `json:"admissionYear"`
+	Category           string   `json:"category"` // meister, special, self_foreign, general, other
+	SchoolName         string   `json:"schoolName"`
+	Track              string   `json:"track"`
+	Status             string   `json:"status"`
+	Score              float64  `json:"score"`
+	ScoreBasis         string   `json:"scoreBasis"`
+	Preferences        []string `json:"preferences"`
+	AssignedDepartment string   `json:"assignedDepartment"`
+	UpdatedAt          string   `json:"updatedAt"`
 }
 
 // DB 매니저
@@ -488,6 +509,22 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			volunteer_json TEXT DEFAULT '',
 			extra_json TEXT DEFAULT ''
 		);
+		CREATE TABLE IF NOT EXISTS student_applications (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			student_num TEXT NOT NULL,
+			student_name TEXT NOT NULL,
+			admission_year INTEGER NOT NULL,
+			category TEXT NOT NULL,
+			school_name TEXT DEFAULT '',
+			track TEXT DEFAULT '',
+			status TEXT NOT NULL DEFAULT '미입력',
+			score REAL DEFAULT 0,
+			score_basis TEXT DEFAULT '',
+			preferences_json TEXT DEFAULT '[]',
+			assigned_department TEXT DEFAULT '',
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(student_num, student_name, admission_year, category, school_name, track)
+		);
 	`)
 
 	// 기존 테이블에 컬럼 추가 (오류 무시 - 이미 존재할 경우)
@@ -687,7 +724,68 @@ func (dm *DBManager) UpdateStudentExtra(classNum int, studentNum, name, extraJSO
 	return err
 }
 
-// ApplyPatchChange applies only the three fields teachers are allowed to edit.
+func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
+	if record.ClassNum < 1 || record.StudentNum == "" || record.StudentName == "" || record.AdmissionYear < 2000 || record.Category == "" || record.Status == "" {
+		return fmt.Errorf("지원 기록 정보가 올바르지 않습니다")
+	}
+	validCategories := map[string]bool{"meister": true, "special": true, "self_foreign": true, "general": true, "other": true}
+	validStatuses := map[string]bool{"미입력": true, "지원 예정": true, "지원 완료": true, "합격": true, "불합격": true, "포기": true, "최종 진학": true}
+	if !validCategories[record.Category] || !validStatuses[record.Status] {
+		return fmt.Errorf("지원 구분 또는 상태값이 올바르지 않습니다")
+	}
+	if len(record.Preferences) > 5 {
+		return fmt.Errorf("학과 지망은 최대 5개까지 입력할 수 있습니다")
+	}
+	if (record.Category == "meister" || record.Category == "special") && record.SchoolName == "" {
+		return fmt.Errorf("마이스터고·특성화고 지원에는 학교명이 필요합니다")
+	}
+	if record.Category == "general" && (record.SchoolName != "" || len(record.Preferences) != 0 || record.AssignedDepartment != "") {
+		return fmt.Errorf("후기 일반고는 학교·학과 대신 지원 점수와 상태만 기록합니다")
+	}
+	prefs, err := json.Marshal(record.Preferences)
+	if err != nil {
+		return err
+	}
+	db, err := dm.openDB(dm.getClassDBPath(record.ClassNum))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(`INSERT INTO student_applications (student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at)
+	VALUES (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+	ON CONFLICT(student_num,student_name,admission_year,category,school_name,track) DO UPDATE SET status=excluded.status,score=excluded.score,score_basis=excluded.score_basis,preferences_json=excluded.preferences_json,assigned_department=excluded.assigned_department,updated_at=CURRENT_TIMESTAMP`, record.StudentNum, record.StudentName, record.AdmissionYear, record.Category, record.SchoolName, record.Track, record.Status, record.Score, record.ScoreBasis, string(prefs), record.AssignedDepartment)
+	return err
+}
+
+func (dm *DBManager) GetStudentApplications(classNum int, studentNum, name string) ([]ApplicationRecord, error) {
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT id,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications WHERE student_num=? AND student_name=? ORDER BY updated_at DESC`, studentNum, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ApplicationRecord
+	for rows.Next() {
+		var r ApplicationRecord
+		var prefs string
+		if err := rows.Scan(&r.ID, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		r.ClassNum = classNum
+		r.StudentNum = studentNum
+		r.StudentName = name
+		_ = json.Unmarshal([]byte(prefs), &r.Preferences)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// ApplyPatchChange applies teacher changes, including class-scoped application
+// records.  Every embedded record is bound to the same student and class.
 func (dm *DBManager) ApplyPatchChange(change PatchChange) error {
 	if change.ClassNum < 1 || change.StudentNum == "" || change.StudentName == "" {
 		return fmt.Errorf("변경분의 학생 정보가 올바르지 않습니다")
@@ -703,7 +801,23 @@ func (dm *DBManager) ApplyPatchChange(change PatchChange) error {
 		}
 	}
 	if change.Extra != "" {
-		return dm.UpdateStudentExtra(change.ClassNum, change.StudentNum, change.StudentName, change.Extra)
+		if err := dm.UpdateStudentExtra(change.ClassNum, change.StudentNum, change.StudentName, change.Extra); err != nil {
+			return err
+		}
+	}
+	for _, record := range change.Applications {
+		record.ClassNum = change.ClassNum
+		if record.StudentNum != "" && record.StudentNum != change.StudentNum {
+			return fmt.Errorf("지원 기록의 학생 번호가 변경분과 일치하지 않습니다")
+		}
+		if record.StudentName != "" && record.StudentName != change.StudentName {
+			return fmt.Errorf("지원 기록의 학생 이름이 변경분과 일치하지 않습니다")
+		}
+		record.StudentNum = change.StudentNum
+		record.StudentName = change.StudentName
+		if err := dm.SaveApplication(record); err != nil {
+			return err
+		}
 	}
 	return nil
 }
