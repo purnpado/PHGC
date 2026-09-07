@@ -320,6 +320,44 @@ input[type="number"]::-webkit-inner-spin-button {
     .print-document, .print-modal {
         color: #111 !important;
     }
+    /* 화면의 다크 테마(slate/indigo 계열)를 그대로 출력하면 글자 대비가
+       무너진다. 인쇄물은 흰 바탕과 옅은 구분선으로 재구성한다. */
+    .print-document [class*="bg-slate-"],
+    .print-modal [class*="bg-slate-"] {
+        background: #fff !important;
+    }
+    .print-document [class*="bg-indigo-"],
+    .print-modal [class*="bg-indigo-"] {
+        background: #f5f3ff !important;
+    }
+    .print-document [class*="bg-cyan-"],
+    .print-modal [class*="bg-cyan-"] {
+        background: #ecfeff !important;
+    }
+    .print-document [class*="bg-emerald-"],
+    .print-modal [class*="bg-emerald-"] {
+        background: #ecfdf5 !important;
+    }
+    .print-document [class*="bg-primary"],
+    .print-modal [class*="bg-primary"] {
+        background: #eef2ff !important;
+    }
+    .print-document input,
+    .print-modal input {
+        background: #fff !important;
+        color: #111 !important;
+        border-color: #94a3b8 !important;
+    }
+    .print-document table th,
+    .print-modal table th {
+        background: #e2e8f0 !important;
+        color: #111 !important;
+    }
+    .print-document table td,
+    .print-modal table td {
+        background: #fff !important;
+        color: #111 !important;
+    }
     /* 상담 판단 색상은 프린터의 배경 그래픽 옵션 없이도 식별되도록
        진한 글자 + 매우 옅은 배경으로 고정한다. */
     .print-document .text-success, .print-modal .text-success {
