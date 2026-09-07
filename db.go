@@ -795,11 +795,14 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	if len(record.Preferences) > 5 {
 		return fmt.Errorf("학과 지망은 최대 5개까지 입력할 수 있습니다")
 	}
-	if (record.Category == "meister" || record.Category == "special") && record.SchoolName == "" {
-		return fmt.Errorf("마이스터고·특성화고 지원에는 학교명이 필요합니다")
+	if (record.Category == "meister" || record.Category == "special" || record.Category == "self_foreign") && record.SchoolName == "" {
+		return fmt.Errorf("마이스터고·특성화고·자사고·외고 지원에는 학교명이 필요합니다")
 	}
 	if record.Category == "general" && (record.SchoolName != "" || len(record.Preferences) != 0 || record.AssignedDepartment != "") {
 		return fmt.Errorf("후기 일반고는 학교·학과 대신 지원 점수와 상태만 기록합니다")
+	}
+	if record.Category == "self_foreign" && (len(record.Preferences) != 0 || record.AssignedDepartment != "") {
+		return fmt.Errorf("자사고·외고는 학교와 결과 상태만 기록합니다")
 	}
 	prefs, err := json.Marshal(record.Preferences)
 	if err != nil {
