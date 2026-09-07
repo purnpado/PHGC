@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -218,8 +219,18 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 
 // ChangeUserPassword 비밀번호 변경
 func (a *App) ChangeUserPassword(username, newPassword string) error {
-	if err := a.db.ChangeUserPassword(username, newPassword); err != nil {
-		return err
+	return a.replaceUserKeyEnvelope(username, newPassword, func() error {
+		return a.db.ChangeUserPassword(username, newPassword)
+	})
+}
+
+// replaceUserKeyEnvelope changes a personal login password together with the
+// AES data-key envelope it unlocks.  The two files are intentionally updated
+// with rollback protection: neither the old nor the new password may leave a
+// user unable to open the encrypted data package.
+func (a *App) replaceUserKeyEnvelope(username, newPassword string, applyPasswordChange func() error) error {
+	if strings.TrimSpace(newPassword) == "" {
+		return fmt.Errorf("새 비밀번호를 입력해주세요")
 	}
 	if len(a.dataKey) != 32 {
 		return fmt.Errorf("데이터 잠금 키가 준비되지 않았습니다")
@@ -228,7 +239,27 @@ func (a *App) ChangeUserPassword(username, newPassword string) error {
 	if err != nil {
 		return err
 	}
-	return saveUserKeyEnvelope(a.db.dataDir, envelope)
+
+	// The account password and this envelope must change as one unit.  Keep a
+	// byte-for-byte copy so a database error can never strand the user with a
+	// key file that only the new password opens.
+	path := userEnvelopePath(a.db.dataDir, username)
+	previous, readErr := os.ReadFile(path)
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return fmt.Errorf("기존 사용자 잠금 정보 읽기 실패: %w", readErr)
+	}
+	if err := saveUserKeyEnvelope(a.db.dataDir, envelope); err != nil {
+		return fmt.Errorf("새 사용자 잠금 정보 저장 실패: %w", err)
+	}
+	if err := applyPasswordChange(); err != nil {
+		if readErr == nil {
+			_ = writePrivateFileAtomically(path, previous)
+		} else {
+			_ = os.Remove(path)
+		}
+		return fmt.Errorf("비밀번호 변경 실패: %w", err)
+	}
+	return nil
 }
 
 // GetUsers 사용자 목록 조회
@@ -238,10 +269,176 @@ func (a *App) GetUsers() ([]User, error) {
 
 // SetUserPassword 특정 사용자 비밀번호 설정 (관리자용)
 func (a *App) SetUserPassword(username, newPassword string) error {
-	if err := a.db.SetUserPassword(username, newPassword); err != nil {
+	if strings.TrimSpace(newPassword) == "" {
+		return fmt.Errorf("새 비밀번호를 입력해주세요")
+	}
+	users, err := a.db.GetUsers()
+	if err != nil {
 		return err
 	}
+	for _, user := range users {
+		if user.Username != username {
+			continue
+		}
+		if user.Role == "master" {
+			// The master account has no separate onboarding step.  Its assigned
+			// password must immediately open both the login record and the AES
+			// data-key envelope.
+			return a.replaceUserKeyEnvelope(username, newPassword, func() error {
+				return a.db.ChangeUserPassword(username, newPassword)
+			})
+		}
+
+		// For homeroom/viewer accounts, remove any old personal envelope first.
+		// On the recipient's first login the normal shared-data-password flow
+		// creates a new envelope from the newly assigned initial password.
+		// This preserves portable package onboarding after an administrator reset.
+		path := userEnvelopePath(a.db.dataDir, username)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("기존 사용자 잠금 정보 초기화 실패: %w", err)
+		}
+		return a.db.SetUserPassword(username, newPassword)
+	}
+	return fmt.Errorf("계정을 찾을 수 없습니다")
+}
+
+// ExportPasswordResetPackage creates a small encrypted recovery file for a
+// non-master account.  It contains the updated encrypted config DB only, not
+// any class/student DB.  The recipient imports it from the login screen.
+func (a *App) ExportPasswordResetPackage(username, outputPath string) error {
+	if username == "" || outputPath == "" {
+		return fmt.Errorf("재설정할 계정과 저장 위치가 필요합니다")
+	}
+	if len(a.dataKey) != 32 {
+		return fmt.Errorf("데이터 잠금을 먼저 해제해주세요")
+	}
+	users, err := a.db.GetUsers()
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, user := range users {
+		if user.Username == username {
+			if user.Role == "master" {
+				return fmt.Errorf("학년부장 계정은 재설정 파일이 필요하지 않습니다")
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("계정을 찾을 수 없습니다")
+	}
+
+	// Ensure the password hash update is in the SQLite main file before taking
+	// a snapshot, without sealing or interrupting the running administrator app.
+	db, err := a.db.openDB(a.db.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	if _, err = db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		db.Close()
+		return fmt.Errorf("재설정 정보 준비 실패: %w", err)
+	}
+	db.Close()
+
+	tmp, err := os.CreateTemp(a.db.dataDir, ".password-reset-config-*.phgc")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	defer os.Remove(tmpPath)
+	if err := encryptFileGCM(hex.EncodeToString(a.dataKey), a.db.getConfigDBPath(), tmpPath); err != nil {
+		return fmt.Errorf("재설정 정보 암호화 실패: %w", err)
+	}
+	encryptedConfig, err := os.ReadFile(tmpPath)
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(PasswordResetPackage{
+		Format:         "PHGC-PASSWORD-RESET-1",
+		Username:       username,
+		ConfigDatabase: encryptedConfig,
+	})
+	if err != nil {
+		return err
+	}
+	if err := writePrivateFileAtomically(outputPath, payload); err != nil {
+		return fmt.Errorf("재설정 파일 저장 실패: %w", err)
+	}
 	return nil
+}
+
+// SavePasswordResetPackage opens a native save dialog for a teacher reset
+// package.  It is called immediately after the administrator assigns a new
+// initial password.
+func (a *App) SavePasswordResetPackage(username string) (string, error) {
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "담임 비밀번호 재설정 파일 저장",
+		DefaultFilename: fmt.Sprintf("PHGC-%s-비밀번호재설정.phgcreset", username),
+		Filters:         []runtime.FileFilter{{DisplayName: "PHGC 비밀번호 재설정 파일", Pattern: "*.phgcreset"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := a.ExportPasswordResetPackage(username, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// ImportPasswordResetPackage installs a teacher-specific encrypted config
+// snapshot and removes only that account's local key envelope.  The next
+// login uses the existing shared-data password once and creates a fresh
+// personal envelope using the newly assigned initial password.
+func (a *App) ImportPasswordResetPackage(inputPath string) (string, error) {
+	if inputPath == "" {
+		return "", fmt.Errorf("재설정 파일을 선택해주세요")
+	}
+	payload, err := os.ReadFile(inputPath)
+	if err != nil {
+		return "", err
+	}
+	var reset PasswordResetPackage
+	if err := json.Unmarshal(payload, &reset); err != nil {
+		return "", fmt.Errorf("재설정 파일 형식이 올바르지 않습니다")
+	}
+	if reset.Format != "PHGC-PASSWORD-RESET-1" || reset.Username == "" || len(reset.ConfigDatabase) == 0 {
+		return "", fmt.Errorf("재설정 파일 정보가 올바르지 않습니다")
+	}
+	if reset.Username == "admin" {
+		return "", fmt.Errorf("학년부장 계정에는 이 재설정 파일을 사용할 수 없습니다")
+	}
+	plainConfig := a.db.getConfigDBPath()
+	if _, err := os.Stat(plainConfig); err == nil {
+		return "", fmt.Errorf("프로그램의 이전 작업 DB가 남아 있습니다. 프로그램을 완전히 종료한 뒤 다시 실행해주세요")
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := writePrivateFileAtomically(plainConfig+".phgc", reset.ConfigDatabase); err != nil {
+		return "", fmt.Errorf("재설정 정보 적용 실패: %w", err)
+	}
+	if err := os.Remove(userEnvelopePath(a.db.dataDir, reset.Username)); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("기존 개인 잠금 정보 초기화 실패: %w", err)
+	}
+	return reset.Username, nil
+}
+
+// OpenPasswordResetPackage lets a teacher select the recovery file on the
+// login screen without exposing the data directory.
+func (a *App) OpenPasswordResetPackage() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "담임 비밀번호 재설정 파일 선택",
+		Filters: []runtime.FileFilter{{DisplayName: "PHGC 비밀번호 재설정 파일", Pattern: "*.phgcreset"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return a.ImportPasswordResetPackage(path)
 }
 
 // AddViewerUser 뷰어 계정 추가 (관리자용)

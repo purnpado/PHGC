@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.43",
+  "latestVersion": "0.5.44",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.43 - 인쇄 문서의 다크 테마를 인쇄 친화형 색상으로 전환하고 배지·표·입력칸의 색상 대비를 개선",
+  "releaseNotes": "v0.5.44 - 관리자 비밀번호 변경 안정화 및 담임 비밀번호 재설정 파일 지원",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }

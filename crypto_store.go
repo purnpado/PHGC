@@ -62,6 +62,15 @@ type UserKeyEnvelope struct {
 	Data     []byte `json:"data"`
 }
 
+// PasswordResetPackage contains only the encrypted account/configuration
+// snapshot needed to reset a teacher's local login.  It intentionally never
+// contains a class database or plaintext student information.
+type PasswordResetPackage struct {
+	Format         string `json:"format"`
+	Username       string `json:"username"`
+	ConfigDatabase []byte `json:"configDatabase"`
+}
+
 func sealDataKeyForUser(username, personalPassword string, dataKey []byte) (UserKeyEnvelope, error) {
 	salt, nonce := make([]byte, 16), make([]byte, 12)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
@@ -138,7 +147,35 @@ func saveUserKeyEnvelope(dataDir string, envelope UserKeyEnvelope) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(userEnvelopePath(dataDir, envelope.Username), data, 0600)
+	return writePrivateFileAtomically(userEnvelopePath(dataDir, envelope.Username), data)
+}
+
+// writePrivateFileAtomically prevents a password change from leaving a
+// half-written key envelope behind if the program is closed or the computer
+// loses power during the write.
+func writePrivateFileAtomically(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if err := tmp.Chmod(0600); err != nil {
+		tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, path)
 }
 
 func loadUserKeyEnvelope(dataDir, username string) (UserKeyEnvelope, error) {

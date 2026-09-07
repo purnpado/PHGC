@@ -22,6 +22,10 @@ export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
 
+export function ExportPasswordResetPackage(arg1, arg2) {
+  return window['go']['main']['App']['ExportPasswordResetPackage'](arg1, arg2);
+}
+
 export function ExportTeacherPatch(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['ExportTeacherPatch'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -90,6 +94,10 @@ export function GetUsers() {
   return window['go']['main']['App']['GetUsers']();
 }
 
+export function ImportPasswordResetPackage(arg1) {
+  return window['go']['main']['App']['ImportPasswordResetPackage'](arg1);
+}
+
 export function ImportTeacherPatch(arg1, arg2) {
   return window['go']['main']['App']['ImportTeacherPatch'](arg1, arg2);
 }
@@ -100,6 +108,10 @@ export function NeedsSharedDataPassword(arg1) {
 
 export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
+}
+
+export function OpenPasswordResetPackage() {
+  return window['go']['main']['App']['OpenPasswordResetPackage']();
 }
 
 export function OpenTeacherPatch(arg1) {
@@ -136,6 +148,10 @@ export function RollbackSchoolCutoffs(arg1) {
 
 export function SaveCutoffs(arg1) {
   return window['go']['main']['App']['SaveCutoffs'](arg1);
+}
+
+export function SavePasswordResetPackage(arg1) {
+  return window['go']['main']['App']['SavePasswordResetPackage'](arg1);
 }
 
 export function SaveStudentExtra(arg1, arg2, arg3, arg4) {

@@ -2426,6 +2426,9 @@ export async function renderLoginScreen(schoolName) {
                         <button type="submit" id="loginBtn" class="btn-primary py-2 text-xs font-bold">로그인</button>
                     </div>
                     <div id="loginError" class="error-msg text-center text-xs"></div>
+                    <button type="button" id="passwordResetImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
+                        담임 비밀번호를 재설정했나요? 재설정 파일 가져오기
+                    </button>
                 </form>
 
                 <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
@@ -2454,6 +2457,25 @@ export async function renderLoginScreen(schoolName) {
         };
         document.getElementById('loginUsername').addEventListener('change', refreshSharedPasswordRequirement);
         await refreshSharedPasswordRequirement();
+
+        document.getElementById('passwordResetImportBtn').addEventListener('click', async () => {
+            const button = document.getElementById('passwordResetImportBtn');
+            try {
+                button.disabled = true;
+                button.textContent = '재설정 파일 적용 중...';
+                const username = await window.go.main.App.OpenPasswordResetPackage();
+                if (!username) return;
+                document.getElementById('loginUsername').value = username;
+                await refreshSharedPasswordRequirement();
+                document.getElementById('loginPassword').focus();
+                alert(`'${username}' 계정의 재설정 정보가 적용되었습니다.\n새 초기 비밀번호와 공용 데이터 암호를 입력하세요.`);
+            } catch (err) {
+                alert('재설정 파일 적용 실패: ' + err);
+            } finally {
+                button.disabled = false;
+                button.textContent = '담임 비밀번호를 재설정했나요? 재설정 파일 가져오기';
+            }
+        });
 
         document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {
             const btn = document.getElementById('manualUpdateCheckBtn');
@@ -2831,7 +2853,15 @@ export async function renderUserManagementScreen(schoolName) {
         if (confirm(`'${username}' 계정의 비밀번호를 설정하시겠습니까?`)) {
             try {
                 await window.go.main.App.SetUserPassword(username, pw);
-                alert('비밀번호가 성공적으로 설정되었습니다.');
+                if (username !== 'admin') {
+                    const resetPath = await window.go.main.App.SavePasswordResetPackage(username);
+                    if (!resetPath) {
+                        throw new Error('비밀번호는 설정되었지만 재설정 파일 저장이 취소되었습니다. 다시 재설정해 파일을 전달하세요.');
+                    }
+                    alert(`비밀번호가 설정되고 재설정 파일이 만들어졌습니다.\n담임에게 프로그램과 함께 다음 파일을 전달하세요.\n${resetPath}`);
+                } else {
+                    alert('관리자 비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.');
+                }
                 input.value = '';
                 loadUserList();
             } catch (err) {
