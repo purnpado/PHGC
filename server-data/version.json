@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.42",
+  "latestVersion": "0.5.43",
   "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.42 - A4 문서별 인쇄 레이아웃 개선 및 상담표 인쇄 가독성 보완",
+  "releaseNotes": "v0.5.43 - 인쇄 문서의 다크 테마를 인쇄 친화형 색상으로 전환하고 배지·표·입력칸의 색상 대비를 개선",
   "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
 }
