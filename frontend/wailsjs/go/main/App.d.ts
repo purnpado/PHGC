@@ -14,6 +14,8 @@ export function CloseAdmissionYear(arg1:number,arg2:string):Promise<main.Admissi
 
 export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
 
+export function DeleteStudentApplication(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
+
 export function DeleteUser(arg1:string):Promise<void>;
 
 export function ExportDistributionPackage(arg1:string,arg2:string):Promise<void>;

@@ -26,6 +26,10 @@ export function CreateUser(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateUser'](arg1, arg2, arg3, arg4);
 }
 
+export function DeleteStudentApplication(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['DeleteStudentApplication'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
 export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }

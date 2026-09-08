@@ -1747,7 +1747,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
           <div class="flex justify-center gap-3 mt-5 w-full">
-            ${canEdit && record.schoolName ? '<button id="deleteApplication" class="flex-1 btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">🗑️ 기록 삭제</button>' : ''}
+            ${canEdit && record.id ? '<button id="deleteApplication" class="flex-1 btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">🗑️ 기록 삭제</button>' : ''}
             ${canEdit ? '<button id="saveApplication" class="flex-1 btn-primary px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">💾 희망학교 저장</button>' : '<span class="text-sm text-text-muted w-full text-center">진로부장 계정은 조회 전용입니다.</span>'}
           </div></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
@@ -1870,7 +1870,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             } catch (err) { alert('희망학교 저장 실패: ' + err); }
         });
         document.getElementById('deleteApplication')?.addEventListener('click', async () => {
-            if (!confirm(`'${record.schoolName}' 지원 기록을 완전히 삭제하시겠습니까?`)) return;
+            if (!confirm(`'${record.schoolName || '후기 일반고'}' 지원 기록을 완전히 삭제하시겠습니까?`)) return;
             try {
                 await window.go.main.App.DeleteStudentApplication(classNum, studentNum, name, record.category, record.schoolName, record.track);
                 await render(0);
