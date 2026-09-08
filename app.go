@@ -1750,7 +1750,16 @@ func (a *App) ExportTeacherPatch(password, username string, classNum int, change
 
 // SaveTeacherPatch opens a native save dialog and writes an encrypted patch.
 func (a *App) SaveTeacherPatch(password, username string, classNum int, changes []PatchChange) (string, error) {
-	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "담임 변경분 저장", DefaultFilename: fmt.Sprintf("PHGC-%s-%d.phgcpatch", username, classNum), Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	classTag := username
+	if classNum > 0 && !strings.Contains(username, fmt.Sprintf("%d", classNum)) {
+		classTag = fmt.Sprintf("3%02d_%s", classNum, username)
+	}
+	defaultFilename := fmt.Sprintf("취합자료_%s.phgcpatch", classTag)
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "취합자료 제출(담임)",
+		DefaultFilename: defaultFilename,
+		Filters:         []runtime.FileFilter{{DisplayName: "PHGC 취합자료 (*.phgcpatch)", Pattern: "*.phgcpatch"}},
+	})
 	if err != nil || path == "" {
 		return "", err
 	}
@@ -1764,14 +1773,14 @@ func (a *App) SaveTeacherPatch(password, username string, classNum int, changes 
 // snapshot without choosing records manually.
 func (a *App) SaveCurrentClassPatch(password string) (string, error) {
 	if a.user == nil || a.user.Role != "homeroom" || a.user.ClassNum < 1 {
-		return "", fmt.Errorf("담임 계정으로 로그인한 뒤에만 변경분을 내보낼 수 있습니다")
+		return "", fmt.Errorf("담임 계정으로 로그인한 뒤에만 취합자료를 제출할 수 있습니다")
 	}
 	changes, err := a.db.GetClassPatchChanges(a.user.ClassNum)
 	if err != nil {
 		return "", err
 	}
 	if len(changes) == 0 {
-		return "", fmt.Errorf("내보낼 학생 데이터가 없습니다")
+		return "", fmt.Errorf("제출할 학생 데이터가 없습니다")
 	}
 	return a.SaveTeacherPatch(password, a.user.Username, a.user.ClassNum, changes)
 }
@@ -1880,6 +1889,14 @@ func (a *App) InspectTeacherPatch(password, inputPath string) (PatchPreview, err
 			Extra: change.Extra != "", Applications: len(change.Applications) > 0,
 		})
 	}
+	sort.Slice(preview.Items, func(i, j int) bool {
+		numI, errI := strconv.Atoi(preview.Items[i].StudentNum)
+		numJ, errJ := strconv.Atoi(preview.Items[j].StudentNum)
+		if errI == nil && errJ == nil {
+			return numI < numJ
+		}
+		return preview.Items[i].StudentNum < preview.Items[j].StudentNum
+	})
 	manifestBytes, err := os.ReadFile(manifestPath(a.db.dataDir))
 	if err == nil {
 		var manifest DataManifest
@@ -1893,7 +1910,7 @@ func (a *App) InspectTeacherPatch(password, inputPath string) (PatchPreview, err
 
 // OpenTeacherPatchPreview selects a patch without applying it.
 func (a *App) OpenTeacherPatchPreview(password string) (PatchPreview, error) {
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "담임 변경분 미리보기", Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "취합자료 미리보기(학년부장)", Filters: []runtime.FileFilter{{DisplayName: "PHGC 취합자료 (*.phgcpatch)", Pattern: "*.phgcpatch"}}})
 	if err != nil || path == "" {
 		return PatchPreview{}, err
 	}
@@ -1902,7 +1919,7 @@ func (a *App) OpenTeacherPatchPreview(password string) (PatchPreview, error) {
 
 // OpenTeacherPatch lets the administrator select and merge a patch file.
 func (a *App) OpenTeacherPatch(password string) (int, error) {
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "담임 변경분 가져오기", Filters: []runtime.FileFilter{{DisplayName: "PHGC 변경분", Pattern: "*.phgcpatch"}}})
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "취합자료 병합(학년부장)", Filters: []runtime.FileFilter{{DisplayName: "PHGC 취합자료 (*.phgcpatch)", Pattern: "*.phgcpatch"}}})
 	if err != nil || path == "" {
 		return 0, err
 	}

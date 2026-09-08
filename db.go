@@ -906,8 +906,15 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	if record.ClassNum < 1 || record.StudentNum == "" || record.StudentName == "" || record.AdmissionYear < 2000 || record.Category == "" || record.Status == "" {
 		return fmt.Errorf("지원 기록 정보가 올바르지 않습니다")
 	}
-	validCategories := map[string]bool{"meister": true, "special": true, "self_foreign": true, "general": true, "other": true}
-	validStatuses := map[string]bool{"미입력": true, "지원 예정": true, "지원 완료": true, "합격": true, "불합격": true, "포기": true, "최종 진학": true}
+	validCategories := map[string]bool{"meister": true, "special": true, "self_foreign": true, "general": true, "other": true, "none": true}
+	validStatuses := map[string]bool{
+		"미입력": true,
+		"지원예정": true, "지원 예정": true,
+		"지원완료": true, "지원 완료": true,
+		"합격": true, "불합격": true,
+		"포기": true, "최종 진학": true,
+		"미진학": true,
+	}
 	if !validCategories[record.Category] || !validStatuses[record.Status] {
 		return fmt.Errorf("지원 구분 또는 상태값이 올바르지 않습니다")
 	}
@@ -924,11 +931,14 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	if (record.Category == "meister" || record.Category == "special" || record.Category == "self_foreign") && record.SchoolName == "" {
 		return fmt.Errorf("마이스터고·특성화고·자사고·외고 지원에는 학교명이 필요합니다")
 	}
+	if record.Category == "none" && record.SchoolName == "" {
+		record.SchoolName = "미진학"
+	}
 	if record.Category == "general" && (record.SchoolName != "" || len(record.Preferences) != 0 || record.AssignedDepartment != "") {
 		return fmt.Errorf("후기 일반고는 학교·학과 대신 지원 점수와 상태만 기록합니다")
 	}
-	if record.Category == "self_foreign" && (len(record.Preferences) != 0 || record.AssignedDepartment != "") {
-		return fmt.Errorf("자사고·외고는 학교와 결과 상태만 기록합니다")
+	if (record.Category == "self_foreign" || record.Category == "none") && (len(record.Preferences) != 0 || record.AssignedDepartment != "") {
+		return fmt.Errorf("자사고·외고 및 미진학은 학과 지망을 기록하지 않습니다")
 	}
 	prefs, err := json.Marshal(record.Preferences)
 	if err != nil {
@@ -1027,13 +1037,13 @@ func (dm *DBManager) GetAdmissionClosureReview(admissionYear int) (AdmissionClos
 			}
 			review.TotalRecorded += count
 			switch status {
-			case "미입력", "지원 예정", "지원 완료":
+			case "미입력", "지원예정", "지원 예정", "지원완료", "지원 완료":
 				review.PendingCount += count
 			case "합격":
 				review.AcceptedCount += count
 			case "불합격":
 				review.RejectedCount += count
-			case "포기":
+			case "포기", "미진학":
 				review.WithdrawnCount += count
 			case "최종 진학":
 				review.FinalCount += count
@@ -1231,9 +1241,9 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 			groups[key] = a
 		}
 		switch r.Status {
-		case "지원 예정":
+		case "지원예정", "지원 예정":
 			a.PlannedCount++
-		case "지원 완료":
+		case "지원완료", "지원 완료":
 			a.SubmittedCount++
 		case "합격":
 			a.AcceptedCount++
@@ -1243,7 +1253,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 			a.FinalCount++
 			a.AcceptedCount++
 		}
-		if (r.Status == "지원 예정" || r.Status == "지원 완료") && r.Score > 0 {
+		if (r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료") && r.Score > 0 {
 			a.expectedSum += r.Score
 			a.expectedCount++
 			if !a.hasExpectedMin || r.Score < a.MinExpectedScore {
@@ -1288,7 +1298,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 					// 예정·지원 단계에서만 여러 지망을 각각 집계한다. 합격·불합격
 					// 결과는 실제 배정 학과 한 곳(미입력 시 학교 전체)에만 반영해
 					// 한 학생이 여러 학과 합격자로 중복 집계되는 것을 막는다.
-					if r.Status == "지원 예정" || r.Status == "지원 완료" {
+					if r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료" {
 						for i, department := range r.Preferences {
 							if department != "" {
 								add(r, department, i+1)
@@ -1731,7 +1741,7 @@ func (dm *DBManager) GetClassStudents(classNum int) ([]StudentExcelData, error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students")
+	rows, err := db.Query("SELECT student_num, name, grades_json, IFNULL(attendance_json, ''), IFNULL(volunteer_json, ''), IFNULL(extra_json, '') FROM students ORDER BY CAST(student_num AS INTEGER) ASC, student_num ASC")
 	if err != nil {
 		return nil, err
 	}
