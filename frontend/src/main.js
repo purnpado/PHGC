@@ -1594,9 +1594,9 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     );
     let studentDetail = null;
     let refreshAutoScore = null;
-    // Wails 호출을 동시에 시작하면 일부 PC에서 뒤쪽 호출이 지연될 수 있다.
-    // 고교 목록을 먼저 읽은 뒤 상세 산출값 조회를 시작한다.
-    const studentDetailPromise = Promise.resolve()
+    // Wails 호출은 하나씩 처리한다. 지원 이력 화면을 먼저 만든 뒤 상세 산출값을
+    // 읽어 와야 일부 PC에서 점수 조회가 멈추지 않는다.
+    const loadStudentDetail = () => Promise.resolve()
         .then(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name))
         .catch(() => null);
     const catalog = highSchoolData?.schools || [];
@@ -1649,16 +1649,17 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         if (!type) return '<option value="">해당 없음</option>';
         return `<option value="">학교 선택</option>${catalog.filter(s => s.type === type).map(s => `<option value="${s.name}" ${s.name === selected ? 'selected' : ''}>${s.name}</option>`).join('')}`;
     };
-    const departmentOptions = (schoolName, selected = '', placeholder = '') => {
+    const departmentOptions = (schoolName, selected = '', placeholder = '', excluded = []) => {
         const school = catalog.find(s => s.name === schoolName);
-        return `<option value="">${placeholder}</option>${(school?.departments || []).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
+        return `<option value="">${placeholder}</option>${(school?.departments || []).filter(d => d === selected || !excluded.includes(d)).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
     };
     const departmentControls = (schoolName, preferences = [], assignedDepartment = '') => {
         const departments = catalog.find(s => s.name === schoolName)?.departments || [];
         if (!schoolName) return '<p class="text-xs text-text-muted">지원 학교를 선택하면 해당 학교의 학과 수에 맞춰 지망 입력란이 표시됩니다.</p>';
         if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
         const count = Math.min(5, departments.length);
-        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(학교 학과 수 기준, 최대 5지망)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, preferences[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+        const chosen = preferences.filter(Boolean);
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(앞 지망에서 선택한 학과는 다음 목록에서 제외됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, chosen.filter(department => department !== selected))}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
@@ -1693,11 +1694,14 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
         const refreshDepartmentControls = () => {
             const schoolName = document.getElementById('appSchool').value;
-            const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value).filter(Boolean);
+            const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value);
             const assigned = document.getElementById('appAssigned')?.value || '';
             const area = document.getElementById('appPreferenceArea');
             area.innerHTML = departmentControls(schoolName, preferences, assigned);
             if (!canEdit) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
+            area.querySelectorAll('.app-pref').forEach(select => {
+                select.onchange = () => refreshDepartmentControls();
+            });
         };
         const refreshTrackAndScore = () => {
             const category = document.getElementById('appCategory').value;
@@ -1759,7 +1763,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     };
     try {
         await render();
-        studentDetailPromise.then(detail => {
+        loadStudentDetail().then(detail => {
             if (!detail || !document.body.contains(modal)) return;
             studentDetail = detail;
             refreshAutoScore?.();
