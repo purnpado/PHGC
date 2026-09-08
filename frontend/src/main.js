@@ -1484,29 +1484,47 @@ async function openClassApplicationSummaryModal(classNum) {
         const categoryLabel = category => ({ meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고', other: '기타(집계 제외)' }[category] || category);
         let rows = '<tr><td colspan="11" class="p-10 text-center text-text-muted">우리 반에 기록된 지원희망이 없습니다.</td></tr>';
         if (summaries.length) {
-            let currentSchool = null;
-            let currentCategory = null;
-            let currentYear = null;
-            let rowSpanCount = 0;
+            let currentSchool = null, currentCategory = null, currentYear = null;
+            let currentDept = null, currentTrack = null;
             const groupedRows = [];
+            
             summaries.forEach(s => {
                 const isSameGroup = currentSchool === s.schoolName && currentCategory === s.category && currentYear === s.admissionYear;
+                const isSameDept = isSameGroup && currentDept === s.department;
+                const isSameTrack = isSameDept && currentTrack === s.track;
+                
+                let rowSpanSchool = 0, rowSpanDept = 0, rowSpanTrack = 0;
+
                 if (!isSameGroup) {
-                    currentSchool = s.schoolName;
-                    currentCategory = s.category;
-                    currentYear = s.admissionYear;
-                    rowSpanCount = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear).length;
-                    groupedRows.push({ ...s, rowSpan: rowSpanCount, isFirst: true });
-                } else {
-                    groupedRows.push({ ...s, isFirst: false });
+                    currentSchool = s.schoolName; currentCategory = s.category; currentYear = s.admissionYear;
+                    rowSpanSchool = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear).length;
                 }
+                if (!isSameDept) {
+                    currentDept = s.department;
+                    rowSpanDept = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept).length;
+                }
+                if (!isSameTrack) {
+                    currentTrack = s.track;
+                    rowSpanTrack = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept && x.track === currentTrack).length;
+                }
+                
+                groupedRows.push({ 
+                    ...s, 
+                    isFirstGroup: !isSameGroup, rowSpanSchool,
+                    isFirstDept: !isSameDept, rowSpanDept,
+                    isFirstTrack: !isSameTrack, rowSpanTrack
+                });
             });
+            
             rows = groupedRows.map(s => {
-                const groupCells = s.isFirst ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpan}">${s.admissionYear}학년도</td><td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpan}">${categoryLabel(s.category)}</td><td class="p-3 font-bold text-white border-r border-slate-700/50" rowspan="${s.rowSpan}">${s.schoolName || '후기 일반고'}</td>` : '';
+                const groupCells = s.isFirstGroup ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.admissionYear}학년도</td><td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${categoryLabel(s.category)}</td><td class="p-3 font-bold text-white border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.schoolName || '후기 일반고'}</td>` : '';
+                const deptCell = s.isFirstDept ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanDept}">${s.department || '-'}</td>` : '';
+                const trackCell = s.isFirstTrack ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanTrack}">${s.track || '-'}</td>` : '';
+                
                 return `<tr class="border-b border-slate-700/60 hover:bg-slate-800/40 transition-colors">
                     ${groupCells}
-                    <td class="p-3">${s.track || '-'}</td>
-                    <td class="p-3">${s.department || '-'}</td>
+                    ${deptCell}
+                    ${trackCell}
                     <td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td>
                     <td class="p-3 text-center text-cyan-200 font-medium">${s.plannedCount}</td>
                     <td class="p-3 text-center text-indigo-200 font-medium">${s.submittedCount}</td>
@@ -1516,7 +1534,7 @@ async function openClassApplicationSummaryModal(classNum) {
                 </tr>`;
             }).join('');
         }
-        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
+        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">학과</th><th class="p-3">전형</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
         document.getElementById('printClassSummary').onclick = () => printOnly('summary', 'landscape');
     } catch (err) {
