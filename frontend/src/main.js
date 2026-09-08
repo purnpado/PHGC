@@ -4120,7 +4120,30 @@ async function renderCutoffScreen(schoolName) {
     let publicOfficialData = publicOfficialDefaults;
     try {
         const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
-        if (savedPublicData) publicOfficialData = JSON.parse(savedPublicData);
+        if (savedPublicData) {
+            publicOfficialData = JSON.parse(savedPublicData);
+        } else {
+            // 서버에 배포된 공식 입결 자료(official_admission_data.json) 자동 조회
+            const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
+            if (officialResp?.items && Array.isArray(officialResp.items) && officialResp.items.length > 0) {
+                const serverOfficialList = officialResp.items.map(item => ({
+                    year: item.admissionYear || item.year || currentAdmissionYear,
+                    school: item.schoolName || item.school || '',
+                    dept: item.department || '',
+                    track: item.track || '일반전형',
+                    min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
+                    max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
+                    avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
+                    unit: String(item.schoolName || '').includes('일반계고') ? '%' : '점',
+                    note: item.source || item.note || '공식자료'
+                })).filter(x => x.school);
+
+                if (serverOfficialList.length > 0) {
+                    publicOfficialData = serverOfficialList;
+                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                }
+            }
+        }
     } catch (e) {
         console.warn('공개 데이터 불러오기 실패:', e);
     }
@@ -4655,7 +4678,7 @@ async function renderCutoffScreen(schoolName) {
                         </div>
                         <div class="space-y-2 text-slate-300">
                             <p class="flex items-start gap-1.5"><span class="text-emerald-400 font-bold">✓</span> <span><strong>개인정보 철저 보호:</strong> 학생 성명, 학급, 교사 정보, 개별 성적은 일절 전송되지 않으며 순수 학교·전형별 기준점만 전송됩니다.</span></p>
-                            <p class="flex items-start gap-1.5"><span class="text-cyan-400 font-bold">✓</span> <span><strong>관내 진학 지도 공유:</strong> 전송된 자료는 교육청/운영자 검토 후 울산 관내 참여 학교 간 진학 지도 참고자료로 공유됩니다.</span></p>
+                            <p class="flex items-start gap-1.5"><span class="text-cyan-400 font-bold">✓</span> <span><strong>관내 진학 지도 공유:</strong> 전송된 자료는 운영자 검토 후 울산 관내 참여 학교 간 진학 지도 참고자료로 공유됩니다.</span></p>
                         </div>
                     </div>
                 `,
@@ -4686,7 +4709,7 @@ async function renderCutoffScreen(schoolName) {
             }
         });
 
-        // 10. 중앙 서버 데이터 내려받기
+        // 10. 중앙 서버 데이터 내려받기 (커트라인 + 고교·교육청 공식 공개자료 동시 동기화)
         document.getElementById('importBridgeCutoffBtn')?.addEventListener('click', async () => {
             const btn = document.getElementById('importBridgeCutoffBtn');
             btn.disabled = true;
@@ -4695,9 +4718,38 @@ async function renderCutoffScreen(schoolName) {
             try {
                 const count = await window.go.main.App.FetchCutoffsFromBridge(currentAdmissionYear);
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+
+                // 서버에 배포된 최신 공식 입시자료(official_admission_data.json) 동기화
+                let officialCount = 0;
+                try {
+                    const officialResp = await window.go.main.App.GetOfficialAdmissionData();
+                    if (officialResp?.items && Array.isArray(officialResp.items) && officialResp.items.length > 0) {
+                        const serverOfficialList = officialResp.items.map(item => ({
+                            year: item.admissionYear || item.year || currentAdmissionYear,
+                            school: item.schoolName || item.school || '',
+                            dept: item.department || '',
+                            track: item.track || '일반전형',
+                            min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
+                            max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
+                            avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
+                            unit: String(item.schoolName || '').includes('일반계고') ? '%' : '점',
+                            note: item.source || item.note || '공식자료'
+                        })).filter(x => x.school);
+
+                        if (serverOfficialList.length > 0) {
+                            officialCount = serverOfficialList.length;
+                            publicOfficialData = serverOfficialList;
+                            localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                        }
+                    }
+                } catch (e) {
+                    console.warn('공식 입결 데이터 서버 동기화 생략:', e);
+                }
+
+                const msgExtra = officialCount > 0 ? `<br>✓ 공식 입결 자료 <strong>${officialCount}건</strong>도 최신으로 동기화되었습니다.` : '';
                 await showModalAlert({
                     title: '내려받기 완료',
-                    message: `<strong>${currentAdmissionYear}학년도</strong> 중앙 서버에서 총 <strong>${count}건</strong>의 커트라인 데이터를 성공적으로 내려받았습니다!`,
+                    message: `<strong>${currentAdmissionYear}학년도</strong> 중앙 서버에서 커트라인 <strong>${count}건</strong>을 성공적으로 내려받았습니다!${msgExtra}`,
                     type: 'success'
                 });
                 renderMainScreen();
