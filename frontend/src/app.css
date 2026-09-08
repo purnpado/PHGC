@@ -268,8 +268,8 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing .overflow-auto,
     body.printing .overflow-y-auto,
     body.printing .overflow-x-auto,
-    body.printing .max-h-[70vh],
-    body.printing .max-h-[55vh] {
+    body.printing .max-h-\[70vh\],
+    body.printing .max-h-\[55vh\] {
         overflow: visible !important;
         max-height: none !important;
     }
