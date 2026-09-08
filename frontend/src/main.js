@@ -3410,15 +3410,16 @@ export async function renderLoginScreen(schoolName) {
                         <button type="submit" id="loginBtn" class="btn-primary py-2 text-xs font-bold">로그인</button>
                     </div>
                     <div id="loginError" class="error-msg text-center text-xs"></div>
-                    <div class="grid gap-2 mt-4 pt-4 border-t border-slate-700/60">
-                        <button type="button" id="passwordResetImportBtn" class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-left hover:bg-indigo-500/10 transition-colors w-full flex items-center gap-2">
-                            <div class="font-semibold text-indigo-300 text-xs">🔑 담임 비밀번호 재설정 파일 가져오기</div>
+                    <div class="space-y-2.5 mt-5 pt-4 border-t border-slate-700/60">
+                        <button type="button" id="distributionPackageImportBtn" 
+                                class="group w-full py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-950/25 hover:bg-emerald-900/40 hover:border-emerald-400/70 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
+                            <span class="text-base group-hover:scale-110 transition-transform">📦</span>
+                            <span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기</span>
                         </button>
-                        <button type="button" id="distributionPackageImportBtn" class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-left hover:bg-emerald-500/10 transition-colors w-full flex items-center gap-2">
-                            <div class="font-semibold text-emerald-300 text-xs">📦 학년부장 배포 자료 가져오기</div>
-                        </button>
-                        <button type="button" id="finalArchiveImportBtn" class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-left hover:bg-amber-500/10 transition-colors w-full flex items-center gap-2">
-                            <div class="font-semibold text-amber-300 text-xs">🗄️ 암호화 최종 보관본 복원하기</div>
+                        <button type="button" id="finalArchiveImportBtn" 
+                                class="group w-full py-2.5 px-4 rounded-xl border border-amber-500/30 bg-amber-950/15 hover:bg-amber-900/30 hover:border-amber-400/60 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
+                            <span class="text-base group-hover:scale-110 transition-transform">🗄️</span>
+                            <span class="font-bold text-amber-300/90 group-hover:text-amber-200 text-xs tracking-wide">암호화 최종 보관본 복원하기</span>
                         </button>
                     </div>
                 </form>
@@ -3445,30 +3446,11 @@ export async function renderLoginScreen(schoolName) {
         document.getElementById('loginUsername').addEventListener('change', refreshSharedPasswordRequirement);
         await refreshSharedPasswordRequirement();
 
-        document.getElementById('passwordResetImportBtn').addEventListener('click', async () => {
-            const button = document.getElementById('passwordResetImportBtn');
-            try {
-                button.disabled = true;
-                button.textContent = '재설정 파일 적용 중...';
-                const username = await window.go.main.App.OpenPasswordResetPackage();
-                if (!username) return;
-                document.getElementById('loginUsername').value = username;
-                await refreshSharedPasswordRequirement();
-                document.getElementById('loginPassword').focus();
-                alert(`'${username}' 계정의 재설정 정보가 적용되었습니다.\n새 초기 비밀번호와 공용 데이터 암호를 입력하세요.`);
-            } catch (err) {
-                alert('재설정 파일 적용 실패: ' + err);
-            } finally {
-                button.disabled = false;
-                button.textContent = '담임 비밀번호를 재설정했나요? 재설정 파일 가져오기';
-            }
-        });
-
         document.getElementById('distributionPackageImportBtn').addEventListener('click', async () => {
             const button = document.getElementById('distributionPackageImportBtn');
             try {
                 button.disabled = true;
-                button.textContent = '배포 자료 적용 중...';
+                button.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> <span class="text-xs font-bold text-emerald-200">배포 자료 적용 중...</span>';
                 const username = await window.go.main.App.OpenDistributionPackage();
                 if (!username) return;
                 const accountSelect = document.getElementById('loginUsername');
@@ -3484,7 +3466,7 @@ export async function renderLoginScreen(schoolName) {
                 alert('배포 자료 가져오기 실패: ' + err);
             } finally {
                 button.disabled = false;
-                button.textContent = '학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기';
+                button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">📦</span><span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기</span>';
             }
         });
 
@@ -3494,14 +3476,18 @@ export async function renderLoginScreen(schoolName) {
             if (!password) return;
             try {
                 button.disabled = true;
-                button.textContent = '최종 보관본 복원 중...';
+                button.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> <span class="text-xs font-bold text-amber-200">최종 보관본 복원 중...</span>';
                 const path = await window.go.main.App.OpenFinalArchive();
                 if (!path) return;
                 const school = await window.go.main.App.ImportFinalArchive(path, password);
                 alert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`);
                 window.location.reload();
-            } catch (err) { alert('최종 보관본 복원 실패: ' + err); }
-            finally { button.disabled = false; button.textContent = '암호화 최종 보관본 복원하기'; }
+            } catch (err) {
+                alert('최종 보관본 복원 실패: ' + err);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">🗄️</span><span class="font-bold text-amber-300/90 group-hover:text-amber-200 text-xs tracking-wide">암호화 최종 보관본 복원하기</span>';
+            }
         });
 
         document.getElementById('loginPassword').focus();
