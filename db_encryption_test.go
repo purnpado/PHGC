@@ -318,6 +318,9 @@ func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
 			t.Fatalf("InitClassDB(%d): %v", classNum, err)
 		}
 	}
+	if err := os.WriteFile(filepath.Join(masterDir, "highschools.json"), []byte(`{"schools":[{"name":"울산마이스터고등학교","type":"마이스터고","departments":["전기시스템제어과"]}]}`), 0600); err != nil {
+		t.Fatalf("write highschool catalog: %v", err)
+	}
 	pkgPath := filepath.Join(masterDir, "PHGC-301.phgcpkg")
 	if err := master.ExportDistributionPackage("301", pkgPath); err != nil {
 		t.Fatalf("ExportDistributionPackage: %v", err)
@@ -335,7 +338,7 @@ func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
 		}
 	}
 	archive.Close()
-	if !entryNames["config.db.phgc"] || !entryNames["class_1.db.phgc"] || entryNames["class_2.db.phgc"] {
+	if !entryNames["config.db.phgc"] || !entryNames["class_1.db.phgc"] || entryNames["class_2.db.phgc"] || !entryNames["highschools.json"] {
 		t.Fatalf("unexpected homeroom package entries: %#v", entryNames)
 	}
 
@@ -350,6 +353,9 @@ func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
 	}
 	if !receiver.NeedsSharedDataPassword("301") {
 		t.Fatal("recipient must be enrolled with the shared password on first login")
+	}
+	if _, err := os.Stat(filepath.Join(receiverDir, "highschools.json")); err != nil {
+		t.Fatalf("recipient must receive highschool catalog: %v", err)
 	}
 	user, err := receiver.UnlockSharedAndLogin("301", "teacher-initial-password", "shared-password")
 	if err != nil || user.Username != "301" || user.Role != "homeroom" {

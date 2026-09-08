@@ -1586,11 +1586,47 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         Promise.resolve().then(operation).then(result => result ?? fallback).catch(() => fallback),
         new Promise(resolve => setTimeout(() => resolve(fallback), timeoutMs)),
     ]);
-    const highSchoolData = await withFallback(
-        () => window.go?.main?.App?.GetHighSchoolsData?.(),
-        { schools: [] },
-    );
+    const [highSchoolData, studentDetail] = await Promise.all([
+        withFallback(() => window.go?.main?.App?.GetHighSchoolsData?.(), { schools: [] }),
+        withFallback(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name), null),
+    ]);
     const catalog = highSchoolData?.schools || [];
+    const normalizedSchoolName = value => String(value || '').replace(/고등학교/g, '').replace(/\s/g, '');
+    const trackLabel = track => ({
+        '일반': '일반전형',
+        '특별': '특별전형',
+        '취업희망자': '취업희망자 특별전형',
+        '후기 일반계고': '후기 일반계고',
+    }[track] || track);
+    const calculatedTracks = schoolName => [...new Set((studentDetail?.schoolResults || [])
+        .filter(result => normalizedSchoolName(result.schoolName) === normalizedSchoolName(schoolName))
+        .map(result => result.trackName)
+        .filter(Boolean))];
+    const fallbackTracks = category => {
+        if (category === 'meister') return ['일반', '특별'];
+        if (category === 'special') return ['일반', '취업희망자'];
+        if (category === 'self_foreign') return ['자사고·외고 전형'];
+        if (category === 'general') return ['후기 일반계고'];
+        return ['기타 전형'];
+    };
+    const trackOptions = (category, schoolName, selected = '') => {
+        const tracks = (['meister', 'special'].includes(category) && schoolName)
+            ? (calculatedTracks(schoolName).length ? calculatedTracks(schoolName) : fallbackTracks(category))
+            : fallbackTracks(category);
+        return tracks.map(track => `<option value="${track}" ${track === selected ? 'selected' : ''}>${trackLabel(track)}</option>`).join('');
+    };
+    const calculatedScore = (category, schoolName, track) => {
+        if (category === 'general') {
+            const value = Number(studentDetail?.generalHSTotalScore);
+            return Number.isFinite(value) && value > 0 ? { score: value, basis: '후기 일반계고 내신 자동 산출' } : null;
+        }
+        if (!['meister', 'special'].includes(category) || !schoolName || !track) return null;
+        const result = (studentDetail?.schoolResults || []).find(item =>
+            normalizedSchoolName(item.schoolName) === normalizedSchoolName(schoolName) && item.trackName === track,
+        );
+        if (!result || !Number.isFinite(Number(result.totalScore))) return null;
+        return { score: Number(result.totalScore), basis: `${result.schoolName} ${trackLabel(result.trackName)} 자동 산출 (${result.totalMax}점 만점)` };
+    };
     const schoolOptions = (category, selected = '') => {
         const type = category === 'meister' ? '마이스터고' : category === 'special' ? '특성화고' : '';
         if (category === 'self_foreign') {
@@ -1608,6 +1644,13 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         const school = catalog.find(s => s.name === schoolName);
         return `<option value="">${placeholder}</option>${(school?.departments || []).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
     };
+    const departmentControls = (schoolName, preferences = [], assignedDepartment = '') => {
+        const departments = catalog.find(s => s.name === schoolName)?.departments || [];
+        if (!schoolName) return '<p class="text-xs text-text-muted">지원 학교를 선택하면 해당 학교의 학과 수에 맞춰 지망 입력란이 표시됩니다.</p>';
+        if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
+        const count = Math.min(5, departments.length);
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(학교 학과 수 기준, 최대 5지망)</span></p><div class="grid grid-cols-1 md:grid-cols-5 gap-2">${Array.from({ length: count }, (_, i) => `<select class="input-field app-pref">${departmentOptions(schoolName, preferences[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+    };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
             () => window.go?.main?.App?.GetStudentApplications?.(classNum, studentNum, name),
@@ -1617,42 +1660,75 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         const isGeneral = record.category === 'general';
         const needsSchool = ['meister', 'special', 'self_foreign'].includes(record.category);
         const needsDepartment = ['meister', 'special'].includes(record.category);
+        const autoScore = calculatedScore(record.category, record.schoolName, record.track);
+        const displayedScore = record.id ? record.score : (autoScore?.score ?? record.score);
+        const displayedBasis = record.scoreBasis || autoScore?.basis || '';
         const list = records.length ? records.map((r, i) => `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${r.schoolName || '후기 일반고'} · ${r.status}</button>`).join('') : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
         modal.innerHTML = `
-          <div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📝 ${name} 지원·합격 현황</h2><p class="text-sm text-text-muted mt-1">이 자료는 학급 암호화 DB와 담임 변경분 파일에만 저장됩니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationModal" class="text-3xl text-text-muted">×</button></div>
+          <div class="glass-card p-7 w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📝 ${name} 지원·합격 현황</h2><p class="text-sm text-text-muted mt-1">이 자료는 학급 암호화 DB와 담임 변경분 파일에만 저장됩니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationModal" class="text-3xl text-text-muted">×</button></div>
           <div class="flex flex-wrap gap-2 mb-5">${list}</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-700 p-5 bg-slate-900/40">
             <label class="text-sm font-bold">입학년도<input id="appYear" type="text" inputmode="numeric" value="${record.admissionYear || ''}" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
             <label class="text-sm font-bold">전형 구분<select id="appCategory" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${categoryOptions.map(([v,t]) => `<option value="${v}" ${record.category === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
             <label class="text-sm font-bold">지원 학교<select id="appSchool" class="input-field mt-1 w-full" ${(!needsSchool && record.category !== 'other') || !canEdit ? 'disabled' : ''}>${schoolOptions(record.category, record.schoolName)}</select></label>
-            <label class="text-sm font-bold">전형 / 지원 유형<input id="appTrack" value="${record.track || ''}" placeholder="예: 일반전형, 취업희망자" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
+            <label class="text-sm font-bold">전형 / 지원 유형<select id="appTrack" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${trackOptions(record.category, record.schoolName, record.track)}</select></label>
             <label class="text-sm font-bold">지원 상태<select id="appStatus" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${statusOptions.map(v => `<option ${record.status === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
-            <label class="text-sm font-bold">점수 스냅샷<input id="appScore" type="text" inputmode="decimal" value="${record.score || ''}" placeholder="지원 당시 산출 점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
-            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${record.scoreBasis || ''}" placeholder="예: 3-1 누적 예상, 1차 서류점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
-            <div id="appPreferenceArea" class="md:col-span-2 ${needsDepartment ? '' : 'hidden'}"><p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(최대 5지망, 중복 불가)</span></p><div class="grid grid-cols-1 md:grid-cols-5 gap-2">${[0,1,2,3,4].map(i => `<select class="input-field app-pref" ${canEdit ? '' : 'disabled'}>${departmentOptions(record.schoolName, record.preferences?.[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${departmentOptions(record.schoolName, record.assignedDepartment || '', '최종 배정 학과 선택')}</select></label></div>
+            <label class="text-sm font-bold">점수 스냅샷 <span class="text-[11px] text-cyan-300">자동</span><input id="appScore" type="text" inputmode="decimal" value="${displayedScore || ''}" placeholder="학교·전형 선택 시 자동 산출" class="input-field mt-1 w-full" ${autoScore ? 'readonly' : (canEdit ? '' : 'disabled')}></label>
+            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${displayedBasis}" placeholder="예: 3-1 누적 예상, 1차 서류점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
+            <div id="appPreferenceArea" class="md:col-span-2 ${needsDepartment ? '' : 'hidden'}">${departmentControls(record.schoolName, record.preferences || [], record.assignedDepartment || '')}</div>
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
-          <div class="flex justify-end gap-2 mt-5">${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 font-bold">💾 지원 현황 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}</div>`;
+          <div class="flex justify-end gap-2 mt-5">${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 font-bold">💾 지원 현황 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}</div></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
+        if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
-        const refreshDepartments = () => {
+        const refreshDepartmentControls = () => {
             const schoolName = document.getElementById('appSchool').value;
-            modal.querySelectorAll('.app-pref').forEach((el, index) => { const selected = el.value; el.innerHTML = departmentOptions(schoolName, selected, `${index + 1}지망`); });
-            const assigned = document.getElementById('appAssigned');
-            assigned.innerHTML = departmentOptions(schoolName, assigned.value, '최종 배정 학과 선택');
+            const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value).filter(Boolean);
+            const assigned = document.getElementById('appAssigned')?.value || '';
+            const area = document.getElementById('appPreferenceArea');
+            area.innerHTML = departmentControls(schoolName, preferences, assigned);
+            if (!canEdit) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
+        };
+        const refreshTrackAndScore = () => {
+            const category = document.getElementById('appCategory').value;
+            const schoolName = document.getElementById('appSchool').value;
+            const track = document.getElementById('appTrack');
+            const previousTrack = track.value;
+            track.innerHTML = trackOptions(category, schoolName, previousTrack);
+            const auto = calculatedScore(category, schoolName, track.value);
+            const scoreInput = document.getElementById('appScore');
+            const basisInput = document.getElementById('appBasis');
+            if (auto) {
+                scoreInput.value = auto.score.toFixed(2);
+                scoreInput.readOnly = true;
+                if (!basisInput.value || basisInput.dataset.auto === 'true') {
+                    basisInput.value = auto.basis;
+                    basisInput.dataset.auto = 'true';
+                }
+            } else {
+                scoreInput.readOnly = !canEdit;
+                if (['meister', 'special', 'general'].includes(category)) scoreInput.value = '';
+            }
         };
         document.getElementById('appCategory').onchange = () => {
             const category = document.getElementById('appCategory').value;
             const general = category === 'general';
             const schoolRequired = ['meister', 'special', 'self_foreign'].includes(category);
             const departmentRequired = ['meister', 'special'].includes(category);
-            document.getElementById('appSchool').disabled = (!schoolRequired && category !== 'other') || !canEdit;
-            document.getElementById('appSchool').innerHTML = schoolOptions(category);
+            const schoolSelect = document.getElementById('appSchool');
+            schoolSelect.disabled = (!schoolRequired && category !== 'other') || !canEdit;
+            schoolSelect.innerHTML = schoolOptions(category);
             document.getElementById('appPreferenceArea').classList.toggle('hidden', !departmentRequired);
             document.getElementById('generalApplicationGuide').classList.toggle('hidden', !general);
-            refreshDepartments();
+            refreshDepartmentControls();
+            refreshTrackAndScore();
         };
-        document.getElementById('appSchool').onchange = refreshDepartments;
+        document.getElementById('appSchool').onchange = () => {
+            refreshDepartmentControls();
+            refreshTrackAndScore();
+        };
+        document.getElementById('appTrack').onchange = refreshTrackAndScore;
         document.getElementById('saveApplication')?.addEventListener('click', async () => {
             const category = document.getElementById('appCategory').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value.trim()).filter(Boolean);

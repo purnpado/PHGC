@@ -643,6 +643,15 @@ func (a *App) ExportDistributionPackage(username, outputPath string) error {
 		}
 		files = append(files, name)
 	}
+	// 고교·학과 목록은 개인정보가 아닌 공용 참고자료지만, 담임의 새
+	// 프로그램 폴더에서도 지원현황 입력을 바로 할 수 있도록 함께 전달한다.
+	highSchools := filepath.Join(a.db.dataDir, "highschools.json")
+	if info, statErr := os.Stat(highSchools); statErr == nil && !info.IsDir() {
+		if err := copyPackageFile(highSchools, filepath.Join(tmpDir, "highschools.json")); err != nil {
+			return err
+		}
+		files = append(files, "highschools.json")
+	}
 	manifest := DistributionPackageManifest{Format: "PHGC-DEPLOYMENT-1", Username: target.Username, Role: target.Role, ClassNum: target.ClassNum, Files: files}
 	manifestJSON, err := json.Marshal(manifest)
 	if err != nil {
