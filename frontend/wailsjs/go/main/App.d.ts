@@ -140,6 +140,8 @@ export function SendCutoffsToBridge(arg1:number):Promise<void>;
 
 export function SetUserPassword(arg1:string,arg2:string):Promise<void>;
 
+export function SetWindowTitle(arg1:string):Promise<void>;
+
 export function SetupApp(arg1:main.SetupRequest):Promise<void>;
 
 export function SubmitExpectedSupport():Promise<number>;

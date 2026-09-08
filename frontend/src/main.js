@@ -9,6 +9,27 @@ const app = document.querySelector('#app');
 // 현재 로그인한 사용자 세션 (role, classNum, username 등 저장)
 window.currentUser = null;
 
+// ===== 프로그램 창 제목(Window Title) 동적 변경 헬퍼 =====
+function updateAppWindowTitle(role = '', detail = '') {
+    let roleLabel = '';
+    if (role === 'master') {
+        roleLabel = detail ? `[학년부장 · ${detail}]` : '[학년부장]';
+    } else if (role === 'homeroom') {
+        roleLabel = detail ? `[3학년 ${detail}반 담임]` : '[담임교사]';
+    } else if (role === 'viewer') {
+        roleLabel = '[전체 열람 모드]';
+    }
+
+    const title = roleLabel 
+        ? `진학 상담 프로그램 ${roleLabel} - 그래서? 넌 어디갈래?` 
+        : '진학 상담 프로그램 - 그래서? 넌 어디갈래?';
+
+    if (window.go?.main?.App?.SetWindowTitle) {
+        window.go.main.App.SetWindowTitle(title).catch(() => {});
+    }
+}
+window.updateAppWindowTitle = updateAppWindowTitle;
+
 // ===== SweetAlert2 스타일 커스텀 모달 알림창 =====
 function showModalAlert({ title = '알림', message = '', type = 'info', confirmText = '확인' } = {}) {
     return new Promise((resolve) => {
@@ -796,6 +817,7 @@ async function renderAdminScreen(schoolName) {
     }
 
     app.className = 'wide-layout';
+    updateAppWindowTitle('master');
 
     app.innerHTML = `
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
@@ -928,6 +950,7 @@ async function renderAdminScreen(schoolName) {
     document.getElementById('backBtn').addEventListener('click', async () => {
         await window.go.main.App.Logout?.().catch(() => {});
         window.currentUser = null; // 로그아웃
+        updateAppWindowTitle();
         renderLoginScreen(schoolName);
     });
 
@@ -1407,6 +1430,19 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
     });
 
+    // 창 제목 역할 반영
+    if (window.currentUser?.Role === 'homeroom') {
+        updateAppWindowTitle('homeroom', window.currentUser.ClassNum);
+    } else if (window.currentUser?.Role === 'viewer') {
+        updateAppWindowTitle('viewer');
+    } else if (window.currentUser?.Role === 'master') {
+        if (targetClassNum) {
+            updateAppWindowTitle('master', `3학년 ${targetClassNum}반`);
+        } else {
+            updateAppWindowTitle('master');
+        }
+    }
+
     // 학급 카드 클릭 시 학급 로드 함수
     const loadClass = async (classNum) => {
         if (!classNum) {
@@ -1414,10 +1450,19 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
             document.getElementById('classGridHomeBtn').style.display = 'none';
             document.getElementById('teacherContent').innerHTML = getClassGridHTML();
             bindGridEvents();
+            if (window.currentUser?.Role === 'master') {
+                updateAppWindowTitle('master');
+            }
             return;
         }
 
         activeClassNum = classNum;
+        if (window.currentUser?.Role === 'master') {
+            updateAppWindowTitle('master', `3학년 ${classNum}반`);
+        } else if (window.currentUser?.Role === 'homeroom') {
+            updateAppWindowTitle('homeroom', classNum);
+        }
+
         document.getElementById('classGridHomeBtn').style.display = 'inline-flex';
         document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
         
@@ -1451,8 +1496,10 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         if (window.currentUser && (window.currentUser.Role === 'homeroom' || window.currentUser.Role === 'viewer')) {
             await window.go.main.App.Logout?.().catch(() => {});
             window.currentUser = null;
+            updateAppWindowTitle();
             renderLoginScreen(schoolName);
         } else {
+            updateAppWindowTitle('master');
             renderAdminScreen(schoolName);
         }
     });
@@ -1476,36 +1523,93 @@ function isSameTrack(left, right) {
     return a.includes(b) || b.includes(a);
 }
 
+// ===== 마이스터고 및 특성화고 합격 가능 예측 뱃지 렌더러 =====
 function renderPredictionBadges(results, cutoffs, schoolGroup) {
-    const schoolNames = schoolGroup === 'meister'
+    const isMeister = schoolGroup === 'meister';
+    const schoolNames = isMeister
         ? new Set(['울산마이스터고', '울산에너지고', '현대공업고'])
         : new Set(['울산상업고', '울산여자상업고', '울산생활과학고', '울산공업고', '울산산업고', '울산미용예술고', '울산기술공업고']);
+
+    // 해당 학교군에 등록된 커트라인이 존재하는지 확인
+    const relevantCutoffs = (cutoffs || []).filter(c => 
+        schoolNames.has(normalizeSchoolName(c.schoolName)) && Number(c.minValue) > 0
+    );
+
+    if (!relevantCutoffs.length) {
+        return '<span class="text-xs text-slate-500 font-normal">커트라인 미등록</span>';
+    }
+
     const badges = [];
     const seen = new Set();
 
     (results || []).filter(r => schoolNames.has(normalizeSchoolName(r.schoolName))).forEach(r => {
-        const candidates = (cutoffs || [])
+        const candidates = relevantCutoffs
             .filter(c => normalizeSchoolName(c.schoolName) === normalizeSchoolName(r.schoolName)
-                && isSameTrack(c.track, r.trackName)
-                && c.department && c.department !== '공통'
-                && Number(c.minValue) > 0)
+                && isSameTrack(c.track, r.trackName))
             .sort((a, b) => Number(b.year || 0) - Number(a.year || 0));
 
         candidates.forEach(c => {
-            const key = `${normalizeSchoolName(r.schoolName)}_${c.department}_${r.trackName}`;
+            const deptLabel = (!c.department || c.department === '공통') ? '' : c.department;
+            const key = `${normalizeSchoolName(r.schoolName)}_${deptLabel}_${r.trackName}`;
+
             if (!seen.has(key) && Number(r.totalScore) >= Number(c.minValue)) {
                 seen.add(key);
-                badges.push(`<span class="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[11px] font-bold text-cyan-200">${r.schoolName} · ${c.department}</span>`);
+                const displayLabel = deptLabel 
+                    ? `${r.schoolName} · ${deptLabel}`
+                    : `${r.schoolName} (${r.trackName})`;
+
+                const badgeColor = isMeister
+                    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300'
+                    : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300';
+
+                badges.push(`<span class="inline-flex items-center rounded-lg border ${badgeColor} px-2 py-0.5 text-[11px] font-bold shadow-xs whitespace-nowrap">${displayLabel}</span>`);
             }
         });
     });
 
     if (!badges.length) {
-        return '<span class="text-xs text-slate-500">커트라인 입력 후 표시</span>';
+        return '<span class="text-xs text-slate-400/80 font-normal">지원권 밖</span>';
     }
     const visible = badges.slice(0, 3).join('');
-    const extra = badges.length > 3 ? `<span class="text-[11px] text-cyan-300">+${badges.length - 3}</span>` : '';
-    return `<div class="flex flex-wrap justify-center gap-1.5">${visible}${extra}</div>`;
+    const extra = badges.length > 3 ? `<span class="text-[11px] font-bold text-indigo-300 ml-1">+${badges.length - 3}</span>` : '';
+    return `<div class="flex flex-wrap justify-center items-center gap-1.5">${visible}${extra}</div>`;
+}
+
+// ===== 희망학교 세로 1열 스택(Vertical Stack) 렌더러 =====
+function renderApplicationSummary(applications) {
+    const completed = (applications || []).filter(a => a.status && a.status !== '미입력');
+    if (!completed.length) {
+        return '<span class="text-xs text-slate-500 font-medium">미입력</span>';
+    }
+
+    const getStatusTheme = (status) => {
+        switch (status) {
+            case '합격':
+                return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold';
+            case '불합격':
+                return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+            case '지원 완료':
+                return 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-semibold';
+            case '미진학':
+                return 'bg-slate-700/50 text-slate-400 border-slate-600/40';
+            case '지원 예정':
+            default:
+                return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+        }
+    };
+
+    const items = completed.map(a => {
+        const theme = getStatusTheme(a.status);
+        const school = a.schoolName || '후기 일반고';
+        return `
+            <div class="inline-flex items-center justify-between w-full max-w-[210px] px-2.5 py-1 rounded-md text-[11px] border ${theme} shadow-xs">
+                <span class="truncate max-w-[130px] font-medium" title="${school}">${school}</span>
+                <span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-black/25 font-bold whitespace-nowrap">${a.status}</span>
+            </div>
+        `;
+    });
+
+    return `<div class="flex flex-col gap-1.5 items-center w-full">${items.join('')}</div>`;
 }
 
 async function renderStudentList(students, classNum) {
@@ -1519,10 +1623,43 @@ async function renderStudentList(students, classNum) {
         return;
     }
 
-    const [fullStudents, cutoffs] = await Promise.all([
+    const [fullStudents, dbCutoffs, officialResp] = await Promise.all([
         window.go.main.App.GetClassFullGrades(classNum).catch(() => []),
         window.go.main.App.GetCutoffs().catch(() => []),
+        window.go.main.App.GetOfficialAdmissionData().catch(() => null),
     ]);
+
+    // 공식 공개 자료를 커트라인 형태로 정규화 및 결합
+    const officialCutoffs = (officialResp?.items || []).map(item => ({
+        schoolName: item.schoolName || '',
+        department: item.department || '',
+        track: item.track || '일반전형',
+        minValue: Number(item.minAcceptedScore || item.minValue || 0),
+        year: item.admissionYear || item.year || 0,
+        isOfficial: true,
+    })).filter(c => c.minValue > 0);
+
+    let localOfficials = [];
+    try {
+        const raw = localStorage.getItem('publicOfficialCutoffData');
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                localOfficials = parsed.map(item => ({
+                    schoolName: item.school || item.schoolName || '',
+                    department: item.dept || item.department || '',
+                    track: item.track || '일반전형',
+                    minValue: Number(item.min || item.minValue || 0),
+                    year: item.year || 0,
+                    isOfficial: true,
+                })).filter(c => c.minValue > 0);
+            }
+        }
+    } catch (e) {
+        console.warn(e);
+    }
+
+    const cutoffs = [...(dbCutoffs || []), ...officialCutoffs, ...localOfficials];
     const fullByStudent = new Map((fullStudents || []).map(s => [`${s.studentNum}|${s.name}`, s]));
     const applicationRows = await Promise.all(students.map(async (s) => {
         const records = await window.go.main.App.GetStudentApplications(classNum, s.StudentNum, s.Name).catch(() => []);
@@ -1537,33 +1674,42 @@ async function renderStudentList(students, classNum) {
         const meisterBadges = renderPredictionBadges(full?.schoolResults, cutoffs, 'meister');
         const specialBadges = renderPredictionBadges(full?.schoolResults, cutoffs, 'special');
         const applications = applicationsByStudent.get(`${s.StudentNum}|${s.Name}`) || [];
-        const completed = applications.filter(a => a.status && a.status !== '미입력');
-        const applicationSummary = completed.length
-            ? completed.slice(0, 2).map(a => `<span class="inline-block px-2 py-1 rounded-full text-[11px] bg-slate-700 text-slate-100 mr-1 mb-1">${a.schoolName || '후기 일반고'} · ${a.status}</span>`).join('') + (completed.length > 2 ? `<span class="text-xs text-text-muted">+${completed.length - 2}</span>` : '')
-            : '<span class="text-xs text-text-muted">미입력</span>';
+        const applicationSummary = renderApplicationSummary(applications);
 
         tbody += `
-            <tr class="hover:bg-slate-800/60 transition-colors border-b border-slate-700/50">
-                <td class="p-4 text-center font-medium text-slate-400">${s.StudentNum || '-'}</td>
-                <td class="p-4 font-bold text-white text-center text-lg cursor-pointer hover:underline text-student-name"
-                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
+            <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
+                <td class="p-3.5 text-center font-mono font-bold text-slate-400">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                        ${s.StudentNum || '-'}
+                    </span>
+                </td>
+                <td class="p-3.5 font-bold text-white text-center text-lg cursor-pointer hover:text-indigo-300 hover:underline text-student-name transition-colors"
+                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="클릭하여 진학 상담 시작">
                     ${s.Name}
                 </td>
-                <td class="p-4 text-center">${generalBadge}</td>
-                <td class="p-3 text-center min-w-64">
+                <td class="p-3.5 text-center">${generalBadge}</td>
+                <td class="p-3.5 text-center min-w-68">
                     <div class="flex flex-col gap-2 justify-center items-center">
-                        <div class="flex items-center gap-2 text-sm"><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300">마이스터</span> ${meisterBadges}</div>
-                        <div class="flex items-center gap-2 text-sm"><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300">특성화</span> ${specialBadges}</div>
+                        <div class="flex items-center gap-2 text-xs w-full justify-center">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 font-bold whitespace-nowrap">마이스터</span>
+                            <div class="flex-1 text-center">${meisterBadges}</div>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs w-full justify-center">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 font-bold whitespace-nowrap">특성화</span>
+                            <div class="flex-1 text-center">${specialBadges}</div>
+                        </div>
                     </div>
                 </td>
-                <td class="p-3 text-center min-w-48">${applicationSummary}</td>
-                <td class="p-4">
+                <td class="p-3.5 text-center min-w-52">${applicationSummary}</td>
+                <td class="p-3.5 text-center">
                     <div class="flex items-center justify-center gap-2">
-                        <button class="btn-secondary text-xs px-3 py-2.5 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all hover:scale-105"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">📝 희망학교입력</button>
-                        <button class="btn-primary text-xs px-3 py-2.5 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105"
+                        <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
                                 data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                            🎯 진학 상담
+                            <span>📝</span> 희망학교
+                        </button>
+                        <button class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20"
+                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
+                            <span>🎯</span> 진학 상담
                         </button>
                     </div>
                 </td>
@@ -1575,7 +1721,7 @@ async function renderStudentList(students, classNum) {
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
             <div class="text-sm text-text-muted flex-1 min-w-50">
                 <span class="text-white font-semibold">학생 목록</span> (총 <span class="font-bold text-indigo-400">${students.length}</span>명)
-                <div class="text-[11px] mt-1">개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다</div>
+                <div class="text-[11px] mt-1 text-slate-400">개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다</div>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button id="openMatrixBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 전체 고교별 신호등 매트릭스 보기">
@@ -1593,12 +1739,12 @@ async function renderStudentList(students, classNum) {
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-800/80 text-text-muted text-sm border-b border-slate-700/70">
-                        <th class="p-4 font-semibold text-center w-20">번호</th>
-                        <th class="p-4 font-semibold text-center w-36">성명</th>
-                        <th class="p-4 font-semibold text-center">일반계고 합격 예측</th>
-                        <th class="p-4 font-semibold text-center">마이스터 및 특성화고 지원가능</th>
-                        <th class="p-4 font-semibold text-center">희망학교</th>
-                        <th class="p-4 font-semibold text-center">진학 상담</th>
+                        <th class="p-3.5 font-semibold text-center w-20">번호</th>
+                        <th class="p-3.5 font-semibold text-center w-36">성명</th>
+                        <th class="p-3.5 font-semibold text-center">일반계고 합격 예측</th>
+                        <th class="p-3.5 font-semibold text-center">마이스터 및 특성화고 지원가능</th>
+                        <th class="p-3.5 font-semibold text-center">희망학교</th>
+                        <th class="p-3.5 font-semibold text-center">진학 상담</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -3369,6 +3515,7 @@ window.loadIssueDetails = async (issueID) => {
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
     app.className = '';
+    updateAppWindowTitle();
 	try {
 		const loginIndex = typeof schoolName === 'string' ? { schoolName, accounts: [] } : schoolName;
 		schoolName = loginIndex.schoolName || '암호화된 학교 데이터';
@@ -3513,10 +3660,13 @@ export async function renderLoginScreen(schoolName) {
                     renderPasswordChangeScreen(username);
                 } else {
                     if (user.Role === 'homeroom') {
+                        updateAppWindowTitle('homeroom', user.ClassNum);
                         renderTeacherScreen(schoolName, user.ClassNum);
                     } else if (user.Role === 'viewer') {
+                        updateAppWindowTitle('viewer');
                         renderTeacherScreen(schoolName, null);
                     } else {
+                        updateAppWindowTitle('master');
                         renderAdminScreen(schoolName);
                     }
                 }

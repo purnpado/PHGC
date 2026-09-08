@@ -278,6 +278,10 @@ export function SetUserPassword(arg1, arg2) {
   return window['go']['main']['App']['SetUserPassword'](arg1, arg2);
 }
 
+export function SetWindowTitle(arg1) {
+  return window['go']['main']['App']['SetWindowTitle'](arg1);
+}
+
 export function SetupApp(arg1) {
   return window['go']['main']['App']['SetupApp'](arg1);
 }

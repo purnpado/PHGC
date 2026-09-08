@@ -2147,3 +2147,11 @@ func (a *App) DeleteUser(username string) error {
 	_ = os.Remove(userEnvelopePath(a.db.dataDir, username))
 	return a.refreshLoginIndex()
 }
+
+// SetWindowTitle 창 제목을 동적으로 변경 (학년부장, 담임교사 구분용)
+func (a *App) SetWindowTitle(title string) {
+	if a.ctx != nil && title != "" {
+		runtime.WindowSetTitle(a.ctx, title)
+	}
+}
+
