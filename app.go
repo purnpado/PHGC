@@ -1041,6 +1041,9 @@ func (a *App) ProcessExcel(filePath string) (map[int]int, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%d반 데이터 저장 실패: %w", classNum, err)
 		}
+		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+			return nil, fmt.Errorf("%d반 학교별 점수 산출 실패: %w", classNum, err)
+		}
 		result[classNum] = len(students)
 	}
 
@@ -1064,6 +1067,9 @@ func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%d반 출결 데이터 저장 실패: %w", classNum, err)
 		}
+		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+			return nil, fmt.Errorf("%d반 학교별 점수 갱신 실패: %w", classNum, err)
+		}
 		result[classNum] = updatedCount
 	}
 
@@ -1086,6 +1092,9 @@ func (a *App) ProcessVolunteerExcel(filePath string) (map[int]int, error) {
 		updatedCount, err := a.db.UpdateStudentVolunteer(classNum, students)
 		if err != nil {
 			return nil, fmt.Errorf("%d반 봉사 데이터 저장 실패: %w", classNum, err)
+		}
+		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+			return nil, fmt.Errorf("%d반 학교별 점수 갱신 실패: %w", classNum, err)
 		}
 		result[classNum] = updatedCount
 	}
@@ -1378,6 +1387,37 @@ func matchStudent(num1, name1, num2, name2 string) bool {
 	return strings.TrimSpace(num1) == strings.TrimSpace(num2)
 }
 
+// refreshStudentSchoolScoreCache stores the already-defined school rules as
+// queryable rows in the encrypted class DB.
+func (a *App) refreshStudentSchoolScoreCache(classNum int, studentNum, name string) error {
+	student, err := a.db.GetStudent(classNum, studentNum, name)
+	if err != nil {
+		return err
+	}
+	full, err := parseStudentFullData(*student)
+	if err != nil {
+		return err
+	}
+	return a.db.ReplaceStudentSchoolScores(classNum, student.StudentNum, student.Name, full.SchoolResults)
+}
+
+func (a *App) refreshClassSchoolScoreCache(classNum int) error {
+	students, err := a.db.GetClassStudents(classNum)
+	if err != nil {
+		return err
+	}
+	for _, student := range students {
+		full, err := parseStudentFullData(student)
+		if err != nil {
+			return fmt.Errorf("%s 학생: %w", student.Name, err)
+		}
+		if err := a.db.ReplaceStudentSchoolScores(classNum, student.StudentNum, student.Name, full.SchoolResults); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GetStudentFullDetail 학생 1명의 10개 고교별 산출 결과 및 상세 내역 반환
 func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*StudentFullData, error) {
 	s, err := a.db.GetStudent(classNum, studentNum, name)
@@ -1414,9 +1454,73 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 	return full, nil
 }
 
+// ApplicationScoreSnapshot is the score currently calculated for one selected school track.
+// The support-status form uses this lightweight result instead of reloading every student.
+type ApplicationScoreSnapshot struct {
+	Score      float64 `json:"score"`
+	TotalMax   float64 `json:"totalMax"`
+	SchoolName string  `json:"schoolName"`
+	TrackName  string  `json:"trackName"`
+	Basis      string  `json:"basis"`
+}
+
+func normalizeApplicationSchoolName(value string) string {
+	value = strings.ReplaceAll(strings.TrimSpace(value), "고등학교", "")
+	return strings.ReplaceAll(value, " ", "")
+}
+
+// GetStudentApplicationScoreSnapshot calculates only the selected school and track.
+func (a *App) GetStudentApplicationScoreSnapshot(classNum int, studentNum, name, category, schoolName, track string) (*ApplicationScoreSnapshot, error) {
+	if category == "general" {
+		full, err := a.GetStudentFullDetail(classNum, studentNum, name)
+		if err != nil {
+			return nil, err
+		}
+		return &ApplicationScoreSnapshot{
+			Score: full.GeneralHSTotalScore, TotalMax: 200,
+			SchoolName: "후기 일반계고", TrackName: "후기 일반계고",
+			Basis: "후기 일반계고 내신 자동 산출",
+		}, nil
+	}
+	if category != "meister" && category != "special" {
+		return nil, fmt.Errorf("자동 점수 산출 대상 전형이 아닙니다")
+	}
+	if strings.TrimSpace(schoolName) == "" || strings.TrimSpace(track) == "" {
+		return nil, fmt.Errorf("지원 학교와 전형을 선택해주세요")
+	}
+	results, err := a.db.GetStudentSchoolScores(classNum, studentNum, name)
+	if err != nil {
+		return nil, err
+	}
+	// 기존에 입력된 자료에는 캐시가 없을 수 있다. 그 경우에만 한 번 계산해
+	// 저장하고, 이후 지원현황은 저장된 점수만 조회한다.
+	if len(results) == 0 {
+		if err := a.refreshStudentSchoolScoreCache(classNum, studentNum, name); err != nil {
+			return nil, err
+		}
+		results, err = a.db.GetStudentSchoolScores(classNum, studentNum, name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, result := range results {
+		if normalizeApplicationSchoolName(result.SchoolName) == normalizeApplicationSchoolName(schoolName) && result.TrackName == track {
+			return &ApplicationScoreSnapshot{
+				Score: result.TotalScore, TotalMax: result.TotalMax,
+				SchoolName: result.SchoolName, TrackName: result.TrackName,
+				Basis: fmt.Sprintf("%s %s 자동 산출 (%.0f점 만점)", result.SchoolName, result.TrackName, result.TotalMax),
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("%s %s 전형의 산출식을 찾을 수 없습니다", schoolName, track)
+}
+
 // SaveStudentExtra 학생의 수기 가산점 및 추가 봉사시간 저장
 func (a *App) SaveStudentExtra(classNum int, studentNum, name, extraJSON string) error {
-	return a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON)
+	if err := a.db.UpdateStudentExtra(classNum, studentNum, name, extraJSON); err != nil {
+		return err
+	}
+	return a.refreshStudentSchoolScoreCache(classNum, studentNum, name)
 }
 
 func (a *App) SaveStudentApplication(record ApplicationRecord) error {
@@ -1676,6 +1780,11 @@ func (a *App) ImportTeacherPatch(password, inputPath string) (int, error) {
 		if err := a.db.ApplyPatchChange(change); err != nil {
 			return 0, err
 		}
+		if change.Attendance != "" || change.Volunteer != "" || change.Extra != "" {
+			if err := a.refreshStudentSchoolScoreCache(change.ClassNum, change.StudentNum, change.StudentName); err != nil {
+				return 0, err
+			}
+		}
 	}
 	return len(patch.Changes), nil
 }
@@ -1723,6 +1832,11 @@ func (a *App) ImportTeacherPatchSelected(password, inputPath string, selections 
 		}
 		if err := a.db.ApplyPatchChange(filtered); err != nil {
 			return applied, err
+		}
+		if filtered.Attendance != "" || filtered.Volunteer != "" || filtered.Extra != "" {
+			if err := a.refreshStudentSchoolScoreCache(filtered.ClassNum, filtered.StudentNum, filtered.StudentName); err != nil {
+				return applied, err
+			}
 		}
 		applied++
 	}

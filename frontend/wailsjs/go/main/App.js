@@ -126,6 +126,10 @@ export function GetSchoolRuleList() {
   return window['go']['main']['App']['GetSchoolRuleList']();
 }
 
+export function GetStudentApplicationScoreSnapshot(arg1, arg2, arg3, arg4, arg5, arg6) {
+  return window['go']['main']['App']['GetStudentApplicationScoreSnapshot'](arg1, arg2, arg3, arg4, arg5, arg6);
+}
+
 export function GetStudentApplications(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetStudentApplications'](arg1, arg2, arg3);
 }

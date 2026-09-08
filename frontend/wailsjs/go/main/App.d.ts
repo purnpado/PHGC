@@ -64,6 +64,8 @@ export function GetSchoolConfig():Promise<main.SchoolConfig>;
 
 export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;
 
+export function GetStudentApplicationScoreSnapshot(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<main.ApplicationScoreSnapshot>;
+
 export function GetStudentApplications(arg1:number,arg2:string,arg3:string):Promise<Array<main.ApplicationRecord>>;
 
 export function GetStudentFullDetail(arg1:number,arg2:string,arg3:string):Promise<main.StudentFullData>;

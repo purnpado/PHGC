@@ -46,6 +46,26 @@ export namespace main {
 	        this.finalCount = source["finalCount"];
 	    }
 	}
+	export class ApplicationScoreSnapshot {
+	    score: number;
+	    totalMax: number;
+	    schoolName: string;
+	    trackName: string;
+	    basis: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ApplicationScoreSnapshot(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.score = source["score"];
+	        this.totalMax = source["totalMax"];
+	        this.schoolName = source["schoolName"];
+	        this.trackName = source["trackName"];
+	        this.basis = source["basis"];
+	    }
+	}
 	export class ApplicationRecord {
 	    id: number;
 	    classNum: number;

@@ -615,6 +615,16 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(student_num, student_name, admission_year, category, school_name, track)
 		);
+		CREATE TABLE IF NOT EXISTS student_school_scores (
+			student_num TEXT NOT NULL,
+			student_name TEXT NOT NULL,
+			school_name TEXT NOT NULL,
+			track TEXT NOT NULL,
+			total_score REAL NOT NULL,
+			total_max REAL NOT NULL,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY(student_num, student_name, school_name, track)
+		);
 	`)
 
 	// 기존 테이블에 컬럼 추가 (오류 무시 - 이미 존재할 경우)
@@ -812,6 +822,84 @@ func (dm *DBManager) UpdateStudentExtra(classNum int, studentNum, name, extraJSO
 
 	_, err = db.Exec("UPDATE students SET extra_json = ? WHERE name = ? AND student_num = ?", extraJSON, name, studentNum)
 	return err
+}
+
+// ReplaceStudentSchoolScores stores all pre-calculated school/track scores for one student.
+func (dm *DBManager) ReplaceStudentSchoolScores(classNum int, studentNum, name string, results []SchoolCalcResult) error {
+	if err := dm.InitClassDB(classNum); err != nil {
+		return err
+	}
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec("DELETE FROM student_school_scores WHERE student_num = ? AND student_name = ?", studentNum, name); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO student_school_scores (student_num, student_name, school_name, track, total_score, total_max, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)")
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+	for _, result := range results {
+		if _, err = stmt.Exec(studentNum, name, result.SchoolName, result.TrackName, result.TotalScore, result.TotalMax); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (dm *DBManager) GetStudentSchoolScore(classNum int, studentNum, name, schoolName, track string) (*SchoolCalcResult, error) {
+	if err := dm.InitClassDB(classNum); err != nil {
+		return nil, err
+	}
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	var result SchoolCalcResult
+	err = db.QueryRow(`SELECT school_name, track, total_score, total_max FROM student_school_scores
+		WHERE student_num = ? AND student_name = ? AND school_name = ? AND track = ?`,
+		studentNum, name, schoolName, track).Scan(&result.SchoolName, &result.TrackName, &result.TotalScore, &result.TotalMax)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (dm *DBManager) GetStudentSchoolScores(classNum int, studentNum, name string) ([]SchoolCalcResult, error) {
+	if err := dm.InitClassDB(classNum); err != nil {
+		return nil, err
+	}
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query(`SELECT school_name, track, total_score, total_max FROM student_school_scores
+		WHERE student_num = ? AND student_name = ? ORDER BY school_name, track`, studentNum, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var results []SchoolCalcResult
+	for rows.Next() {
+		var result SchoolCalcResult
+		if err := rows.Scan(&result.SchoolName, &result.TrackName, &result.TotalScore, &result.TotalMax); err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	}
+	return results, rows.Err()
 }
 
 func (dm *DBManager) SaveApplication(record ApplicationRecord) error {

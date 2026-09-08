@@ -1594,11 +1594,6 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     );
     let studentDetail = null;
     let refreshAutoScore = null;
-    // Wails 호출은 하나씩 처리한다. 지원 이력 화면을 먼저 만든 뒤 상세 산출값을
-    // 읽어 와야 일부 PC에서 점수 조회가 멈추지 않는다.
-    const loadStudentDetail = () => Promise.resolve()
-        .then(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name))
-        .catch(() => null);
     const catalog = highSchoolData?.schools || [];
     const normalizedSchoolName = value => String(value || '').replace(/고등학교/g, '').replace(/\s/g, '');
     const trackLabel = track => ({
@@ -1703,7 +1698,8 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 select.onchange = () => refreshDepartmentControls();
             });
         };
-        const refreshTrackAndScore = () => {
+        let scoreRequestID = 0;
+        const refreshTrackAndScore = async () => {
             const category = document.getElementById('appCategory').value;
             const schoolName = document.getElementById('appSchool').value;
             const track = document.getElementById('appTrack');
@@ -1712,6 +1708,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             const auto = calculatedScore(category, schoolName, track.value);
             const scoreInput = document.getElementById('appScore');
             const basisInput = document.getElementById('appBasis');
+            const supportsAutoScore = ['meister', 'special', 'general'].includes(category);
             if (auto) {
                 scoreInput.value = auto.score.toFixed(2);
                 scoreInput.readOnly = true;
@@ -1719,9 +1716,33 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                     basisInput.value = auto.basis;
                     basisInput.dataset.auto = 'true';
                 }
-            } else {
+                return;
+            }
+            if (!supportsAutoScore || (category !== 'general' && (!schoolName || !track.value))) {
                 scoreInput.readOnly = !canEdit;
-                if (['meister', 'special', 'general'].includes(category)) scoreInput.value = '';
+                if (supportsAutoScore) scoreInput.value = '';
+                return;
+            }
+            const requestID = ++scoreRequestID;
+            scoreInput.value = '';
+            scoreInput.placeholder = '점수 자동 산출 중…';
+            scoreInput.readOnly = true;
+            try {
+                const snapshot = await window.go?.main?.App?.GetStudentApplicationScoreSnapshot?.(
+                    classNum, studentNum, name, category, schoolName, track.value,
+                );
+                if (requestID !== scoreRequestID || !document.body.contains(modal)) return;
+                const score = Number(snapshot?.score);
+                if (!Number.isFinite(score)) throw new Error('산출 점수를 찾지 못했습니다');
+                scoreInput.value = score.toFixed(2);
+                scoreInput.placeholder = '학교·전형 선택 시 자동 산출';
+                if (!basisInput.value || basisInput.dataset.auto === 'true') {
+                    basisInput.value = snapshot.basis || '지원 시점 자동 산출';
+                    basisInput.dataset.auto = 'true';
+                }
+            } catch (_) {
+                if (requestID !== scoreRequestID || !document.body.contains(modal)) return;
+                scoreInput.placeholder = '자동 산출값 없음';
             }
         };
         refreshAutoScore = refreshTrackAndScore;
@@ -1743,6 +1764,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             refreshTrackAndScore();
         };
         document.getElementById('appTrack').onchange = refreshTrackAndScore;
+        refreshTrackAndScore();
         document.getElementById('saveApplication')?.addEventListener('click', async () => {
             const category = document.getElementById('appCategory').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value.trim()).filter(Boolean);
@@ -1763,11 +1785,6 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     };
     try {
         await render();
-        loadStudentDetail().then(detail => {
-            if (!detail || !document.body.contains(modal)) return;
-            studentDetail = detail;
-            refreshAutoScore?.();
-        });
     } catch (err) {
         modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">지원 현황을 열 수 없습니다</h2><p class="text-text-muted break-words">${err?.message || err}</p><button id="closeApplicationModal" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
