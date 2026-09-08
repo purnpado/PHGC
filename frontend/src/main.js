@@ -1586,10 +1586,17 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         Promise.resolve().then(operation).then(result => result ?? fallback).catch(() => fallback),
         new Promise(resolve => setTimeout(() => resolve(fallback), timeoutMs)),
     ]);
-    const [highSchoolData, studentDetail] = await Promise.all([
-        withFallback(() => window.go?.main?.App?.GetHighSchoolsData?.(), { schools: [] }),
-        withFallback(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name), null),
-    ]);
+    // 고교 목록 실패는 화면을 막지 않되, 학생 산출값은 백그라운드에서 끝까지
+    // 가져온 뒤 선택된 학교·전형의 점수 스냅샷을 채운다.
+    const studentDetailPromise = Promise.resolve()
+        .then(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name))
+        .catch(() => null);
+    const highSchoolData = await withFallback(
+        () => window.go?.main?.App?.GetHighSchoolsData?.(),
+        { schools: [] },
+    );
+    let studentDetail = null;
+    let refreshAutoScore = null;
     const catalog = highSchoolData?.schools || [];
     const normalizedSchoolName = value => String(value || '').replace(/고등학교/g, '').replace(/\s/g, '');
     const trackLabel = track => ({
@@ -1711,6 +1718,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 if (['meister', 'special', 'general'].includes(category)) scoreInput.value = '';
             }
         };
+        refreshAutoScore = refreshTrackAndScore;
         document.getElementById('appCategory').onchange = () => {
             const category = document.getElementById('appCategory').value;
             const general = category === 'general';
@@ -1749,6 +1757,11 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     };
     try {
         await render();
+        studentDetailPromise.then(detail => {
+            if (!detail || !document.body.contains(modal)) return;
+            studentDetail = detail;
+            refreshAutoScore?.();
+        });
     } catch (err) {
         modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">지원 현황을 열 수 없습니다</h2><p class="text-text-muted break-words">${err?.message || err}</p><button id="closeApplicationModal" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
