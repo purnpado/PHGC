@@ -1149,17 +1149,32 @@ func (a *App) SendCutoffsToBridge(year int) error {
 		SourceMiddleSchoolName string  `json:"sourceMiddleSchoolName"`
 		TargetHighSchoolName   string  `json:"targetHighSchoolName"`
 		Department             string  `json:"department"`
+		Track                  string  `json:"track,omitempty"`
 		CutoffScore            float64 `json:"cutoffScore"`
 	}
 	items := make([]publicCutoff, 0, len(yearData))
 	seen := make(map[string]bool)
 	for _, cutoff := range yearData {
-		key := cutoff.SchoolName + "\x00" + cutoff.Department
+		key := cutoff.SchoolName + "\x00" + cutoff.Department + "\x00" + cutoff.Track
 		if cutoff.SchoolName == "" || cutoff.MinValue < 0 || seen[key] {
 			continue
 		}
 		seen[key] = true
-		items = append(items, publicCutoff{SourceMiddleSchoolName: config.SchoolName, TargetHighSchoolName: cutoff.SchoolName, Department: cutoff.Department, CutoffScore: cutoff.MinValue})
+		deptStr := cutoff.Department
+		if cutoff.Track != "" && cutoff.Track != "일반" && cutoff.Track != "일반전형" {
+			if deptStr != "" {
+				deptStr = fmt.Sprintf("%s (%s)", deptStr, cutoff.Track)
+			} else {
+				deptStr = cutoff.Track
+			}
+		}
+		items = append(items, publicCutoff{
+			SourceMiddleSchoolName: config.SchoolName,
+			TargetHighSchoolName:   cutoff.SchoolName,
+			Department:             deptStr,
+			Track:                  cutoff.Track,
+			CutoffScore:            cutoff.MinValue,
+		})
 	}
 	if len(items) == 0 {
 		return fmt.Errorf("제출할 학교명과 커트라인 점수 데이터가 없습니다")

@@ -83,6 +83,90 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
 }
 window.showModalAlert = showModalAlert;
 
+// ===== SweetAlert2 스타일 커스텀 모달 확인창 (브라우저 confirm 대체) =====
+function showModalConfirm({ title = '확인', message = '', type = 'warning', confirmText = '확인', cancelText = '취소' } = {}) {
+    return new Promise((resolve) => {
+        document.getElementById('phgcCustomConfirmModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'phgcCustomConfirmModal';
+        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+        const iconConfig = {
+            success: {
+                bg: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>`,
+                btnBg: 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30',
+            },
+            warning: {
+                bg: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`,
+                btnBg: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30',
+            },
+            error: {
+                bg: 'bg-rose-500/20 border-rose-500/50 text-rose-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>`,
+                btnBg: 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30',
+            },
+            info: {
+                bg: 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+                btnBg: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30',
+            },
+        }[type] || {
+            bg: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
+            icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`,
+            btnBg: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30',
+        };
+
+        modal.innerHTML = `
+            <div class="glass-card max-w-md w-full p-6 text-center shadow-2xl border border-slate-700/80 rounded-2xl animate-in zoom-in-95 duration-200">
+                <div class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center border-2 ${iconConfig.bg} shadow-lg">
+                    ${iconConfig.icon}
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">${title}</h3>
+                <div class="text-sm text-slate-300 mb-6 leading-relaxed text-left max-h-[60vh] overflow-y-auto">
+                    ${typeof message === 'string' && !message.includes('<') ? `<p class="text-center text-slate-200">${message}</p>` : message}
+                </div>
+                <div class="flex items-center justify-center gap-3">
+                    <button id="modalConfirmCancelBtn" class="flex-1 py-2.5 px-4 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold text-sm transition-all cursor-pointer">
+                        ${cancelText}
+                    </button>
+                    <button id="modalConfirmOkBtn" class="flex-1 py-2.5 px-4 rounded-xl text-white font-bold text-sm ${iconConfig.btnBg} shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+                        ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const okBtn = modal.querySelector('#modalConfirmOkBtn');
+        const cancelBtn = modal.querySelector('#modalConfirmCancelBtn');
+
+        const closeWith = (val) => {
+            window.removeEventListener('keydown', onKeyDown);
+            modal.remove();
+            resolve(val);
+        };
+
+        okBtn.onclick = () => closeWith(true);
+        cancelBtn.onclick = () => closeWith(false);
+        modal.onclick = (e) => {
+            if (e.target === modal) closeWith(false);
+        };
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                closeWith(false);
+            } else if (e.key === 'Enter') {
+                closeWith(true);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+    });
+}
+window.showModalConfirm = showModalConfirm;
+
 // ===== 화면 렌더링 함수들 =====
 
 // 새 프로그램 폴더의 첫 화면. 새 학교 설정과 학년부장 배포 자료 적용을
@@ -4042,6 +4126,7 @@ async function renderCutoffScreen(schoolName) {
     }
 
     let currentTab = 'all'; // 'all', 'meister', 'special', 'general', 'public'
+    let searchKeyword = '';
 
     const renderMainScreen = () => {
         // 현재 선택된 입학년도의 커트라인 매핑
@@ -4054,88 +4139,100 @@ async function renderCutoffScreen(schoolName) {
             };
         });
 
-        // 탭 필터링
+        // 탭 및 검색어 필터링
         const filteredSchools = defaultSchoolSpecs.filter(sch => {
-            if (currentTab === 'all') return true;
-            return sch.category === currentTab;
+            const matchTab = currentTab === 'all' || sch.category === currentTab;
+            if (!matchTab) return false;
+            if (!searchKeyword) return true;
+            const q = searchKeyword.toLowerCase();
+            return sch.name.toLowerCase().includes(q) || sch.items.some(it => (it.dept || '').toLowerCase().includes(q) || (it.track || '').toLowerCase().includes(q));
         });
 
         // 학교 목록 카드 HTML 생성
         let schoolsHTML = '';
         if (currentTab !== 'public') {
-            filteredSchools.forEach((sch, sIdx) => {
-                // 저장된 커트라인 값 채우기 & 사용자 추가 학과 병합
-                const itemsToRender = [...sch.items];
-                allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === normalizeSchoolName(sch.name)).forEach(c => {
-                    const exists = itemsToRender.some(it => it.dept === c.department && it.track === c.track);
-					if (!exists && (c.department !== '공통')) {
-                        itemsToRender.push({ dept: c.department, track: c.track });
-                    }
-                });
-
-                // 같은 학과는 하나의 셀로 묶고, 그 아래에서 일반·특별 등 전형별
-                // 점수만 구분한다. DB에는 기존처럼 학과+전형 단위로 저장된다.
-                const itemGroups = new Map();
-                itemsToRender.forEach(item => {
-                    const groupKey = item.dept || '';
-                    if (!itemGroups.has(groupKey)) itemGroups.set(groupKey, []);
-                    itemGroups.get(groupKey).push(item);
-                });
-                const rowsHTML = [...itemGroups.entries()].map(([dept, group], groupIndex) =>
-                    group.map((item, itemIndex) => {
-                        const key = `${normalizeSchoolName(sch.name)}_${item.dept}_${item.track}`;
-                        const saved = savedMap[key] || {};
-                        const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
-                        const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';
-                        const avgVal = saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
-                        const groupId = `${sIdx}-${groupIndex}`;
-                        return `
-                            <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}" data-dept="${dept}" data-dept-group="${groupId}">
-                                ${itemIndex === 0 ? `<td class="p-3 align-middle" rowspan="${group.length}">
-                                    <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${dept}" placeholder="비우면 학교 전체" data-dept-group="${groupId}" />
-                                </td>` : ''}
-                                <td class="p-3"><input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="${item.track}" placeholder="전형 (예: 일반, 특별)" /></td>
-                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" value="${minVal}" placeholder="${sch.placeholder}" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
-                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" value="${maxVal}" placeholder="선택" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
-                                <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" value="${avgVal}" placeholder="선택" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
-                                <td class="p-3 text-center"><button class="text-xs text-danger/80 hover:text-danger hover:bg-danger/10 p-1.5 rounded transition-colors btn-delete-row" title="행 삭제">🗑️</button></td>
-                            </tr>`;
-                    }).join('')
-                ).join('');
-
-                schoolsHTML += `
-                    <div class="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/60 space-y-3 school-cutoff-card shadow-lg" data-school="${sch.name}">
-                        <div class="flex items-center justify-between border-b border-slate-700/50 pb-3 flex-wrap gap-2">
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-xl">🏫</span>
-                                <h3 class="font-bold text-white text-base">${sch.name}</h3>
-                                <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-semibold">${sch.categoryLabel} (${sch.totalMax})</span>
-                            </div>
-                            <button class="text-xs btn-secondary py-1.5 px-3 rounded-lg flex items-center gap-1.5 font-bold btn-add-dept" data-school="${sch.name}" data-type="${sch.scoreType}">
-                                <span>➕</span> 학과·전형 추가
-                            </button>
-                        </div>
-
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="text-text-muted border-b border-slate-700/60 font-semibold bg-slate-900/40">
-								<th class="p-2.5 w-44">학과명 <span class="text-slate-500 font-normal">(비우면 학교 전체)</span></th>
-								<th class="p-2.5 w-28">전형</th>
-                                        <th class="p-2.5 text-center w-36 text-emerald-300">최저점 (합격선/필수)</th>
-								<th class="p-2.5 text-center w-36 text-sky-300">최고 불합격점 (선택)</th>
-                                        <th class="p-2.5 text-center w-36 text-amber-300">평균점 (선택)</th>
-                                        <th class="p-2.5 text-center w-14">관리</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${rowsHTML}
-                                </tbody>
-                            </table>
-                        </div>
+            if (filteredSchools.length === 0) {
+                schoolsHTML = `
+                    <div class="glass-card p-12 text-center text-text-muted">
+                        <p class="text-3xl mb-2">🔍</p>
+                        <p class="font-bold text-slate-300">검색 조건에 맞는 학교가 없습니다.</p>
+                        <p class="text-xs mt-1">다른 검색어를 입력하거나 탭 필터를 변경해보세요.</p>
                     </div>
                 `;
-            });
+            } else {
+                filteredSchools.forEach((sch, sIdx) => {
+                    // 저장된 커트라인 값 채우기 & 사용자 추가 학과 병합
+                    const itemsToRender = [...sch.items];
+                    allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === normalizeSchoolName(sch.name)).forEach(c => {
+                        const exists = itemsToRender.some(it => it.dept === c.department && it.track === c.track);
+                        if (!exists && (c.department !== '공통')) {
+                            itemsToRender.push({ dept: c.department, track: c.track });
+                        }
+                    });
+
+                    // 같은 학과는 하나의 셀로 묶고, 그 아래에서 일반·특별 등 전형별 점수만 구분
+                    const itemGroups = new Map();
+                    itemsToRender.forEach(item => {
+                        const groupKey = item.dept || '';
+                        if (!itemGroups.has(groupKey)) itemGroups.set(groupKey, []);
+                        itemGroups.get(groupKey).push(item);
+                    });
+                    const rowsHTML = [...itemGroups.entries()].map(([dept, group], groupIndex) =>
+                        group.map((item, itemIndex) => {
+                            const key = `${normalizeSchoolName(sch.name)}_${item.dept}_${item.track}`;
+                            const saved = savedMap[key] || {};
+                            const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
+                            const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';
+                            const avgVal = saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
+                            const groupId = `${sIdx}-${groupIndex}`;
+                            return `
+                                <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}" data-dept="${dept}" data-dept-group="${groupId}">
+                                    ${itemIndex === 0 ? `<td class="p-3 align-middle" rowspan="${group.length}">
+                                        <input type="text" class="input-field py-1.5 px-2.5 text-xs font-bold text-white row-dept-name" value="${dept}" placeholder="비우면 학교 전체" data-dept-group="${groupId}" />
+                                    </td>` : ''}
+                                    <td class="p-3"><input type="text" class="input-field py-1.5 px-2.5 text-xs text-indigo-300 row-track-name" value="${item.track}" placeholder="전형 (예: 일반, 특별)" /></td>
+                                    <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-28 row-min-score" value="${minVal}" placeholder="${sch.placeholder}" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
+                                    <td class="p-3 text-center"><div class="flex items-center justify-center gap-1"><input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-28 row-max-score" value="${maxVal}" placeholder="선택" /><span class="text-xs text-slate-400">${sch.unit}</span></div></td>
+                                    <input type="hidden" class="row-avg-score" value="${avgVal}" />
+                                    <td class="p-3 text-center"><button class="text-xs text-danger/80 hover:text-danger hover:bg-danger/10 p-1.5 rounded transition-colors btn-delete-row" title="행 삭제">🗑️</button></td>
+                                </tr>`;
+                        }).join('')
+                    ).join('');
+
+                    schoolsHTML += `
+                        <div class="p-5 rounded-2xl bg-slate-800/70 border border-slate-700/60 space-y-3 school-cutoff-card shadow-lg" data-school="${sch.name}">
+                            <div class="flex items-center justify-between border-b border-slate-700/50 pb-3 flex-wrap gap-2">
+                                <div class="flex items-center gap-2.5 flex-wrap">
+                                    <span class="text-xl">🏫</span>
+                                    <h3 class="font-bold text-white text-base">${sch.name}</h3>
+                                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-500/30 font-semibold">${sch.categoryLabel} (${sch.totalMax})</span>
+                                    <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-500/40 font-bold flex items-center gap-1">🏷️ ${currentAdmissionYear}년 입학 기준</span>
+                                </div>
+                                <button class="text-xs btn-secondary py-1.5 px-3 rounded-lg flex items-center gap-1.5 font-bold btn-add-dept" data-school="${sch.name}" data-type="${sch.scoreType}">
+                                    <span>➕</span> 학과·전형 추가
+                                </button>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="text-text-muted border-b border-slate-700/60 font-semibold bg-slate-900/40">
+                                            <th class="p-2.5 w-44">학과명 <span class="text-slate-500 font-normal">(비우면 학교 전체)</span></th>
+                                            <th class="p-2.5 w-32">전형</th>
+                                            <th class="p-2.5 text-center w-44 text-emerald-300">최저점 (합격선/필수)</th>
+                                            <th class="p-2.5 text-center w-44 text-sky-300">최고 불합격점 (선택)</th>
+                                            <th class="p-2.5 text-center w-16">관리</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rowsHTML}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
         } else {
             // 공식 공개 입결 데이터 탭 뷰
             const publicRowsHTML = publicOfficialData.map((p, index) => `
@@ -4165,7 +4262,7 @@ async function renderCutoffScreen(schoolName) {
                             <h3 class="font-bold text-white text-base flex items-center gap-2">
                                 <span>📊</span> 울산광역시 고등학교 공식 공개 합격선 및 입결 데이터
                             </h3>
-                            <p class="text-xs text-text-muted mt-1">공개된 자료를 직접 입력·수정해 참고용으로만 보관합니다. 자동 수집은 하지 않으며, 학과가 없으면 비워 두면 됩니다.</p>
+                            <p class="text-xs text-text-muted mt-1">고교에서 공식 발표한 입결 자료입니다. [서버 전송] 시 중앙 서버로 함께 안전하게 제출되어 관내 진학 지도에 공유됩니다.</p>
                         </div>
                         <button id="addPublicDataBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold">➕ 공개자료 행 추가</button>
                     </div>
@@ -4196,31 +4293,33 @@ async function renderCutoffScreen(schoolName) {
 
         app.innerHTML = `
             <div class="glass-card p-6 md:p-8 w-full mx-auto min-h-[85vh] space-y-6 fade-in" style="max-width: 1500px;">
-                <!-- 1. 상단 타이틀 & 입학년도(입시년도) & 주요 액션 네비게이션 바 -->
+                <!-- 1. 상단 타이틀 & 입학년도 & 주요 액션 바 -->
                 <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700/50 pb-4">
                     <div>
                         <h1 class="text-2xl font-black text-white flex items-center gap-2.5">
                             <span>🎯</span> 고교별·학과별 입학 커트라인 통합 관리
                         </h1>
                         <p class="text-xs text-text-muted mt-1">
-                            고교 입학년도별 최저(합격선)·최고·평균점을 한곳에서 편리하게 관리하고 학생 진학 상담 모달의 실시간 판정 기준으로 적용합니다.
+                            고교 입학년도별 합격선(최저점)과 최고 불합격점을 관리하며, 학생 진학 상담 시 실시간 합격 가능성 판정 기준으로 적용됩니다.
                         </p>
-                        <p class="text-xs text-indigo-300 mt-1.5 font-semibold">현재 입력 대상: ${currentAdmissionYear}학년도 (${currentAdmissionYear - 1}학년도 중3) · 연도를 바꾸면 해당 연도의 저장값만 표시됩니다.</p>
+                        <div class="flex items-center gap-2 mt-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-xs shadow-sm">
+                                <span>🏷️</span> ${currentAdmissionYear}학년도 입학 (중3 ${currentAdmissionYear - 1}학년도)
+                            </span>
+                            <span class="text-xs text-text-muted">연도 선택 시 해당 입학년도의 저장값으로 즉시 전환됩니다.</span>
+                        </div>
                     </div>
 
                     <div class="flex items-center gap-2 flex-wrap">
-                        <!-- 입학년도 (입시년도) 선택기: 헷갈림 완전 방지 -->
+                        <!-- 입학년도(입시년도) 선택기: 선택 즉시 자동 전환 -->
                         <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-indigo-500/40 shadow-inner">
-                            <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도(입시년도):</label>
+                            <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도:</label>
                             <select id="admissionYearSelect" class="bg-slate-800 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-slate-700 outline-none cursor-pointer">
                                 ${admissionYears.map(year => `<option value="${year}" ${currentAdmissionYear === year ? 'selected' : ''}>${year}학년도 (${year - 1}학년도 중3${year - 1 === currentMiddleSchoolYear ? ' - 현재' : ''})</option>`).join('')}
                             </select>
                         </div>
-                        <button id="setDefaultAdmissionYearBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold" title="다음에 커트라인 관리 화면을 열 때 기본으로 선택할 입학년도를 저장합니다.">
-                            기본 연도 지정
-                        </button>
 
-                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
+                        <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
                             <span>💾</span> 커트라인 저장
                         </button>
                         <button id="exportBridgeCutoffBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
@@ -4235,26 +4334,34 @@ async function renderCutoffScreen(schoolName) {
                     </div>
                 </div>
 
-                <!-- 2. 단일 페이지 카테고리 네비게이션 탭 바 -->
-                <div class="flex items-center gap-2 border-b border-slate-700/60 pb-2 overflow-x-auto custom-scrollbar">
-                    <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'all' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="all">
-                        <span>🏷️</span> 전체 학교
-                    </button>
-                    <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'meister' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="meister">
-                        <span>🏛️</span> 마이스터고
-                    </button>
-                    <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'special' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="special">
-                        <span>🏭</span> 특성화고
-                    </button>
-                    <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'general' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="general">
-                        <span>🏫</span> 후기 일반고
-                    </button>
-                    <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'public' ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-950/30 text-amber-300 border border-amber-500/30 hover:bg-amber-900/40'}" data-tab="public">
-                        <span>📊</span> 고교 공식 공개 데이터 (참고자료)
-                    </button>
+                <!-- 2. 카테고리 네비게이션 탭 바 & 스마트 실시간 검색 -->
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
+                    <div class="flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                        <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'all' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="all">
+                            <span>🏷️</span> 전체 학교
+                        </button>
+                        <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'meister' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="meister">
+                            <span>🏛️</span> 마이스터고
+                        </button>
+                        <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'special' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="special">
+                            <span>🏭</span> 특성화고
+                        </button>
+                        <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'general' ? 'bg-primary text-white shadow-md' : 'bg-slate-800/60 text-slate-400 hover:text-white'}" data-tab="general">
+                            <span>🏫</span> 후기 일반고
+                        </button>
+                        <button class="nav-tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${currentTab === 'public' ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-950/30 text-amber-300 border border-amber-500/30 hover:bg-amber-900/40'}" data-tab="public">
+                            <span>📊</span> 고교 공식 공개 데이터 (참고자료)
+                        </button>
+                    </div>
+
+                    ${currentTab !== 'public' ? `
+                    <div class="relative w-64">
+                        <input id="cutoffSchoolSearch" type="text" value="${searchKeyword}" placeholder="🔍 고교명·학과 검색..." class="input-field py-1.5 pl-3 pr-8 text-xs w-full bg-slate-900/80 border border-slate-700/60 rounded-xl" />
+                        ${searchKeyword ? `<button id="clearCutoffSearch" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white">✕</button>` : ''}
+                    </div>` : ''}
                 </div>
 
-                <!-- 3. 학교별 커트라인 목록 (단일 페이지 1열 통합 레이아웃) -->
+                <!-- 3. 학교별 커트라인 목록 -->
                 <div class="space-y-5">
                     ${schoolsHTML}
                 </div>
@@ -4265,22 +4372,31 @@ async function renderCutoffScreen(schoolName) {
     };
 
     const bindEvents = () => {
-        // 입학년도 변경 이벤트
+        // 1. 입학년도 변경 이벤트: 선택 즉시 해당 연도 데이터 로드
         document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
             currentAdmissionYear = parseInt(e.target.value, 10);
             renderMainScreen();
         });
 
-        document.getElementById('setDefaultAdmissionYearBtn')?.addEventListener('click', async () => {
-            try {
-                await window.go.main.App.UpdateAdmissionYear(currentAdmissionYear);
-                alert(`${currentAdmissionYear}학년도를 기본 고교 입학년도로 지정했습니다. 기존 계정과 암호화 데이터는 변경되지 않습니다.`);
-            } catch (err) {
-                alert('기본 입학년도 저장 실패: ' + err);
-            }
-        });
+        // 2. 스마트 실시간 검색 이벤트
+        const searchInput = document.getElementById('cutoffSchoolSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                searchKeyword = e.target.value.trim();
+                renderMainScreen();
+                const freshInput = document.getElementById('cutoffSchoolSearch');
+                if (freshInput) {
+                    freshInput.focus();
+                    freshInput.selectionStart = freshInput.selectionEnd = freshInput.value.length;
+                }
+            });
+            document.getElementById('clearCutoffSearch')?.addEventListener('click', () => {
+                searchKeyword = '';
+                renderMainScreen();
+            });
+        }
 
-        // 탭 전환 이벤트
+        // 3. 탭 전환 이벤트
         app.querySelectorAll('.nav-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 currentTab = btn.dataset.tab;
@@ -4288,7 +4404,7 @@ async function renderCutoffScreen(schoolName) {
             });
         });
 
-        // 행 삭제 이벤트
+        // 4. 행 삭제 이벤트
         app.querySelectorAll('.btn-delete-row').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tr = e.target.closest('tr');
@@ -4296,7 +4412,7 @@ async function renderCutoffScreen(schoolName) {
             });
         });
 
-        // 병합된 학과 셀을 수정하면 같은 학과의 모든 전형 행에도 저장용 값이 반영된다.
+        // 5. 병합된 학과 셀 수정 동기화
         app.querySelectorAll('.row-dept-name[data-dept-group]').forEach(input => {
             input.addEventListener('input', () => {
                 const dept = input.value.trim();
@@ -4305,7 +4421,7 @@ async function renderCutoffScreen(schoolName) {
             });
         });
 
-        // 학과·전형 추가 이벤트
+        // 6. 학과·전형 추가 이벤트 (평균점 컬럼 없이 시원한 5열 구조)
         app.querySelectorAll('.btn-add-dept').forEach(btn => {
             btn.addEventListener('click', () => {
                 const schName = btn.dataset.school;
@@ -4327,25 +4443,19 @@ async function renderCutoffScreen(schoolName) {
                         </td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-24 row-min-score" 
+                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-bold text-emerald-300 w-28 row-min-score" 
                                        value="" placeholder="최저점" />
                                 <span class="text-xs text-slate-400">${unit}</span>
                             </div>
                         </td>
                         <td class="p-3 text-center">
                             <div class="flex items-center justify-center gap-1">
-                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 row-max-score" 
+                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-28 row-max-score" 
                                        value="" placeholder="선택" />
                                 <span class="text-xs text-slate-400">${unit}</span>
                             </div>
                         </td>
-                        <td class="p-3 text-center">
-                            <div class="flex items-center justify-center gap-1">
-                                <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 row-avg-score" 
-                                       value="" placeholder="선택" />
-                                <span class="text-xs text-slate-400">${unit}</span>
-                            </div>
-                        </td>
+                        <input type="hidden" class="row-avg-score" value="" />
                         <td class="p-3 text-center">
                             <button class="text-xs text-danger/80 hover:text-danger hover:bg-danger/10 p-1.5 rounded transition-colors btn-delete-row" title="행 삭제">🗑️</button>
                         </td>
@@ -4356,7 +4466,7 @@ async function renderCutoffScreen(schoolName) {
             });
         });
 
-        // 공개 데이터 복사 적용 버튼
+        // 7. 공개 데이터 복사 적용 버튼
         app.querySelectorAll('.btn-apply-public-item').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const row = btn.closest('tr');
@@ -4367,12 +4477,15 @@ async function renderCutoffScreen(schoolName) {
                 const max = parseFloat(row.querySelector('.public-max-score')?.value);
                 const avg = parseFloat(row.querySelector('.public-avg-score')?.value);
                 if (!school || !Number.isFinite(min) || min <= 0) {
-                    alert('고교명과 최저 합격점을 먼저 입력해주세요.');
+                    await showModalAlert({
+                        title: '입력 확인',
+                        message: '고교명과 최저 합격점(양수)을 먼저 입력해주세요.',
+                        type: 'warning'
+                    });
                     return;
                 }
                 const scoreType = school.includes('일반계고') ? 'percentile' : 'total_score';
 
-                // 현재 목록에 즉시 추가/갱신 저장
                 const newCutoff = {
                     year: currentAdmissionYear,
                     schoolName: school,
@@ -4387,11 +4500,15 @@ async function renderCutoffScreen(schoolName) {
                 try {
                     await window.go.main.App.SaveCutoffs([newCutoff]);
                     allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
-                    alert(`[${school} - ${dept}(${track})] 공개 입결 데이터(최저 ${min} / 최고 ${max} / 평균 ${avg})가 ${currentAdmissionYear}학년도 커트라인으로 성공적으로 적용되었습니다!`);
+                    await showModalAlert({
+                        title: '커트라인 반영 완료',
+                        message: `<strong>[${school} - ${dept || '전체'}(${track})]</strong><br>공식 입결 데이터(최저 ${min} / 최고 ${max || min} / 평균 ${avg || '-'})가 <strong>${currentAdmissionYear}학년도 커트라인</strong>으로 성공적으로 반영되었습니다!`,
+                        type: 'success'
+                    });
                     currentTab = 'all';
                     renderMainScreen();
                 } catch (err) {
-                    alert('적용 실패: ' + err);
+                    await showModalAlert({ title: '반영 실패', message: String(err), type: 'error' });
                 }
             });
         });
@@ -4447,13 +4564,7 @@ async function renderCutoffScreen(schoolName) {
             });
         }
 
-        // 1. 입학년도(입시년도) 변경 리스너
-        document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
-            currentAdmissionYear = parseInt(e.target.value);
-            renderMainScreen();
-        });
-
-        // 2. 전체 저장 함수
+        // 8. 전체 저장 함수 (공식 공개데이터도 함께 DB에 동기화 보관)
         const saveAllCutoffs = async (silent = false) => {
             const rows = app.querySelectorAll('.cutoff-item-row');
             const cutoffs = [];
@@ -4461,7 +4572,7 @@ async function renderCutoffScreen(schoolName) {
             rows.forEach(tr => {
                 const school = tr.dataset.school;
                 const scoreType = tr.dataset.type;
-				const dept = tr.querySelector('.row-dept-name')?.value.trim() ?? tr.dataset.dept ?? '';
+                const dept = tr.querySelector('.row-dept-name')?.value.trim() ?? tr.dataset.dept ?? '';
                 const track = tr.querySelector('.row-track-name')?.value.trim() || '일반';
                 const minStr = tr.querySelector('.row-min-score')?.value.trim();
                 const maxStr = tr.querySelector('.row-max-score')?.value.trim();
@@ -4485,8 +4596,33 @@ async function renderCutoffScreen(schoolName) {
                 }
             });
 
+            // 고교 공식 공개자료(참고자료)도 함께 영구 저장하여 서버 전송에 포함
+            publicOfficialData.forEach(p => {
+                const minVal = parseFloat(p.min);
+                if (p.school && !isNaN(minVal) && minVal > 0) {
+                    const maxVal = parseFloat(p.max);
+                    const avgVal = parseFloat(p.avg);
+                    cutoffs.push({
+                        year: p.year || currentAdmissionYear,
+                        schoolName: p.school,
+                        department: p.dept === '공통' ? '' : (p.dept || ''),
+                        track: p.track || '공식 합격선',
+                        scoreType: p.unit === '%' ? 'percentile' : 'total_score',
+                        minValue: minVal,
+                        maxValue: !isNaN(maxVal) && maxVal > 0 ? maxVal : minVal,
+                        avgValue: !isNaN(avgVal) && avgVal > 0 ? avgVal : 0
+                    });
+                }
+            });
+
             if (cutoffs.length === 0) {
-                if (!silent) alert('저장할 유효한 커트라인 점수가 없습니다. 최저 합격선을 입력해주세요.');
+                if (!silent) {
+                    await showModalAlert({
+                        title: '저장 대상 없음',
+                        message: '저장할 유효한 커트라인 점수가 없습니다. 최저 합격선을 입력해주세요.',
+                        type: 'warning'
+                    });
+                }
                 return false;
             }
 
@@ -4494,20 +4630,42 @@ async function renderCutoffScreen(schoolName) {
                 await window.go.main.App.SaveCutoffs(cutoffs);
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                 if (!silent) {
-                    alert(`${currentAdmissionYear}학년도 총 ${cutoffs.length}개의 고교·학과별 커트라인(최저/최고/평균)이 안전하게 저장되었습니다!`);
+                    await showModalAlert({
+                        title: '커트라인 저장 완료',
+                        message: `<strong>${currentAdmissionYear}학년도</strong> 총 <strong>${cutoffs.length}건</strong>의 고교·학과별 커트라인 및 공식 공개 입결 자료가 안전하게 저장되었습니다!`,
+                        type: 'success'
+                    });
                 }
                 return true;
             } catch (err) {
-                alert('저장 실패: ' + err);
+                await showModalAlert({ title: '저장 실패', message: String(err), type: 'error' });
                 return false;
             }
         };
 
-        // 3. 중앙 서버 전송
+        // 9. 중앙 서버 전송 (SweetAlert2 스타일 커스텀 모달 confirm 적용 및 안내문구 현행화)
         document.getElementById('exportBridgeCutoffBtn')?.addEventListener('click', async () => {
-            if (!confirm(`${currentAdmissionYear}학년도 제출 중학교명, 고등학교명, 학과(또는 전체), 최저 커트라인 점수만 제출합니다.\n학생·학급·교사 정보는 전송되지 않으며, 운영자 승인 전에는 공개되지 않습니다.\n\n계속하시겠습니까?`)) {
-                return;
-            }
+            const confirmed = await showModalConfirm({
+                title: '☁️ 커트라인 및 공식 입결 중앙 서버 제출',
+                message: `
+                    <div class="space-y-3 text-xs leading-relaxed text-left">
+                        <div class="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-200">
+                            <p class="font-bold text-sm text-indigo-100 mb-1">📅 ${currentAdmissionYear}학년도 입시 기준 제출 안내</p>
+                            <p>입력하신 고교별 합격선(최저/최고불합격)과 <strong>고교 공식 공개 합격선 데이터</strong>가 중앙 EduBridge 서버로 안전하게 제출됩니다.</p>
+                        </div>
+                        <div class="space-y-2 text-slate-300">
+                            <p class="flex items-start gap-1.5"><span class="text-emerald-400 font-bold">✓</span> <span><strong>개인정보 철저 보호:</strong> 학생 성명, 학급, 교사 정보, 개별 성적은 일절 전송되지 않으며 순수 학교·전형별 기준점만 전송됩니다.</span></p>
+                            <p class="flex items-start gap-1.5"><span class="text-cyan-400 font-bold">✓</span> <span><strong>관내 진학 지도 공유:</strong> 전송된 자료는 교육청/운영자 검토 후 울산 관내 참여 학교 간 진학 지도 참고자료로 공유됩니다.</span></p>
+                        </div>
+                    </div>
+                `,
+                type: 'info',
+                confirmText: '🚀 서버로 제출하기',
+                cancelText: '취소'
+            });
+
+            if (!confirmed) return;
+
             const btn = document.getElementById('exportBridgeCutoffBtn');
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner"></span> 전송 중...';
@@ -4515,16 +4673,20 @@ async function renderCutoffScreen(schoolName) {
             try {
                 await saveAllCutoffs(true);
                 await window.go.main.App.SendCutoffsToBridge(currentAdmissionYear);
-                alert('커트라인이 제출되었습니다. 운영자 승인 후 공개 자료에 반영됩니다.');
+                await showModalAlert({
+                    title: '제출 완료',
+                    message: `<strong>${currentAdmissionYear}학년도</strong> 커트라인 및 공식 공개 합격선이 중앙 서버에 안전하게 제출되었습니다.<br>운영자 검토 후 관내 학교 공유 자료에 반영됩니다.`,
+                    type: 'success'
+                });
             } catch (err) {
-                alert('서버 전송 실패: ' + err);
+                await showModalAlert({ title: '서버 전송 실패', message: String(err), type: 'error' });
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>📤</span> 서버 전송';
             }
         });
 
-        // 4. 중앙 서버 데이터 내려받기
+        // 10. 중앙 서버 데이터 내려받기
         document.getElementById('importBridgeCutoffBtn')?.addEventListener('click', async () => {
             const btn = document.getElementById('importBridgeCutoffBtn');
             btn.disabled = true;
@@ -4532,18 +4694,22 @@ async function renderCutoffScreen(schoolName) {
 
             try {
                 const count = await window.go.main.App.FetchCutoffsFromBridge(currentAdmissionYear);
-                alert(`${currentAdmissionYear}학년도 중앙 서버에서 총 ${count}건의 커트라인 데이터를 성공적으로 내려받았습니다!`);
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                await showModalAlert({
+                    title: '내려받기 완료',
+                    message: `<strong>${currentAdmissionYear}학년도</strong> 중앙 서버에서 총 <strong>${count}건</strong>의 커트라인 데이터를 성공적으로 내려받았습니다!`,
+                    type: 'success'
+                });
                 renderMainScreen();
             } catch (err) {
-                alert('서버 데이터 내려받기 실패: ' + err);
+                await showModalAlert({ title: '서버 데이터 내려받기 실패', message: String(err), type: 'error' });
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
             }
         });
 
-        // 5. 대시보드로 돌아가기
+        // 11. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });
