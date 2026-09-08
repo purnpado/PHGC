@@ -1595,7 +1595,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     let studentDetail = null;
     let refreshAutoScore = null;
     const catalog = highSchoolData?.schools || [];
-    const normalizedSchoolName = value => String(value || '').replace(/고등학교/g, '').replace(/\s/g, '');
+    const normalizedSchoolName = value => String(value || '').replace(/등학교$/, '').replace(/\s/g, '');
     const trackLabel = track => ({
         '일반': '일반전형',
         '특별': '특별전형',

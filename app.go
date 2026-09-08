@@ -1465,7 +1465,7 @@ type ApplicationScoreSnapshot struct {
 }
 
 func normalizeApplicationSchoolName(value string) string {
-	value = strings.ReplaceAll(strings.TrimSpace(value), "고등학교", "")
+	value = strings.TrimSuffix(strings.TrimSpace(value), "등학교")
 	return strings.ReplaceAll(value, " ", "")
 }
 
