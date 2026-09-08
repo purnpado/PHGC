@@ -238,6 +238,50 @@ func TestApplicationSummaryCalculatesAcceptedAndRejectedScores(t *testing.T) {
 	}
 }
 
+func TestSelectedTeacherPatchMergeAndExpectedSupportToken(t *testing.T) {
+	dir := t.TempDir()
+	dm := &DBManager{dataDir: dir}
+	dm.setDataKey(make([]byte, 32))
+	if err := dm.InitConfigDB(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dm.SaveSchoolConfig("테스트중학교", 1, "", false, 2027); err != nil {
+		t.Fatal(err)
+	}
+	if err := dm.InitClassDB(1); err != nil {
+		t.Fatal(err)
+	}
+	app := &App{db: dm}
+	token1, err := dm.GetExpectedSupportToken()
+	if err != nil || len(token1) < 32 {
+		t.Fatalf("expected support token: %q, %v", token1, err)
+	}
+	token2, err := dm.GetExpectedSupportToken()
+	if err != nil || token1 != token2 {
+		t.Fatalf("participation token must remain stable: %q / %q, %v", token1, token2, err)
+	}
+	patchPath := filepath.Join(dir, "teacher.phgcpatch")
+	patch := PatchFile{SourceUsername: "301", ClassNum: 1, Changes: []PatchChange{{
+		ClassNum: 1, StudentNum: "1", StudentName: "홍길동", Attendance: `{"absence":1}`,
+		Applications: []ApplicationRecord{{AdmissionYear: 2027, Category: "self_foreign", SchoolName: "울산외국어고등학교", Status: "지원 예정", Score: 91.5}},
+	}}}
+	if err := encryptPatchGCM("shared-password", patch, patchPath); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := app.InspectTeacherPatch("shared-password", patchPath)
+	if err != nil || len(preview.Items) != 1 || !preview.Items[0].Attendance || !preview.Items[0].Applications {
+		t.Fatalf("unexpected patch preview: %#v, %v", preview, err)
+	}
+	count, err := app.ImportTeacherPatchSelected("shared-password", patchPath, []PatchMergeSelection{{StudentNum: "1", Applications: true}})
+	if err != nil || count != 1 {
+		t.Fatalf("selected merge: %d, %v", count, err)
+	}
+	records, err := dm.GetStudentApplications(1, "1", "홍길동")
+	if err != nil || len(records) != 1 || records[0].SchoolName != "울산외국어고등학교" {
+		t.Fatalf("application-only merge failed: %#v, %v", records, err)
+	}
+}
+
 func copyTestFile(t *testing.T, source, destination string) {
 	t.Helper()
 	data, err := os.ReadFile(source)
