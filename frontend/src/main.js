@@ -2952,28 +2952,25 @@ export async function renderLoginScreen(schoolName) {
                         <button type="submit" id="loginBtn" class="btn-primary py-2 text-xs font-bold">로그인</button>
                     </div>
                     <div id="loginError" class="error-msg text-center text-xs"></div>
-                    <button type="button" id="passwordResetImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
-                        담임 비밀번호를 재설정했나요? 재설정 파일 가져오기
-                    </button>
-                    <button type="button" id="distributionPackageImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
-                        학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기
-                    </button>
-                    <button type="button" id="finalArchiveImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
-                        암호화 최종 보관본 복원하기
-                    </button>
+                    <div class="grid gap-2 mt-4 pt-4 border-t border-slate-700/60">
+                        <button type="button" id="passwordResetImportBtn" class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-left hover:bg-indigo-500/10 transition-colors w-full flex items-center gap-2">
+                            <div class="font-semibold text-indigo-300 text-xs">🔑 담임 비밀번호 재설정 파일 가져오기</div>
+                        </button>
+                        <button type="button" id="distributionPackageImportBtn" class="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 text-left hover:bg-emerald-500/10 transition-colors w-full flex items-center gap-2">
+                            <div class="font-semibold text-emerald-300 text-xs">📦 학년부장 배포 자료 가져오기</div>
+                        </button>
+                        <button type="button" id="finalArchiveImportBtn" class="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-left hover:bg-amber-500/10 transition-colors w-full flex items-center gap-2">
+                            <div class="font-semibold text-amber-300 text-xs">🗄️ 암호화 최종 보관본 복원하기</div>
+                        </button>
+                    </div>
                 </form>
 
                 <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
-                <div class="mt-6 pt-4 border-t border-slate-700/60 flex items-center justify-between text-xs text-text-muted">
-                    <div>
-                        <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
-                        <div id="startupUpdateStatus" class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                            <span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 업데이트 검사 중...
-                        </div>
+                <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted">
+                    <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
+                    <div id="startupUpdateStatus" class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                        <span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 업데이트 검사 중...
                     </div>
-                    <button id="manualUpdateCheckBtn" type="button" class="btn-secondary text-xs px-2.5 py-1.5 font-bold inline-flex items-center gap-1" style="width: auto;">
-                        <span>🔄</span> 업데이트 확인
-                    </button>
                 </div>
             </div>
         `;
@@ -3047,29 +3044,6 @@ export async function renderLoginScreen(schoolName) {
                 window.location.reload();
             } catch (err) { alert('최종 보관본 복원 실패: ' + err); }
             finally { button.disabled = false; button.textContent = '암호화 최종 보관본 복원하기'; }
-        });
-
-        document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('manualUpdateCheckBtn');
-            const statusEl = document.getElementById('startupUpdateStatus');
-            btn.innerHTML = '<span class="spinner"></span> 확인 중...';
-            if (statusEl) statusEl.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 서버 확인 중...';
-            try {
-                const res = await window.go.main.App.SyncWithServer();
-                if (res && res.hasUpdate) {
-                    if (statusEl) statusEl.innerHTML = `<span class="text-rose-400 font-bold animate-pulse">🚀 새 버전 v${res.latestVersion} 출시!</span>`;
-                    showStartupUpdateModal(res);
-                } else {
-                    const serverVer = res && res.latestVersion ? res.latestVersion : localVer;
-                    if (statusEl) statusEl.innerHTML = `<span class="text-emerald-400">✅ 최신 버전 (서버: v${serverVer})</span>`;
-                    alert(`현재 설치된 버전(v${localVer})은 최신 상태입니다!\n(중앙 서버 최신 버전: v${serverVer})`);
-                }
-            } catch (err) {
-                alert('업데이트 확인 실패: ' + err);
-                if (statusEl) statusEl.innerHTML = `<span class="text-slate-400">오프라인 모드</span>`;
-            } finally {
-                btn.innerHTML = '<span>🔄</span> 업데이트 확인';
-            }
         });
 
         document.getElementById('loginPassword').focus();
