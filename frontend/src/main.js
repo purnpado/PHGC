@@ -4144,9 +4144,10 @@ async function renderCutoffScreen(schoolName) {
         const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
         if (savedPublicData) {
             const parsed = JSON.parse(savedPublicData);
-            // 기존 캐시 중 공식자료가 아닌 일반계고 참고데이터는 정리
-            publicOfficialData = parsed.filter(x => !String(x.school || '').includes('일반계고'));
-            if (publicOfficialData.length === 0) publicOfficialData = publicOfficialDefaults;
+            // 공식 공개자료인 울산마이스터고만 엄선 유지 (이전 비공식 테스트 데이터 정리)
+            const cleaned = parsed.filter(x => normalizeSchoolName(x.school) === '울산마이스터고' || !x.school);
+            publicOfficialData = cleaned.length > 0 ? cleaned : publicOfficialDefaults;
+            localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
         } else {
             // 서버에 배포된 공식 입결 자료(official_admission_data.json) 자동 조회
             const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
@@ -4155,11 +4156,11 @@ async function renderCutoffScreen(schoolName) {
                     year: item.admissionYear || item.year || currentAdmissionYear,
                     school: item.schoolName || item.school || '',
                     dept: item.department || '',
-                    track: item.track || '일반전형',
+                    track: item.track || '일반',
                     min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
                     max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
                     avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
-                    unit: String(item.schoolName || '').includes('일반계고') ? '%' : '점',
+                    unit: '점',
                     note: item.source || item.note || '공식자료'
                 })).filter(x => x.school);
 
@@ -4175,6 +4176,7 @@ async function renderCutoffScreen(schoolName) {
 
     let currentTab = 'all'; // 'all', 'meister', 'special', 'general', 'public'
     let searchKeyword = '';
+    let publicYearFilterMode = 'current'; // 'current': 상단 고교 입학년도 동기화, 'all': 전체 연도 모아보기
 
     const renderMainScreen = () => {
         // 현재 선택된 입학년도의 커트라인 매핑 (다양한 학과명/전형명 표기 완벽 호환)
@@ -4335,52 +4337,157 @@ async function renderCutoffScreen(schoolName) {
                 });
             }
         } else {
-            // 공식 공개 입결 데이터 탭 뷰
-            const publicRowsHTML = publicOfficialData.map((p, index) => `
-                <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors text-center">
-                    <td class="p-2"><input type="text" inputmode="numeric" class="input-field py-1 px-2 text-xs text-center text-slate-300 w-20 public-year" value="${p.year}" aria-label="입학년도" /></td>
-                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs font-bold text-white w-40 public-school" value="${p.school}" aria-label="고교명" /></td>
-                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs text-indigo-300 w-28 public-dept" value="${p.dept === '공통' ? '' : p.dept}" placeholder="학교 전체" aria-label="학과" /></td>
-                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs text-slate-300 w-24 public-track" value="${p.track}" aria-label="전형" /></td>
-                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right font-bold text-emerald-300 w-20 public-min-score" value="${p.min}" aria-label="${p.school} 최저점" /></td>
-                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right text-sky-300 w-20 public-max-score" value="${p.max}" aria-label="${p.school} 최고점" /></td>
-                    <td class="p-2"><input type="text" inputmode="decimal" class="input-field py-1 px-2 text-xs text-right text-amber-300 w-20 public-avg-score" value="${p.avg}" aria-label="${p.school} 평균점" /></td>
-                    <td class="p-2"><input type="text" class="input-field py-1 px-2 text-xs w-28 public-note" value="${p.note}" aria-label="${p.school} 출처 또는 구분" /></td>
-                    <td class="p-3">
-                        <button class="btn-secondary text-[11px] px-2.5 py-1 font-bold btn-apply-public-item" 
-                                data-index="${index}">
-                            내 커트라인 반영
-                        </button>
-                        <button class="text-danger/80 hover:text-danger ml-1 btn-delete-public-item" data-index="${index}" title="참고자료 행 삭제">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
+            // 공식 공개 입결 데이터 탭 뷰 (상단 입학년도 동기화 & 고교/연도별 그룹 묶음)
+            const filteredPublicList = publicOfficialData.map((item, originalIndex) => ({ ...item, originalIndex }))
+                .filter(p => {
+                    if (publicYearFilterMode === 'all') return true;
+                    return Number(p.year) === currentAdmissionYear;
+                });
+
+            // 2. 입학년도 + 고교명으로 그룹핑 (Rowspan 및 시각적 일체화)
+            const groupedPublic = new Map();
+            filteredPublicList.forEach(p => {
+                const groupKey = `${p.year}_${normalizeSchoolName(p.school)}`;
+                if (!groupedPublic.has(groupKey)) {
+                    groupedPublic.set(groupKey, {
+                        year: p.year,
+                        school: p.school,
+                        items: []
+                    });
+                }
+                groupedPublic.get(groupKey).items.push(p);
+            });
+
+            let publicRowsHTML = '';
+            if (filteredPublicList.length === 0) {
+                publicRowsHTML = `
+                    <tr>
+                        <td colspan="8" class="p-10 text-center text-text-muted">
+                            <p class="text-3xl mb-2">📭</p>
+                            <p class="font-bold text-slate-300 text-sm">${currentAdmissionYear}학년도 공식 공개 데이터가 없습니다.</p>
+                            <p class="text-xs mt-1 text-slate-400">'전체 연도 모아보기'를 누르거나 우측 상단 '➕ 공개자료 추가'를 통해 등록할 수 있습니다.</p>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                publicRowsHTML = [...groupedPublic.values()].map(group => {
+                    return group.items.map((p, itemIdx) => {
+                        const isFirstInGroup = itemIdx === 0;
+                        const rowSpan = group.items.length;
+                        const trackClean = normalizeTrack(p.track);
+
+                        return `
+                            <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors text-center public-item-row" data-index="${p.originalIndex}">
+                                ${isFirstInGroup ? `
+                                    <td class="p-3 align-middle bg-slate-900/60 border-r border-slate-700/50 text-center" rowspan="${rowSpan}">
+                                        <div class="flex flex-col items-center justify-center gap-1">
+                                            <span class="px-2.5 py-1 rounded-lg bg-indigo-950/90 border border-indigo-500/50 text-indigo-300 font-black text-xs shadow-inner">
+                                                ${group.year}학년도
+                                            </span>
+                                            <span class="text-[10px] text-slate-400">입학 기준</span>
+                                            <input type="hidden" class="public-year" data-index="${p.originalIndex}" value="${group.year}" />
+                                        </div>
+                                    </td>
+                                    <td class="p-3 align-middle text-left pl-4 bg-slate-900/40 border-r border-slate-700/50" rowspan="${rowSpan}">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-lg">🏫</span>
+                                            <span class="font-bold text-white text-sm">${group.school}</span>
+                                            <input type="hidden" class="public-school" data-index="${p.originalIndex}" value="${group.school}" />
+                                        </div>
+                                    </td>
+                                ` : ''}
+                                <td class="p-2.5">
+                                    <input type="text" class="input-field py-1.5 px-2 text-xs text-indigo-200 text-center w-24 public-dept" 
+                                           value="${p.dept === '공통' ? '' : (p.dept || '')}" placeholder="학교 전체" data-index="${p.originalIndex}" />
+                                </td>
+                                <td class="p-2.5">
+                                    <input type="text" class="input-field py-1.5 px-2 text-xs font-bold text-sky-200 text-center w-20 public-track" 
+                                           value="${trackClean}" placeholder="일반/특별" data-index="${p.originalIndex}" />
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-black text-emerald-400 w-24 public-min-score" 
+                                               value="${p.min ?? ''}" placeholder="최저점" data-index="${p.originalIndex}" />
+                                        <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
+                                    </div>
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 public-max-score" 
+                                               value="${p.max ?? ''}" placeholder="선택" data-index="${p.originalIndex}" />
+                                        <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
+                                    </div>
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 public-avg-score" 
+                                               value="${p.avg ?? ''}" placeholder="선택" data-index="${p.originalIndex}" />
+                                        <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
+                                    </div>
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <input type="text" class="input-field py-1.5 px-2.5 text-xs text-slate-300 w-32 public-note" 
+                                           value="${p.note || ''}" placeholder="출처/비고" data-index="${p.originalIndex}" />
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <button class="px-2.5 py-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 text-xs font-bold transition-all flex items-center gap-1 btn-apply-public-item" 
+                                                data-index="${p.originalIndex}" title="${group.year}학년도 커트라인으로 즉시 적용">
+                                            <span>📥</span> 반영
+                                        </button>
+                                        <button class="text-slate-400 hover:text-danger hover:bg-danger/10 p-1.5 rounded-lg transition-colors btn-delete-public-item" 
+                                                data-index="${p.originalIndex}" title="행 삭제">
+                                            🗑️
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }).join('');
+            }
 
             schoolsHTML = `
                 <div class="p-6 rounded-2xl bg-slate-800/70 border border-slate-700/60 space-y-4 shadow-lg">
-                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-3 flex-wrap gap-2">
+                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-3 flex-wrap gap-3">
                         <div>
                             <h3 class="font-bold text-white text-base flex items-center gap-2">
                                 <span>📊</span> 울산광역시 고등학교 공식 공개 합격선 및 입결 데이터
                             </h3>
-                            <p class="text-xs text-text-muted mt-1">고교에서 공식 발표한 입결 자료입니다. [서버 전송] 시 중앙 서버로 함께 안전하게 제출되어 관내 진학 지도에 공유됩니다.</p>
+                            <p class="text-xs text-text-muted mt-1">고교에서 공식 발표한 입결 자료입니다. 같은 고교·연도별로 묶어 제공되며, [반영] 시 해당 연도 커트라인으로 바로 적용됩니다.</p>
                         </div>
-                        <button id="addPublicDataBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold">➕ 공개자료 행 추가</button>
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                            <!-- 연도 필터 토글 -->
+                            <div class="inline-flex rounded-xl bg-slate-900/80 p-1 border border-slate-700/60 shadow-inner text-xs">
+                                <button id="btnFilterPublicCurrentYear" class="px-3 py-1.5 rounded-lg font-bold transition-all ${publicYearFilterMode === 'current' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
+                                    📅 ${currentAdmissionYear}학년도만 보기
+                                </button>
+                                <button id="btnFilterPublicAllYears" class="px-3 py-1.5 rounded-lg font-bold transition-all ${publicYearFilterMode === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
+                                    전체 연도 모아보기
+                                </button>
+                            </div>
+                            <button id="resetPublicDataBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1 text-slate-300" title="공식 데이터 기본값으로 새로고침">
+                                <span>🔄</span> 기본값 복원
+                            </button>
+                            <button id="addPublicDataBtn" class="btn-primary text-xs px-3.5 py-1.5 font-bold flex items-center gap-1 shadow-sm" style="width: auto;">
+                                <span>➕</span> 공개자료 추가
+                            </button>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-900/40">
                         <table class="w-full text-left border-collapse text-xs">
-                            <thead class="bg-slate-800/80 text-text-muted font-semibold text-center border-b border-slate-700/60">
+                            <thead class="bg-slate-800/90 text-text-muted font-bold text-center border-b border-slate-700/60">
                                 <tr>
-                                    <th class="p-2.5 w-24">입학년도</th>
-                                    <th class="p-2.5 text-left pl-4">고교명</th>
-                                    <th class="p-2.5 w-28">학과</th>
-                                    <th class="p-2.5 w-24">전형</th>
-                                    <th class="p-2.5 w-28 text-emerald-300">최저점</th>
-                                    <th class="p-2.5 w-28 text-sky-300">최고점</th>
-                                    <th class="p-2.5 w-28 text-amber-300">평균점</th>
-                                    <th class="p-2.5 w-28">출처/구분</th>
-                                    <th class="p-2.5 w-36">내 커트라인 반영</th>
+                                    <th class="p-3 w-28 border-r border-slate-700/50">입학년도</th>
+                                    <th class="p-3 text-left pl-4 w-44 border-r border-slate-700/50">고교명</th>
+                                    <th class="p-3 w-28">학과</th>
+                                    <th class="p-3 w-24">전형</th>
+                                    <th class="p-3 w-32 text-emerald-300">최저점 (합격선)</th>
+                                    <th class="p-3 w-32 text-sky-300">최고 불합격점</th>
+                                    <th class="p-3 w-32 text-amber-300">평균점</th>
+                                    <th class="p-3 w-36">출처 / 구분</th>
+                                    <th class="p-3 w-28">관리</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -4570,28 +4677,27 @@ async function renderCutoffScreen(schoolName) {
         // 7. 공개 데이터 복사 적용 버튼
         app.querySelectorAll('.btn-apply-public-item').forEach(btn => {
             btn.addEventListener('click', async () => {
-                const row = btn.closest('tr');
-                const school = row.querySelector('.public-school')?.value.trim();
-                const dept = row.querySelector('.public-dept')?.value.trim() || '';
-                const track = row.querySelector('.public-track')?.value.trim() || '일반';
-                const min = parseFloat(row.querySelector('.public-min-score')?.value);
-                const max = parseFloat(row.querySelector('.public-max-score')?.value);
-                const avg = parseFloat(row.querySelector('.public-avg-score')?.value);
-                if (!school || !Number.isFinite(min) || min <= 0) {
+                const idx = Number(btn.dataset.index);
+                const item = publicOfficialData[idx];
+                if (!item || !item.school || !item.min || Number(item.min) <= 0) {
                     await showModalAlert({
                         title: '입력 확인',
-                        message: '고교명과 최저 합격점(양수)을 먼저 입력해주세요.',
+                        message: '고교명과 최저 합격선(양수)을 먼저 입력해주세요.',
                         type: 'warning'
                     });
                     return;
                 }
-                const scoreType = school.includes('일반계고') ? 'percentile' : 'total_score';
+                const min = parseFloat(item.min);
+                const max = parseFloat(item.max);
+                const avg = parseFloat(item.avg);
+                const targetYear = item.year || currentAdmissionYear;
+                const scoreType = String(item.school).includes('일반계고') ? 'percentile' : 'total_score';
 
                 const newCutoff = {
-                    year: currentAdmissionYear,
-                    schoolName: school,
-                    department: dept,
-                    track: track,
+                    year: targetYear,
+                    schoolName: item.school,
+                    department: normalizeDept(item.dept),
+                    track: normalizeTrack(item.track),
                     scoreType: scoreType,
                     minValue: min,
                     maxValue: Number.isFinite(max) && max > 0 ? max : min,
@@ -4603,7 +4709,7 @@ async function renderCutoffScreen(schoolName) {
                     allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                     await showModalAlert({
                         title: '커트라인 반영 완료',
-                        message: `<strong>[${school} - ${dept || '전체'}(${track})]</strong><br>공식 입결 데이터(최저 ${min} / 최고 ${max || min} / 평균 ${avg || '-'})가 <strong>${currentAdmissionYear}학년도 커트라인</strong>으로 성공적으로 반영되었습니다!`,
+                        message: `<strong>[${item.school} - ${item.dept || '학교 전체'}(${item.track})]</strong><br>공식 입결 데이터(최저 ${min} / 최고 ${max || min} / 평균 ${avg || '-'})가 <strong>${targetYear}학년도 커트라인</strong>으로 성공적으로 반영되었습니다!`,
                         type: 'success'
                     });
                     currentTab = 'all';
@@ -4617,33 +4723,52 @@ async function renderCutoffScreen(schoolName) {
         document.getElementById('saveAllCutoffsBtn')?.addEventListener('click', () => saveAllCutoffs(false));
 
         if (currentTab === 'public') {
-            const savePublicData = () => {
-                const rows = app.querySelectorAll('.btn-apply-public-item');
-                publicOfficialData = publicOfficialData.map((item, index) => {
-                    const button = [...rows].find(btn => Number(btn.dataset.index) === index);
-                    const row = button?.closest('tr');
-                    if (!row) return item;
-                    return {
-                        ...item,
-                        year: parseInt(row.querySelector('.public-year')?.value, 10) || item.year,
-                        school: row.querySelector('.public-school')?.value.trim() || item.school,
-                        dept: row.querySelector('.public-dept')?.value.trim() || '',
-                        track: row.querySelector('.public-track')?.value.trim() || '일반',
-                        min: parseFloat(row.querySelector('.public-min-score')?.value) || item.min,
-                        max: parseFloat(row.querySelector('.public-max-score')?.value) || item.max,
-                        avg: parseFloat(row.querySelector('.public-avg-score')?.value) || item.avg,
-                        note: row.querySelector('.public-note')?.value.trim() || item.note
-                    };
-                });
-                localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
-            };
-            app.querySelectorAll('.public-year, .public-school, .public-dept, .public-track, .public-min-score, .public-max-score, .public-avg-score, .public-note').forEach(input => {
-                input.addEventListener('change', savePublicData);
+            // 연도 필터링 버튼 이벤트
+            document.getElementById('btnFilterPublicCurrentYear')?.addEventListener('click', () => {
+                publicYearFilterMode = 'current';
+                renderMainScreen();
             });
+            document.getElementById('btnFilterPublicAllYears')?.addEventListener('click', () => {
+                publicYearFilterMode = 'all';
+                renderMainScreen();
+            });
+
+            // 공식 공개자료 기본값 복원 버튼
+            document.getElementById('resetPublicDataBtn')?.addEventListener('click', async () => {
+                const confirmed = await showModalConfirm({
+                    title: '공식 공개자료 기본값 복원',
+                    message: '울산마이스터고의 공식 공개자료(2024~2026학년도) 기본값으로 초기화하시겠습니까?<br><span class="text-xs text-slate-400">비공식 테스트 데이터나 임의 수정 내역이 정리됩니다.</span>'
+                });
+                if (confirmed) {
+                    publicOfficialData = JSON.parse(JSON.stringify(publicOfficialDefaults));
+                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    renderMainScreen();
+                }
+            });
+
+            // 인풋 실시간 동기화
+            const updateField = (input, field, isNum = false) => {
+                const idx = Number(input.dataset.index);
+                if (publicOfficialData[idx]) {
+                    const val = input.value.trim();
+                    publicOfficialData[idx][field] = isNum ? (parseFloat(val) || '') : val;
+                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                }
+            };
+            app.querySelectorAll('.public-dept').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'dept')));
+            app.querySelectorAll('.public-track').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'track')));
+            app.querySelectorAll('.public-min-score').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'min', true)));
+            app.querySelectorAll('.public-max-score').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'max', true)));
+            app.querySelectorAll('.public-avg-score').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'avg', true)));
+            app.querySelectorAll('.public-note').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'note')));
+            app.querySelectorAll('.public-school').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'school')));
+            app.querySelectorAll('.public-year').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'year', true)));
+
+            // 행 추가 버튼
             document.getElementById('addPublicDataBtn')?.addEventListener('click', () => {
                 publicOfficialData.unshift({
                     year: currentAdmissionYear,
-                    school: '',
+                    school: '울산마이스터고',
                     dept: '',
                     track: '일반',
                     min: '',
@@ -4655,12 +4780,16 @@ async function renderCutoffScreen(schoolName) {
                 localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
                 renderMainScreen();
             });
+
+            // 행 삭제 버튼
             app.querySelectorAll('.btn-delete-public-item').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const index = Number(btn.dataset.index);
-                    publicOfficialData.splice(index, 1);
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
-                    renderMainScreen();
+                    if (index >= 0 && index < publicOfficialData.length) {
+                        publicOfficialData.splice(index, 1);
+                        localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                        renderMainScreen();
+                    }
                 });
             });
         }
