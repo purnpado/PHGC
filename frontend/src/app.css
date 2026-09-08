@@ -264,6 +264,35 @@ input[type="number"]::-webkit-inner-spin-button {
         overflow: visible !important;
     }
 
+    /* 인쇄 시 스크롤 및 높이 제한 해제 */
+    body.printing .overflow-auto,
+    body.printing .overflow-y-auto,
+    body.printing .overflow-x-auto,
+    body.printing .max-h-[70vh],
+    body.printing .max-h-[55vh] {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    body.printing .glass-card {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    body.printing table {
+        font-size: 0.85rem !important;
+        color: black !important;
+        border-collapse: collapse !important;
+    }
+    body.printing th, body.printing td {
+        padding: 6px !important;
+        border: 1px solid #94a3b8 !important;
+        color: black !important;
+    }
+    body.printing th {
+        background-color: #f1f5f9 !important;
+    }
+
     /* 인쇄 버튼이 고른 문서 외의 대시보드·배경·다른 모달은 출력하지 않는다. */
     body.printing #app,
     body.printing .bg-glow,
