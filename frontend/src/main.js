@@ -1580,7 +1580,16 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     const canEdit = !window.currentUser || window.currentUser.Role !== 'viewer';
     const statusOptions = ['미입력', '지원 예정', '지원 완료', '합격', '불합격', '포기', '최종 진학'];
     const categoryOptions = [['meister','마이스터고'], ['special','특성화고'], ['self_foreign','자사고·외고'], ['general','후기 일반고'], ['other','기타(집계 제외)']];
-    const highSchoolData = await window.go.main.App.GetHighSchoolsData().catch(() => ({ schools: [] }));
+    // 지원현황 창은 목록 조회 실패 때문에 열리지 않으면 안 된다. Wails 바인딩
+    // 누락·손상 또는 로컬 목록 파일 문제도 1.5초 안에 빈 목록으로 처리한다.
+    const withFallback = (operation, fallback, timeoutMs = 1500) => Promise.race([
+        Promise.resolve().then(operation).then(result => result ?? fallback).catch(() => fallback),
+        new Promise(resolve => setTimeout(() => resolve(fallback), timeoutMs)),
+    ]);
+    const highSchoolData = await withFallback(
+        () => window.go?.main?.App?.GetHighSchoolsData?.(),
+        { schools: [] },
+    );
     const catalog = highSchoolData?.schools || [];
     const schoolOptions = (category, selected = '') => {
         const type = category === 'meister' ? '마이스터고' : category === 'special' ? '특성화고' : '';
@@ -1600,7 +1609,10 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         return `<option value="">${placeholder}</option>${(school?.departments || []).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
     };
     const render = async (selectedIndex = 0) => {
-        const records = await window.go.main.App.GetStudentApplications(classNum, studentNum, name).catch(() => []);
+        const records = await withFallback(
+            () => window.go?.main?.App?.GetStudentApplications?.(classNum, studentNum, name),
+            [],
+        );
         const record = records[selectedIndex] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '미입력', preferences: [] };
         const isGeneral = record.category === 'general';
         const needsSchool = ['meister', 'special', 'self_foreign'].includes(record.category);
@@ -1659,7 +1671,12 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             try { await window.go.main.App.SaveStudentApplication(payload); await render(0); } catch (err) { alert('지원 현황 저장 실패: ' + err); }
         });
     };
-    await render();
+    try {
+        await render();
+    } catch (err) {
+        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">지원 현황을 열 수 없습니다</h2><p class="text-text-muted break-words">${err?.message || err}</p><button id="closeApplicationModal" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
+        document.getElementById('closeApplicationModal').onclick = () => modal.remove();
+    }
 }
 
 // ===== 학생 전학년 전과목 교과/비교과 종합 성적표 모달 =====
