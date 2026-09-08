@@ -11,6 +11,72 @@ window.currentUser = null;
 
 // ===== 화면 렌더링 함수들 =====
 
+// 새 프로그램 폴더의 첫 화면. 새 학교 설정과 학년부장 배포 자료 적용을
+// 명확히 분리해, data 폴더가 없는 담임 PC에서도 배포 자료를 가져올 수 있다.
+function renderFirstRunScreen() {
+    app.innerHTML = `
+        <div class="glass-card p-8 w-full max-w-xl fade-in" style="margin: 2rem;">
+            <div class="text-center mb-8">
+                <div class="text-5xl mb-4" style="animation: float 3s ease-in-out infinite;">🏫</div>
+                <h1 class="text-2xl font-bold text-white mb-2">그래서? 넌 어디갈래?</h1>
+                <p class="text-text-muted text-sm">처음 실행 방법을 선택하세요</p>
+            </div>
+            <div class="grid gap-4">
+                <button id="startSchoolSetupBtn" type="button" class="rounded-xl border border-indigo-500/50 bg-indigo-500/10 p-5 text-left hover:bg-indigo-500/20 transition-colors">
+                    <div class="font-bold text-white text-base">🏫 새 학교 기초 설정</div>
+                    <p class="text-xs text-slate-300 mt-2">학년부장이 학교명·학급 수·암호를 처음 설정하고 나이스 자료를 준비합니다.</p>
+                </button>
+                <button id="firstRunDistributionImportBtn" type="button" class="rounded-xl border border-emerald-500/50 bg-emerald-500/10 p-5 text-left hover:bg-emerald-500/20 transition-colors">
+                    <div class="font-bold text-white text-base">📦 학년부장 배포자료 가져오기</div>
+                    <p class="text-xs text-slate-300 mt-2">담임·진로부장이 받은 <strong>.phgcpkg</strong> 파일을 적용합니다. 적용 후 본인 초기 비밀번호로 로그인합니다.</p>
+                </button>
+                <button id="firstRunArchiveImportBtn" type="button" class="rounded-xl border border-amber-500/50 bg-amber-500/10 p-5 text-left hover:bg-amber-500/20 transition-colors">
+                    <div class="font-bold text-white text-base">🗄️ 암호화 최종 보관본 복원</div>
+                    <p class="text-xs text-slate-300 mt-2">학년부장이 보관한 <strong>.phgcarchive</strong>를 새 프로그램 폴더에 복원합니다.</p>
+                </button>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-6 text-center">기존 data 폴더가 있는 경우에는 이 화면이 아닌 로그인 화면으로 자동 이동합니다.</p>
+        </div>
+    `;
+
+    document.getElementById('startSchoolSetupBtn').addEventListener('click', () => renderSetupScreen());
+    document.getElementById('firstRunDistributionImportBtn').addEventListener('click', async () => {
+        const button = document.getElementById('firstRunDistributionImportBtn');
+        try {
+            button.disabled = true;
+            button.textContent = '배포자료 적용 중...';
+            const username = await window.go.main.App.OpenDistributionPackage();
+            if (!username) return;
+            alert(`'${username}' 계정의 배포자료를 적용했습니다.\n공용 데이터 암호와 학년부장이 정한 초기 비밀번호로 로그인하세요.`);
+            window.location.reload();
+        } catch (err) {
+            alert('배포자료 가져오기 실패: ' + err);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<div class="font-bold text-white text-base">📦 학년부장 배포자료 가져오기</div><p class="text-xs text-slate-300 mt-2">담임·진로부장이 받은 <strong>.phgcpkg</strong> 파일을 적용합니다. 적용 후 본인 초기 비밀번호로 로그인합니다.</p>';
+        }
+    });
+    document.getElementById('firstRunArchiveImportBtn').addEventListener('click', async () => {
+        const password = prompt('최종 보관본 암호를 입력하세요.');
+        if (!password) return;
+        const button = document.getElementById('firstRunArchiveImportBtn');
+        try {
+            button.disabled = true;
+            button.textContent = '최종 보관본 복원 중...';
+            const path = await window.go.main.App.OpenFinalArchive();
+            if (!path) return;
+            const school = await window.go.main.App.ImportFinalArchive(path, password);
+            alert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`);
+            window.location.reload();
+        } catch (err) {
+            alert('최종 보관본 복원 실패: ' + err);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<div class="font-bold text-white text-base">🗄️ 암호화 최종 보관본 복원</div><p class="text-xs text-slate-300 mt-2">학년부장이 보관한 <strong>.phgcarchive</strong>를 새 프로그램 폴더에 복원합니다.</p>';
+        }
+    });
+}
+
 // 초기 설정 화면 (관리자 전용)
 function renderSetupScreen(existingConfig = null) {
     const schoolName = existingConfig?.schoolName || '';
@@ -2502,7 +2568,7 @@ async function init() {
             // 역할 목록은 로그인 후에만 DB에서 읽는다.
             renderLoginScreen(await window.go.main.App.GetLoginIndex());
         } else {
-            renderSetupScreen();
+            renderFirstRunScreen();
         }
     } catch (err) {
         app.innerHTML = `<div class="p-10 text-center text-danger font-bold">계정 정보를 불러올 수 없습니다.<br>${err}</div>`;
