@@ -592,6 +592,9 @@ async function renderAdminScreen(schoolName) {
                     <button id="importPatchBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
                         📥 담임 변경분 가져오기
                     </button>
+                    <button id="finalArchiveBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
+                        🗄️ 암호화 최종 보관본
+                    </button>
                     <button id="resetYearBtn" class="text-warning border border-warning/30 hover:bg-warning/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;" title="커트라인은 유지하고 학생 데이터만 삭제">
                         📅 새 입시년도 전환
                     </button>
@@ -737,6 +740,17 @@ async function renderAdminScreen(schoolName) {
 
     document.getElementById('refreshBtn').addEventListener('click', () => {
         renderAdminScreen(schoolName);
+    });
+
+    document.getElementById('finalArchiveBtn')?.addEventListener('click', async () => {
+        const password = prompt('최종 보관본을 보호할 새 암호를 입력하세요.\n이 암호는 복원할 때 반드시 필요하며 공용 데이터 암호와 별도로 보관하세요.');
+        if (!password) return;
+        const confirmPassword = prompt('보관본 암호를 한 번 더 입력하세요.');
+        if (password !== confirmPassword) return alert('보관본 암호가 일치하지 않습니다.');
+        try {
+            const path = await window.go.main.App.SaveFinalArchive(password);
+            if (path) alert(`암호화된 최종 보관본을 만들었습니다.\n${path}\n\n새 프로그램 폴더의 로그인 화면에서 복원할 수 있습니다.`);
+        } catch (err) { alert('최종 보관본 생성 실패: ' + err); }
     });
 
     document.getElementById('uploadExcelBtn').addEventListener('click', async () => {
@@ -2739,6 +2753,9 @@ export async function renderLoginScreen(schoolName) {
                     <button type="button" id="distributionPackageImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
                         학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기
                     </button>
+                    <button type="button" id="finalArchiveImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
+                        암호화 최종 보관본 복원하기
+                    </button>
                 </form>
 
                 <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
@@ -2809,6 +2826,22 @@ export async function renderLoginScreen(schoolName) {
                 button.disabled = false;
                 button.textContent = '학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기';
             }
+        });
+
+        document.getElementById('finalArchiveImportBtn').addEventListener('click', async () => {
+            const button = document.getElementById('finalArchiveImportBtn');
+            const password = prompt('최종 보관본 암호를 입력하세요. 복원은 새 프로그램 폴더에서만 가능합니다.');
+            if (!password) return;
+            try {
+                button.disabled = true;
+                button.textContent = '최종 보관본 복원 중...';
+                const path = await window.go.main.App.OpenFinalArchive();
+                if (!path) return;
+                const school = await window.go.main.App.ImportFinalArchive(path, password);
+                alert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`);
+                window.location.reload();
+            } catch (err) { alert('최종 보관본 복원 실패: ' + err); }
+            finally { button.disabled = false; button.textContent = '암호화 최종 보관본 복원하기'; }
         });
 
         document.getElementById('manualUpdateCheckBtn').addEventListener('click', async () => {

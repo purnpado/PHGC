@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/bcrypt"
@@ -67,6 +68,14 @@ type DistributionPackageManifest struct {
 	Role     string   `json:"role"`
 	ClassNum int      `json:"classNum"`
 	Files    []string `json:"files"`
+}
+
+type FinalArchiveManifest struct {
+	Format        string   `json:"format"`
+	SchoolName    string   `json:"schoolName"`
+	AdmissionYear int      `json:"admissionYear"`
+	CreatedAt     string   `json:"createdAt"`
+	Files         []string `json:"files"`
 }
 
 // App struct
@@ -788,6 +797,180 @@ func readZipEntry(file *zip.File) ([]byte, error) {
 	}
 	defer reader.Close()
 	return io.ReadAll(io.LimitReader(reader, 64<<20))
+}
+
+// SaveFinalArchive creates a portable AES-256-GCM encrypted archive of every
+// encrypted school data file. It contains no plaintext SQLite database.
+func (a *App) SaveFinalArchive(archivePassword string) (string, error) {
+	if a.user == nil || a.user.Role != "master" || len(a.dataKey) != 32 {
+		return "", fmt.Errorf("최종 보관본 생성은 학년부장 로그인 후에만 할 수 있습니다")
+	}
+	if strings.TrimSpace(archivePassword) == "" {
+		return "", fmt.Errorf("보관본 암호를 입력해주세요")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return "", err
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{Title: "암호화 최종 보관본 저장", DefaultFilename: fmt.Sprintf("PHGC-%s-%d-최종보관본.phgcarchive", config.SchoolName, config.AdmissionYear), Filters: []runtime.FileFilter{{DisplayName: "PHGC 암호화 보관본", Pattern: "*.phgcarchive"}}})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := a.ExportFinalArchive(archivePassword, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func (a *App) ExportFinalArchive(archivePassword, outputPath string) error {
+	if a.user == nil || a.user.Role != "master" || len(a.dataKey) != 32 {
+		return fmt.Errorf("학년부장 로그인 후에만 보관본을 만들 수 있습니다")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return err
+	}
+	tmpDir, err := os.MkdirTemp("", "phgc-archive-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+	keyPassword := hex.EncodeToString(a.dataKey)
+	files := []string{"config.db.phgc", "shared-key.json", "login-index.json"}
+	if err := snapshotAndEncryptDatabase(a.db, a.db.getConfigDBPath(), filepath.Join(tmpDir, "config.db.phgc"), keyPassword); err != nil {
+		return err
+	}
+	for _, name := range []string{"shared-key.json", "login-index.json"} {
+		if err := copyPackageFile(filepath.Join(a.db.dataDir, name), filepath.Join(tmpDir, name)); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Stat(manifestPath(a.db.dataDir)); err == nil {
+		if err := copyPackageFile(manifestPath(a.db.dataDir), filepath.Join(tmpDir, "manifest.json")); err != nil {
+			return err
+		}
+		files = append(files, "manifest.json")
+	}
+	for n := 1; n <= config.ClassCount; n++ {
+		source := a.db.getClassDBPath(n)
+		if _, err := os.Stat(source); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		name := fmt.Sprintf("class_%d.db.phgc", n)
+		if err := snapshotAndEncryptDatabase(a.db, source, filepath.Join(tmpDir, name), keyPassword); err != nil {
+			return err
+		}
+		files = append(files, name)
+	}
+	keyEntries, _ := os.ReadDir(filepath.Join(a.db.dataDir, "keys"))
+	for _, entry := range keyEntries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		name := filepath.Join("keys", entry.Name())
+		if err := os.MkdirAll(filepath.Join(tmpDir, "keys"), 0700); err != nil {
+			return err
+		}
+		if err := copyPackageFile(filepath.Join(a.db.dataDir, name), filepath.Join(tmpDir, name)); err != nil {
+			return err
+		}
+		files = append(files, name)
+	}
+	archive := FinalArchiveManifest{Format: "PHGC-FINAL-ARCHIVE-1", SchoolName: config.SchoolName, AdmissionYear: config.AdmissionYear, CreatedAt: time.Now().Format(time.RFC3339), Files: files}
+	b, err := json.Marshal(archive)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "archive.json"), b, 0600); err != nil {
+		return err
+	}
+	zipPath := filepath.Join(tmpDir, "archive.zip")
+	if err := writeDistributionZip(zipPath, tmpDir, append([]string{"archive.json"}, files...)); err != nil {
+		return err
+	}
+	return encryptFileGCM(archivePassword, zipPath, outputPath)
+}
+
+func (a *App) OpenFinalArchive() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "암호화 최종 보관본 선택", Filters: []runtime.FileFilter{{DisplayName: "PHGC 암호화 보관본", Pattern: "*.phgcarchive"}}})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return path, nil
+}
+
+// ImportFinalArchive is intentionally permitted only into an empty program
+// data folder, avoiding accidental overwrite of a live school's data.
+func (a *App) ImportFinalArchive(inputPath, archivePassword string) (string, error) {
+	if strings.TrimSpace(archivePassword) == "" {
+		return "", fmt.Errorf("보관본 암호를 입력해주세요")
+	}
+	if a.db.hasEncryptedConfigDB() {
+		return "", fmt.Errorf("기존 학교 자료가 있습니다. 새 프로그램 폴더에서 보관본을 복원하세요")
+	}
+	if _, err := os.Stat(a.db.getConfigDBPath()); err == nil {
+		cfg, cfgErr := a.db.GetSchoolConfig()
+		if cfgErr != nil || cfg != nil {
+			return "", fmt.Errorf("기존 학교 설정이 있습니다. 새 프로그램 폴더에서 보관본을 복원하세요")
+		}
+		removePlainDatabaseArtifacts(a.db.getConfigDBPath())
+	}
+	tmpDir, err := os.MkdirTemp("", "phgc-restore-*")
+	if err != nil {
+		return "", err
+	}
+	defer os.RemoveAll(tmpDir)
+	zipPath := filepath.Join(tmpDir, "archive.zip")
+	if err := decryptFileGCM(archivePassword, inputPath, zipPath); err != nil {
+		return "", fmt.Errorf("보관본 암호가 올바르지 않거나 파일이 손상되었습니다")
+	}
+	reader, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+	entries := map[string]*zip.File{}
+	for _, f := range reader.File {
+		if strings.Contains(f.Name, "..") || filepath.IsAbs(f.Name) {
+			return "", fmt.Errorf("허용되지 않은 보관 파일 경로입니다")
+		}
+		entries[f.Name] = f
+	}
+	meta := entries["archive.json"]
+	if meta == nil {
+		return "", fmt.Errorf("보관본 정보가 없습니다")
+	}
+	raw, err := readZipEntry(meta)
+	if err != nil {
+		return "", err
+	}
+	var archive FinalArchiveManifest
+	if err := json.Unmarshal(raw, &archive); err != nil || archive.Format != "PHGC-FINAL-ARCHIVE-1" || archive.SchoolName == "" {
+		return "", fmt.Errorf("지원하지 않는 보관본입니다")
+	}
+	for _, name := range archive.Files {
+		f := entries[name]
+		if f == nil {
+			return "", fmt.Errorf("보관본에 %s 파일이 없습니다", name)
+		}
+		if !(name == "config.db.phgc" || name == "shared-key.json" || name == "login-index.json" || name == "manifest.json" || strings.HasPrefix(name, "class_") && strings.HasSuffix(name, ".db.phgc") || strings.HasPrefix(name, "keys/") && filepath.Ext(name) == ".json") {
+			return "", fmt.Errorf("허용되지 않은 보관 파일입니다")
+		}
+		data, err := readZipEntry(f)
+		if err != nil {
+			return "", err
+		}
+		dest := filepath.Join(a.db.dataDir, name)
+		if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+			return "", err
+		}
+		if err := writePrivateFileAtomically(dest, data); err != nil {
+			return "", err
+		}
+	}
+	return archive.SchoolName, nil
 }
 
 // AddViewerUser 뷰어 계정 추가 (관리자용)

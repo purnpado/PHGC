@@ -34,6 +34,10 @@ export function ExportDistributionPackage(arg1, arg2) {
   return window['go']['main']['App']['ExportDistributionPackage'](arg1, arg2);
 }
 
+export function ExportFinalArchive(arg1, arg2) {
+  return window['go']['main']['App']['ExportFinalArchive'](arg1, arg2);
+}
+
 export function ExportPasswordResetPackage(arg1, arg2) {
   return window['go']['main']['App']['ExportPasswordResetPackage'](arg1, arg2);
 }
@@ -138,6 +142,10 @@ export function ImportDistributionPackage(arg1) {
   return window['go']['main']['App']['ImportDistributionPackage'](arg1);
 }
 
+export function ImportFinalArchive(arg1, arg2) {
+  return window['go']['main']['App']['ImportFinalArchive'](arg1, arg2);
+}
+
 export function ImportPasswordResetPackage(arg1) {
   return window['go']['main']['App']['ImportPasswordResetPackage'](arg1);
 }
@@ -168,6 +176,10 @@ export function OpenDistributionPackage() {
 
 export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
+}
+
+export function OpenFinalArchive() {
+  return window['go']['main']['App']['OpenFinalArchive']();
 }
 
 export function OpenPasswordResetPackage() {
@@ -224,6 +236,10 @@ export function SaveCutoffs(arg1) {
 
 export function SaveDistributionPackage(arg1) {
   return window['go']['main']['App']['SaveDistributionPackage'](arg1);
+}
+
+export function SaveFinalArchive(arg1) {
+  return window['go']['main']['App']['SaveFinalArchive'](arg1);
 }
 
 export function SavePasswordResetPackage(arg1) {
