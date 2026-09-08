@@ -4129,7 +4129,7 @@ async function renderCutoffScreen(schoolName) {
         return (s === '공통' || s === '전체' || s === '학교 전체') ? '' : s;
     };
 
-    // 공식 공개 입결 레퍼런스 데이터 (울산마이스터고등학교 2024, 2025, 2026 3개년 공식 공개 입결 및 일반고)
+    // 공식 공개 입결 레퍼런스 데이터 (울산마이스터고등학교 2024, 2025, 2026 3개년 공식 공개 입결)
     const publicOfficialDefaults = [
         // 울산마이스터고 (300점 만점 고교 공식 공개 자료)
         { year: 2026, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 245.22, max: 300.00, avg: 272.60, unit: "점", note: "공식 합격선" },
@@ -4137,18 +4137,16 @@ async function renderCutoffScreen(schoolName) {
         { year: 2025, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 218.04, max: 299.09, avg: 258.50, unit: "점", note: "공식 입결" },
         { year: 2025, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 206.33, max: 285.59, avg: 245.90, unit: "점", note: "공식 입결" },
         { year: 2024, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 215.82, max: 291.69, avg: 253.75, unit: "점", note: "공식 입결" },
-        { year: 2024, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 212.85, max: 287.15, avg: 250.00, unit: "점", note: "공식 입결" },
-
-        // 후기 일반계고 (석차백분율 기준선)
-        { year: 2026, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" },
-        { year: 2025, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" },
-        { year: 2024, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" }
+        { year: 2024, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 212.85, max: 287.15, avg: 250.00, unit: "점", note: "공식 입결" }
     ];
     let publicOfficialData = publicOfficialDefaults;
     try {
         const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
         if (savedPublicData) {
-            publicOfficialData = JSON.parse(savedPublicData);
+            const parsed = JSON.parse(savedPublicData);
+            // 기존 캐시 중 공식자료가 아닌 일반계고 참고데이터는 정리
+            publicOfficialData = parsed.filter(x => !String(x.school || '').includes('일반계고'));
+            if (publicOfficialData.length === 0) publicOfficialData = publicOfficialDefaults;
         } else {
             // 서버에 배포된 공식 입결 자료(official_admission_data.json) 자동 조회
             const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
