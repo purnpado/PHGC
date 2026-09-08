@@ -271,12 +271,15 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing #globalFeedbackBtn,
     body.printing #studentDetailModal,
     body.printing #studentTranscriptModal,
-    body.printing #matrixModal {
+    body.printing #matrixModal,
+    body.printing #classApplicationSummaryModal,
+    body.printing #applicationRegisterModal {
         display: none !important;
     }
     body.printing[data-print-kind="report"] #studentDetailModal,
     body.printing[data-print-kind="transcript"] #studentTranscriptModal,
     body.printing[data-print-kind="matrix"] #matrixModal,
+    body.printing[data-print-kind="summary"] #classApplicationSummaryModal,
     body.printing[data-print-kind="register"] #applicationRegisterModal {
         display: block !important;
         position: static !important;

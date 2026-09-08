@@ -1044,7 +1044,7 @@ window.getGeneralGuideBadge = getGeneralGuideBadge;
 // 화면 전체가 아닌 선택한 문서만 A4로 인쇄한다.
 // 매트릭스는 열 수가 많아 A4 가로, 개인 문서는 A4 세로를 기본값으로 사용한다.
 function printOnly(kind, orientation = 'portrait') {
-    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register']);
+    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register', 'summary']);
     const safeKind = allowedKinds.has(kind) ? kind : 'report';
     const safeOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
     const previous = document.getElementById('runtimePrintPageStyle');
@@ -1516,8 +1516,9 @@ async function openClassApplicationSummaryModal(classNum) {
                 </tr>`;
             }).join('');
         }
-        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
+        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
+        document.getElementById('printClassSummary').onclick = () => printOnly('summary');
     } catch (err) {
         modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">우리 반 지원희망을 불러올 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeClassApplicationSummary" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
@@ -1725,9 +1726,9 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             <div id="appPreferenceArea" class="md:col-span-2 ${needsDepartment ? '' : 'hidden'}">${departmentControls(record.schoolName, record.preferences || [], record.assignedDepartment || '')}</div>
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
-          <div class="flex justify-end gap-2 mt-5">
-            ${canEdit && record.schoolName ? '<button id="deleteApplication" class="btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center gap-2">🗑️ 기록 삭제</button>' : ''}
-            ${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 rounded-lg font-bold flex items-center gap-2">💾 희망학교 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}
+          <div class="flex justify-center gap-3 mt-5 w-full">
+            ${canEdit && record.schoolName ? '<button id="deleteApplication" class="flex-1 btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">🗑️ 기록 삭제</button>' : ''}
+            ${canEdit ? '<button id="saveApplication" class="flex-1 btn-primary px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">💾 희망학교 저장</button>' : '<span class="text-sm text-text-muted w-full text-center">진로부장 계정은 조회 전용입니다.</span>'}
           </div></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
         if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
