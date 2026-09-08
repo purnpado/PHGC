@@ -1588,15 +1588,17 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     ]);
     // 고교 목록 실패는 화면을 막지 않되, 학생 산출값은 백그라운드에서 끝까지
     // 가져온 뒤 선택된 학교·전형의 점수 스냅샷을 채운다.
-    const studentDetailPromise = Promise.resolve()
-        .then(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name))
-        .catch(() => null);
     const highSchoolData = await withFallback(
         () => window.go?.main?.App?.GetHighSchoolsData?.(),
         { schools: [] },
     );
     let studentDetail = null;
     let refreshAutoScore = null;
+    // Wails 호출을 동시에 시작하면 일부 PC에서 뒤쪽 호출이 지연될 수 있다.
+    // 고교 목록을 먼저 읽은 뒤 상세 산출값 조회를 시작한다.
+    const studentDetailPromise = Promise.resolve()
+        .then(() => window.go?.main?.App?.GetStudentFullDetail?.(classNum, studentNum, name))
+        .catch(() => null);
     const catalog = highSchoolData?.schools || [];
     const normalizedSchoolName = value => String(value || '').replace(/고등학교/g, '').replace(/\s/g, '');
     const trackLabel = track => ({
@@ -1656,7 +1658,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         if (!schoolName) return '<p class="text-xs text-text-muted">지원 학교를 선택하면 해당 학교의 학과 수에 맞춰 지망 입력란이 표시됩니다.</p>';
         if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
         const count = Math.min(5, departments.length);
-        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(학교 학과 수 기준, 최대 5지망)</span></p><div class="grid grid-cols-1 md:grid-cols-5 gap-2">${Array.from({ length: count }, (_, i) => `<select class="input-field app-pref">${departmentOptions(schoolName, preferences[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(학교 학과 수 기준, 최대 5지망)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, preferences[i] || '', `${i + 1}지망`)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
