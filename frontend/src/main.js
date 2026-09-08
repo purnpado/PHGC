@@ -1715,7 +1715,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
         const count = Math.min(5, departments.length);
         const chosen = preferences.filter(Boolean);
-        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(지망 학과는 중복될 수 없으며, 중복 선택 시 이전 지망은 해제됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, [])}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(앞 지망에서 선택한 학과는 다음 목록에서 제외됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, chosen.filter(department => department !== selected))}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
@@ -1729,7 +1729,9 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         const autoScore = calculatedScore(record.category, record.schoolName, record.track);
         const displayedScore = record.id ? record.score : (autoScore?.score ?? record.score);
         const displayedBasis = record.scoreBasis || autoScore?.basis || '';
-        const list = records.length ? records.map((r, i) => `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${r.schoolName || '후기 일반고'} · ${r.status}</button>`).join('') : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
+        const isAutoBasis = displayedBasis === (autoScore?.basis || '') || !record.scoreBasis;
+        const formatTrack = (track) => track ? `(${track.includes('특별') ? '특별' : (track.includes('일반') ? '일반' : track)})` : '';
+        const list = records.length ? records.map((r, i) => `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${r.schoolName || '후기 일반고'}${['meister', 'special'].includes(r.category) ? formatTrack(r.track) : ''} · ${r.status}</button>`).join('') : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
         modal.innerHTML = `
           <div class="glass-card p-7 w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📝 ${name} 지원·합격 현황</h2><p class="text-sm text-text-muted mt-1">이 자료는 학급 암호화 DB와 담임 변경분 파일에만 저장됩니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationModal" class="text-3xl text-text-muted">×</button></div>
           <div class="flex flex-wrap gap-2 mb-5">${list}</div>
@@ -1740,7 +1742,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             <label class="text-sm font-bold">전형 / 지원 유형<select id="appTrack" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${trackOptions(record.category, record.schoolName, record.track)}</select></label>
             <label class="text-sm font-bold">지원 상태<select id="appStatus" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${statusOptions.map(v => `<option ${record.status === v ? 'selected' : ''}>${v}</option>`).join('')}</select></label>
             <label class="text-sm font-bold">점수 스냅샷 <span class="text-[11px] text-cyan-300">자동</span><input id="appScore" type="text" inputmode="decimal" value="${displayedScore || ''}" placeholder="학교·전형 선택 시 자동 산출" class="input-field mt-1 w-full" ${autoScore ? 'readonly' : (canEdit ? '' : 'disabled')}></label>
-            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${displayedBasis}" placeholder="예: 3-1 누적 예상, 1차 서류점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
+            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${displayedBasis}" data-auto="${isAutoBasis}" placeholder="예: 3-1 누적 예상, 1차 서류점수" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
             <div id="appPreferenceArea" class="md:col-span-2 ${needsDepartment ? '' : 'hidden'}">${departmentControls(record.schoolName, record.preferences || [], record.assignedDepartment || '')}</div>
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
@@ -1751,22 +1753,15 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
         if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
-        const refreshDepartmentControls = (changedIdx = -1) => {
+        const refreshDepartmentControls = () => {
             const schoolName = document.getElementById('appSchool').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value);
-            if (changedIdx !== -1 && preferences[changedIdx]) {
-                for (let i = 0; i < preferences.length; i++) {
-                    if (i !== changedIdx && preferences[i] === preferences[changedIdx]) {
-                        preferences[i] = '';
-                    }
-                }
-            }
             const assigned = document.getElementById('appAssigned')?.value || '';
             const area = document.getElementById('appPreferenceArea');
             area.innerHTML = departmentControls(schoolName, preferences, assigned);
             if (!canEdit) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
-            area.querySelectorAll('.app-pref').forEach((select, idx) => {
-                select.onchange = () => refreshDepartmentControls(idx);
+            area.querySelectorAll('.app-pref').forEach(select => {
+                select.onchange = () => refreshDepartmentControls();
             });
         };
         let scoreRequestID = 0;
