@@ -1534,6 +1534,18 @@ func (a *App) SaveStudentApplication(record ApplicationRecord) error {
 	}
 	return a.db.SaveApplication(record)
 }
+
+func (a *App) DeleteStudentApplication(classNum int, studentNum, name, category, schoolName, track string) error {
+	if a.user != nil {
+		if a.user.Role == "viewer" {
+			return fmt.Errorf("진로부장 계정은 지원현황을 삭제할 수 없습니다")
+		}
+		if a.user.Role == "homeroom" && a.user.ClassNum != classNum {
+			return fmt.Errorf("담임 계정은 본인 학급의 지원현황만 삭제할 수 있습니다")
+		}
+	}
+	return a.db.DeleteApplication(classNum, studentNum, name, category, schoolName, track)
+}
 func (a *App) GetStudentApplications(classNum int, studentNum, name string) ([]ApplicationRecord, error) {
 	return a.db.GetStudentApplications(classNum, studentNum, name)
 }

@@ -945,6 +945,18 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	return err
 }
 
+func (dm *DBManager) DeleteApplication(classNum int, studentNum, studentName, category, schoolName, track string) error {
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(`DELETE FROM student_applications 
+		WHERE student_num=? AND student_name=? AND category=? AND school_name=? AND track=?`,
+		studentNum, studentName, category, schoolName, track)
+	return err
+}
+
 func (dm *DBManager) IsAdmissionYearClosed(admissionYear int) (bool, error) {
 	// A class-only temporary DB may be used by imports/tests before the school
 	// configuration database exists. In that state no admission year can be
