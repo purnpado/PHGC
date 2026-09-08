@@ -1318,6 +1318,9 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 	}
 	out := make([]ApplicationSummary, 0, len(groups))
 	for _, a := range groups {
+		if a.PlannedCount == 0 && a.SubmittedCount == 0 && a.AcceptedCount == 0 && a.RejectedCount == 0 && a.FinalCount == 0 {
+			continue
+		}
 		if a.AcceptedCount > 0 && a.acceptedSum > 0 {
 			a.AvgAcceptedScore = a.acceptedSum / float64(a.AcceptedCount)
 		}

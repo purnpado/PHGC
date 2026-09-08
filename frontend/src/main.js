@@ -1226,6 +1226,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
             document.getElementById('teacherContent').innerHTML = `<div class="text-danger py-20 text-center font-bold">오류 발생: ${err}</div>`;
         }
     };
+    window.refreshCurrentClass = () => { if (activeClassNum) loadClass(activeClassNum); };
 
     // 학급 카드 클릭 이벤트 바인딩
     const bindGridEvents = () => {
@@ -1347,16 +1348,20 @@ async function renderStudentList(students, classNum) {
                     ${s.Name}
                 </td>
                 <td class="p-4 text-center">${generalBadge}</td>
-                <td class="p-3 text-center min-w-52">${meisterBadges}</td>
-                <td class="p-3 text-center min-w-52">${specialBadges}</td>
+                <td class="p-3 text-center min-w-64">
+                    <div class="flex flex-col gap-2 justify-center items-center">
+                        <div class="flex items-center gap-2 text-sm"><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300">마이스터</span> ${meisterBadges}</div>
+                        <div class="flex items-center gap-2 text-sm"><span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300">특성화</span> ${specialBadges}</div>
+                    </div>
+                </td>
                 <td class="p-3 text-center min-w-48">${applicationSummary}</td>
                 <td class="p-4">
                     <div class="flex items-center justify-center gap-2">
-                        <button class="btn-secondary text-xs p-2.5 font-bold flex items-center justify-center rounded-xl btn-student-application transition-all hover:scale-105"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="지원 현황 수정">📝</button>
-                        <button class="btn-primary text-xs px-4 py-2.5 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105"
+                        <button class="btn-secondary text-xs px-3 py-2.5 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all hover:scale-105"
+                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">📝 희망학교입력</button>
+                        <button class="btn-primary text-xs px-3 py-2.5 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105"
                                 data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                            🎯 고교별 진학상담
+                            🎯 진학 상담
                         </button>
                     </div>
                 </td>
@@ -1389,10 +1394,9 @@ async function renderStudentList(students, classNum) {
                         <th class="p-4 font-semibold text-center w-20">번호</th>
                         <th class="p-4 font-semibold text-center w-36">성명</th>
                         <th class="p-4 font-semibold text-center">일반계고 합격 예측</th>
-                        <th class="p-4 font-semibold text-center">마이스터고 지원 가능</th>
-                        <th class="p-4 font-semibold text-center">특성화고 지원 가능</th>
-                        <th class="p-4 font-semibold text-center">지원 현황</th>
-                        <th class="p-4 font-semibold text-center w-44">진학 상담</th>
+                        <th class="p-4 font-semibold text-center">마이스터 및 특성화고 지원가능</th>
+                        <th class="p-4 font-semibold text-center">희망학교</th>
+                        <th class="p-4 font-semibold text-center">진학 상담</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1722,8 +1726,8 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
           </div>
           <div class="flex justify-end gap-2 mt-5">
-            ${canEdit && record.schoolName ? '<button id="deleteApplication" class="btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-4 py-3 font-bold">🗑️ 기록 삭제</button>' : ''}
-            ${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 font-bold">💾 지원 현황 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}
+            ${canEdit && record.schoolName ? '<button id="deleteApplication" class="btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center gap-2">🗑️ 기록 삭제</button>' : ''}
+            ${canEdit ? '<button id="saveApplication" class="btn-primary px-5 py-3 rounded-lg font-bold flex items-center gap-2">💾 희망학교 저장</button>' : '<span class="text-sm text-text-muted">진로부장 계정은 조회 전용입니다.</span>'}
           </div></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
         if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
@@ -1838,15 +1842,20 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 if (category === 'special' && activeIn('meister')) return alert('마이스터고 결과가 확정되기 전에는 특성화고 지원을 기록할 수 없습니다. 불합격 또는 포기 처리 후 진행해주세요.');
                 if (category === 'general' && (activeIn('meister') || activeIn('special') || activeIn('self_foreign'))) return alert('선행 전형의 결과가 불합격 또는 포기로 확정된 뒤 후기 일반고 지원을 기록할 수 있습니다.');
             }
-            try { await window.go.main.App.SaveStudentApplication(payload); await render(0); } catch (err) { alert('지원 현황 저장 실패: ' + err); }
+            try { 
+                await window.go.main.App.SaveStudentApplication(payload); 
+                await render(0); 
+                if (typeof window.refreshCurrentClass === 'function') window.refreshCurrentClass();
+            } catch (err) { alert('희망학교 저장 실패: ' + err); }
         });
         document.getElementById('deleteApplication')?.addEventListener('click', async () => {
             if (!confirm(`'${record.schoolName}' 지원 기록을 완전히 삭제하시겠습니까?`)) return;
             try {
                 await window.go.main.App.DeleteStudentApplication(classNum, studentNum, name, record.category, record.schoolName, record.track);
                 await render(0);
+                if (typeof window.refreshCurrentClass === 'function') window.refreshCurrentClass();
             } catch (err) {
-                alert('지원 현황 삭제 실패: ' + err);
+                alert('희망학교 삭제 실패: ' + err);
             }
         });
     };
