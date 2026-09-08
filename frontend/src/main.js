@@ -9,6 +9,80 @@ const app = document.querySelector('#app');
 // 현재 로그인한 사용자 세션 (role, classNum, username 등 저장)
 window.currentUser = null;
 
+// ===== SweetAlert2 스타일 커스텀 모달 알림창 =====
+function showModalAlert({ title = '알림', message = '', type = 'info', confirmText = '확인' } = {}) {
+    return new Promise((resolve) => {
+        document.getElementById('phgcCustomAlertModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'phgcCustomAlertModal';
+        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+        const iconConfig = {
+            success: {
+                bg: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>`,
+                btnBg: 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30',
+            },
+            warning: {
+                bg: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`,
+                btnBg: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30',
+            },
+            error: {
+                bg: 'bg-rose-500/20 border-rose-500/50 text-rose-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>`,
+                btnBg: 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30',
+            },
+            info: {
+                bg: 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400',
+                icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+                btnBg: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30',
+            },
+        }[type] || {
+            bg: 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400',
+            icon: `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`,
+            btnBg: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30',
+        };
+
+        modal.innerHTML = `
+            <div class="glass-card max-w-md w-full p-6 text-center shadow-2xl border border-slate-700/80 rounded-2xl animate-in zoom-in-95 duration-200">
+                <div class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center border-2 ${iconConfig.bg} shadow-lg">
+                    ${iconConfig.icon}
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">${title}</h3>
+                <div class="text-sm text-slate-300 mb-6 leading-relaxed text-left max-h-[60vh] overflow-y-auto">
+                    ${typeof message === 'string' && !message.includes('<') ? `<p class="text-center text-slate-200">${message}</p>` : message}
+                </div>
+                <button id="modalAlertConfirmBtn" class="w-full py-2.5 px-5 rounded-xl text-white font-bold text-sm ${iconConfig.btnBg} shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+                    ${confirmText}
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const confirmBtn = modal.querySelector('#modalAlertConfirmBtn');
+        const handleClose = () => {
+            modal.remove();
+            resolve(true);
+        };
+
+        confirmBtn.onclick = handleClose;
+        modal.onclick = (e) => {
+            if (e.target === modal) handleClose();
+        };
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter' || e.key === 'Escape') {
+                window.removeEventListener('keydown', onKeyDown);
+                handleClose();
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+    });
+}
+window.showModalAlert = showModalAlert;
+
 // ===== 화면 렌더링 함수들 =====
 
 // 새 프로그램 폴더의 첫 화면. 새 학교 설정과 학년부장 배포 자료 적용을
@@ -1012,19 +1086,46 @@ function openPatchMergeSelection(preview, password, schoolName) {
             extra: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="extra"]`)?.checked || false,
             applications: modal.querySelector(`.patch-choice[data-index="${index}"][data-field="applications"]`)?.checked || false,
         }));
-        if (!selections.some(item => item.attendance || item.volunteer || item.extra || item.applications)) return alert('병합할 항목을 하나 이상 선택해주세요.');
+        if (!selections.some(item => item.attendance || item.volunteer || item.extra || item.applications)) {
+            return showModalAlert({
+                type: 'warning',
+                title: '선택 항목 없음',
+                message: '병합할 학생별 항목(출결, 봉사, 가산점, 지원현황)을 하나 이상 선택해주세요.'
+            });
+        }
         const button = document.getElementById('applyPatchMergeSelection');
         button.disabled = true;
         button.innerHTML = '<span class="spinner"></span> 병합 중...';
         try {
             const count = await window.go.main.App.ImportTeacherPatchSelected(password, preview.path, selections);
-            alert(`${count}명의 선택 항목을 병합했습니다. 결과를 확인한 뒤 최신 data 폴더를 재배포하세요.`);
             close();
             renderAdminScreen(schoolName);
+            await showModalAlert({
+                type: 'success',
+                title: '취합자료 병합 완료',
+                message: `
+                    <div class="space-y-3">
+                        <p class="text-center text-slate-200">
+                            총 <strong class="text-emerald-400 font-bold">${count}명</strong>의 선택 항목을 성공적으로 병합했습니다.
+                        </p>
+                        <div class="rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-3.5 text-xs text-indigo-200 leading-relaxed">
+                            <span class="font-bold text-indigo-300 block mb-1">📢 담임교사 재배포 안내</span>
+                            • 병합된 최신 내용이 학년부장 시스템에 반영되었습니다.<br>
+                            • 다른 담임교사에게 최신 취합본을 전달하시려면, <strong>[사용자 및 권한 관리]</strong> 메뉴에서 각 반의 <strong>'배포 자료 만들기'</strong>(.phgcpkg)를 실행하여 전달하시면 됩니다.
+                        </div>
+                    </div>
+                `,
+                confirmText: '확인'
+            });
         } catch (err) {
             button.disabled = false;
             button.innerHTML = '<span>📥</span> 선택 항목 병합';
-            alert('취합자료 병합 실패: ' + err);
+            await showModalAlert({
+                type: 'error',
+                title: '취합자료 병합 실패',
+                message: err.message || String(err),
+                confirmText: '확인'
+            });
         }
     };
 }
@@ -1726,7 +1827,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             return `<option value="">학교 선택</option>${schools.map(name => `<option value="${name}" ${name === selected ? 'selected' : ''}>${name}</option>`).join('')}`;
         }
         if (category === 'other') {
-            const schools = ['울산예술고등학교', '울산고운고등학교', '울산애니원고등학교', '울산과학고등학교', '타시도 고등학교', '기타'];
+            const schools = ['울산예술고등학교', '울산스포츠과학고등학교', '울산고운고등학교', '울산애니원고등학교', '울산과학고등학교', '타시도 고등학교', '기타'];
             return `<option value="">선택 안 함</option>${schools.map(name => `<option value="${name}" ${name === selected ? 'selected' : ''}>${name}</option>`).join('')}`;
         }
         if (category === 'none') {
