@@ -1250,6 +1250,42 @@ func (a *App) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	return a.db.GetApplicationSummaries()
 }
 
+// GetAdmissionClosureReview returns only school-level counts for the selected
+// year; it never exposes individual student records in the summary screen.
+func (a *App) GetAdmissionClosureReview(admissionYear int) (AdmissionClosureReview, error) {
+	if a.user != nil && a.user.Role != "master" && a.user.Role != "viewer" {
+		return AdmissionClosureReview{}, fmt.Errorf("입시 확정 현황은 학년부장·진로부장만 조회할 수 있습니다")
+	}
+	return a.db.GetAdmissionClosureReview(admissionYear)
+}
+
+func (a *App) GetAdmissionClosure(admissionYear int) (*AdmissionClosure, error) {
+	if a.user != nil && a.user.Role != "master" && a.user.Role != "viewer" {
+		return nil, fmt.Errorf("입시 확정 현황은 학년부장·진로부장만 조회할 수 있습니다")
+	}
+	return a.db.GetAdmissionClosure(admissionYear)
+}
+
+// CloseAdmissionYear locks a completed admission year. The final local
+// acceptance statistics are reflected to the cutoff table at the same time.
+func (a *App) CloseAdmissionYear(admissionYear int, note string) (*AdmissionClosure, error) {
+	if a.user == nil || a.user.Role != "master" {
+		return nil, fmt.Errorf("입시 결과 확정은 학년부장 계정만 할 수 있습니다")
+	}
+	closure, err := a.db.CloseAdmissionYear(admissionYear, a.user.Username, note)
+	if err != nil {
+		return nil, err
+	}
+	return &closure, nil
+}
+
+func (a *App) ReopenAdmissionYear(admissionYear int) error {
+	if a.user == nil || a.user.Role != "master" {
+		return fmt.Errorf("입시 결과 확정 해제는 학년부장 계정만 할 수 있습니다")
+	}
+	return a.db.ReopenAdmissionYear(admissionYear)
+}
+
 // ApplyApplicationCutoffs reflects completed school-internal admission results
 // into the local cutoff table. Only the grade-head can perform this operation.
 func (a *App) ApplyApplicationCutoffs() (int, error) {

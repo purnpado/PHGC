@@ -10,6 +10,8 @@ export function ChangeUserPassword(arg1:string,arg2:string):Promise<void>;
 
 export function CheckSetupComplete():Promise<boolean>;
 
+export function CloseAdmissionYear(arg1:number,arg2:string):Promise<main.AdmissionClosure>;
+
 export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
 
 export function DeleteUser(arg1:string):Promise<void>;
@@ -21,6 +23,10 @@ export function ExportPasswordResetPackage(arg1:string,arg2:string):Promise<void
 export function ExportTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>,arg5:string):Promise<void>;
 
 export function FetchCutoffsFromBridge(arg1:number):Promise<number>;
+
+export function GetAdmissionClosure(arg1:number):Promise<main.AdmissionClosure>;
+
+export function GetAdmissionClosureReview(arg1:number):Promise<main.AdmissionClosureReview>;
 
 export function GetAppVersion():Promise<string>;
 
@@ -91,6 +97,8 @@ export function ProcessAttendanceExcel(arg1:string):Promise<Record<number, numbe
 export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number>>;
+
+export function ReopenAdmissionYear(arg1:number):Promise<void>;
 
 export function ResetAcademicYear(arg1:number):Promise<void>;
 

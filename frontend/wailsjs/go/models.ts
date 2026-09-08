@@ -1,5 +1,51 @@
 export namespace main {
 
+	export class AdmissionClosure {
+	    admissionYear: number;
+	    status: string;
+	    closedAt: string;
+	    closedBy: string;
+	    note: string;
+	    cutoffsApplied: number;
+
+	    static createFrom(source: any = {}) {
+	        return new AdmissionClosure(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.admissionYear = source["admissionYear"];
+	        this.status = source["status"];
+	        this.closedAt = source["closedAt"];
+	        this.closedBy = source["closedBy"];
+	        this.note = source["note"];
+	        this.cutoffsApplied = source["cutoffsApplied"];
+	    }
+	}
+	export class AdmissionClosureReview {
+	    admissionYear: number;
+	    totalRecorded: number;
+	    pendingCount: number;
+	    acceptedCount: number;
+	    rejectedCount: number;
+	    withdrawnCount: number;
+	    finalCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new AdmissionClosureReview(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.admissionYear = source["admissionYear"];
+	        this.totalRecorded = source["totalRecorded"];
+	        this.pendingCount = source["pendingCount"];
+	        this.acceptedCount = source["acceptedCount"];
+	        this.rejectedCount = source["rejectedCount"];
+	        this.withdrawnCount = source["withdrawnCount"];
+	        this.finalCount = source["finalCount"];
+	    }
+	}
 	export class ApplicationRecord {
 	    id: number;
 	    classNum: number;

@@ -1371,11 +1371,27 @@ async function openApplicationSummaryModal() {
     modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 우리 학교 지원현황을 집계하는 중...</div>';
     document.body.appendChild(modal);
     try {
-        const summaries = await window.go.main.App.GetApplicationSummaries();
+        const [summaries, config] = await Promise.all([
+            window.go.main.App.GetApplicationSummaries(),
+            window.go.main.App.GetSchoolConfig(),
+        ]);
+        const admissionYear = config?.admissionYear || new Date().getFullYear() + 1;
+        const [closure, review] = await Promise.all([
+            window.go.main.App.GetAdmissionClosure(admissionYear),
+            window.go.main.App.GetAdmissionClosureReview(admissionYear),
+        ]);
         const rows = summaries.length ? summaries.map(s => `<tr class="border-b border-slate-700/60"><td class="p-3">${s.admissionYear}학년도</td><td class="p-3">${s.category === 'meister' ? '마이스터고' : s.category === 'special' ? '특성화고' : s.category === 'self_foreign' ? '자사고·외고' : s.category === 'general' ? '후기 일반고' : '기타'}</td><td class="p-3 font-bold">${s.schoolName || '후기 일반고'}</td><td class="p-3">${s.track || '-'}</td><td class="p-3">${s.department || '-'}</td><td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${s.plannedCount}</td><td class="p-3 text-center">${s.submittedCount}</td><td class="p-3 text-center text-success">${s.acceptedCount}</td><td class="p-3 text-center text-danger">${s.rejectedCount}</td><td class="p-3 text-center">${s.finalCount}</td><td class="p-3 text-right">${s.acceptedCount ? `${s.maxAcceptedScore.toFixed(2)} / ${s.minAcceptedScore.toFixed(2)} / ${s.avgAcceptedScore.toFixed(2)}` : '-'}</td><td class="p-3 text-right">${s.rejectedCount ? s.maxRejectedScore.toFixed(2) : '-'}</td></tr>`).join('') : '<tr><td colspan="13" class="p-10 text-center text-text-muted">기록된 지원현황이 없습니다.</td></tr>';
         const canApplyCutoffs = window.currentUser?.Role === 'master';
         const canViewExpected = window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer';
-        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-7xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 우리 학교 지원현황</h2><p class="text-sm text-text-muted mt-1">기본 화면은 학교 내부 암호화 자료입니다. 중앙 전송은 학년부장이 아래 버튼을 눌러야만 진행됩니다.</p></div><button id="closeApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최고 / 최저 / 평균</th><th class="p-3">최고 불합격</th></tr></thead><tbody>${rows}</tbody></table></div><div class="flex flex-wrap justify-between items-center gap-3 mt-4"><p class="text-xs text-text-muted">* 최고·최저·평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p><div class="flex flex-wrap gap-2">${canViewExpected ? '<button id="viewExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">👥 울산 예상 지원현황 보기</button>' : ''}${canApplyCutoffs ? '<button id="submitExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">☁️ 예상 지원현황 제출</button><button id="applyApplicationCutoffs" class="btn-primary w-auto px-4 py-2 text-sm">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}</div></div></div>`;
+        const closeInfo = closure
+            ? `<div class="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4"><p class="font-bold text-emerald-200">🔒 ${admissionYear}학년도 입시 결과 확정됨</p><p class="text-xs text-slate-300 mt-1">확정자: ${closure.closedBy || '학년부장'} · 결과 커트라인 ${closure.cutoffsApplied || 0}건 반영됨${closure.note ? ` · 메모: ${closure.note}` : ''}</p></div>`
+            : `<div class="rounded-xl border ${review.pendingCount ? 'border-amber-400/40 bg-amber-500/10' : 'border-sky-400/40 bg-sky-500/10'} p-4"><p class="font-bold ${review.pendingCount ? 'text-amber-200' : 'text-sky-200'}">${admissionYear}학년도 결과 확정 전</p><p class="text-xs text-slate-300 mt-1">기록 ${review.totalRecorded}건 · 진행 중 ${review.pendingCount}건 · 합격 ${review.acceptedCount}건 · 불합격 ${review.rejectedCount}건 · 포기 ${review.withdrawnCount}건 · 최종 진학 ${review.finalCount}건</p><p class="text-xs text-slate-400 mt-1">진행 중 기록을 모두 결과 상태로 바꾼 뒤 확정하면 수정이 잠기고, 합격 결과가 우리 학교 커트라인에 자동 반영됩니다.</p></div>`;
+        const closeControls = canApplyCutoffs
+            ? (closure
+                ? '<button id="reopenAdmissionYear" class="btn-secondary w-auto px-4 py-2 text-sm">🔓 결과 확정 해제</button>'
+                : `<input id="admissionClosureNote" class="input-field w-52 py-2 text-xs" placeholder="확정 메모 (선택)"><button id="closeAdmissionYear" class="btn-primary w-auto px-4 py-2 text-sm">🔒 입시 결과 확정</button>`)
+            : '';
+        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-7xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 우리 학교 지원현황</h2><p class="text-sm text-text-muted mt-1">기본 화면은 학교 내부 암호화 자료입니다. 중앙 전송은 학년부장이 아래 버튼을 눌러야만 진행됩니다.</p></div><button id="closeApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="mb-4">${closeInfo}</div><div class="overflow-auto max-h-[60vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최고 / 최저 / 평균</th><th class="p-3">최고 불합격</th></tr></thead><tbody>${rows}</tbody></table></div><div class="flex flex-wrap justify-between items-center gap-3 mt-4"><p class="text-xs text-text-muted">* 최고·최저·평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p><div class="flex flex-wrap gap-2">${canViewExpected ? '<button id="viewExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">👥 울산 예상 지원현황 보기</button>' : ''}${canApplyCutoffs ? '<button id="submitExpectedSupport" class="btn-secondary w-auto px-4 py-2 text-sm">☁️ 예상 지원현황 제출</button><button id="applyApplicationCutoffs" class="btn-secondary w-auto px-4 py-2 text-sm">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}${closeControls}</div></div></div>`;
         document.getElementById('closeApplicationSummary').onclick = () => modal.remove();
         document.getElementById('applyApplicationCutoffs')?.addEventListener('click', async () => {
             if (!confirm('합격·최종진학 결과의 최고·최저·평균 점수를 우리 학교 커트라인으로 반영할까요?\n기존 같은 연도·학교·전형·학과의 커트라인은 결과값으로 갱신됩니다.')) return;
@@ -1384,6 +1400,26 @@ async function openApplicationSummaryModal() {
                 alert(count ? `${count}건의 우리 학교 커트라인을 반영했습니다.` : '반영할 합격 결과가 없습니다.');
             } catch (err) { alert('커트라인 반영 실패: ' + err); }
         });
+		document.getElementById('closeAdmissionYear')?.addEventListener('click', async () => {
+			if (review.pendingCount) return alert(`진행 중인 기록이 ${review.pendingCount}건 있습니다. 모두 합격·불합격·포기·최종 진학으로 결과를 입력한 뒤 확정해주세요.`);
+			if (!confirm(`${admissionYear}학년도 입시 결과를 확정할까요?\n\n확정하면 해당 연도 지원현황을 수정할 수 없고, 합격 결과의 최고·최저·평균이 우리 학교 커트라인에 자동 반영됩니다.`)) return;
+			try {
+				const note = document.getElementById('admissionClosureNote')?.value?.trim() || '';
+				const result = await window.go.main.App.CloseAdmissionYear(admissionYear, note);
+				alert(`${admissionYear}학년도 입시 결과를 확정했습니다.\n커트라인 ${result.cutoffsApplied || 0}건이 반영되었습니다.`);
+				modal.remove();
+				openApplicationSummaryModal();
+			} catch (err) { alert('입시 결과 확정 실패: ' + err); }
+		});
+		document.getElementById('reopenAdmissionYear')?.addEventListener('click', async () => {
+			if (!confirm(`${admissionYear}학년도 입시 결과 확정을 해제할까요?\n\n지원현황을 다시 수정할 수 있습니다. 이미 반영된 커트라인은 자동으로 지워지지 않으므로 필요하면 커트라인 관리에서 검토해주세요.`)) return;
+			try {
+				await window.go.main.App.ReopenAdmissionYear(admissionYear);
+				alert('입시 결과 확정을 해제했습니다.');
+				modal.remove();
+				openApplicationSummaryModal();
+			} catch (err) { alert('입시 결과 확정 해제 실패: ' + err); }
+		});
 		document.getElementById('submitExpectedSupport')?.addEventListener('click', async () => {
 			if (!confirm('현재 입학년도 지원 예정·지원 완료 집계만 중앙 서버에 제출할까요?\n학생·학급·교사·개별 점수는 전송하지 않으며, 참여 학교는 울산 전체 인원 집계만 조회할 수 있습니다.')) return;
 			try {

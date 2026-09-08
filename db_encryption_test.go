@@ -353,6 +353,54 @@ func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
 	}
 }
 
+func TestAdmissionClosureLocksCompletedYearAndAppliesCutoff(t *testing.T) {
+	dir := t.TempDir()
+	dm := &DBManager{dataDir: dir}
+	dm.setDataKey(make([]byte, 32))
+	if err := dm.InitConfigDB(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dm.SaveSchoolConfig("테스트중학교", 1, "", false, 2027); err != nil {
+		t.Fatal(err)
+	}
+	if err := dm.InitClassDB(1); err != nil {
+		t.Fatal(err)
+	}
+	record := ApplicationRecord{ClassNum: 1, StudentNum: "1", StudentName: "홍길동", AdmissionYear: 2027, Category: "special", SchoolName: "울산산업고등학교", Track: "일반전형", Status: "지원 완료", Score: 81.25, Preferences: []string{"보건간호과"}}
+	if err := dm.SaveApplication(record); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dm.CloseAdmissionYear(2027, "admin", "결과 확인 전"); err == nil {
+		t.Fatal("closing must reject applications still in progress")
+	}
+	record.Status = "합격"
+	record.AssignedDepartment = "보건간호과"
+	if err := dm.SaveApplication(record); err != nil {
+		t.Fatal(err)
+	}
+	closure, err := dm.CloseAdmissionYear(2027, "admin", "최종 결과 확정")
+	if err != nil {
+		t.Fatalf("CloseAdmissionYear: %v", err)
+	}
+	if closure.Status != "closed" || closure.CutoffsApplied != 1 {
+		t.Fatalf("unexpected closure: %#v", closure)
+	}
+	if err := dm.SaveApplication(record); err == nil {
+		t.Fatal("closed admission year must reject edits")
+	}
+	if err := dm.ReopenAdmissionYear(2027); err != nil {
+		t.Fatalf("ReopenAdmissionYear: %v", err)
+	}
+	record.Status = "최종 진학"
+	if err := dm.SaveApplication(record); err != nil {
+		t.Fatalf("edit after reopening: %v", err)
+	}
+	cutoffs, err := dm.GetCutoffs()
+	if err != nil || len(cutoffs) == 0 {
+		t.Fatalf("result cutoff must be persisted: %#v, %v", cutoffs, err)
+	}
+}
+
 func copyTestFile(t *testing.T, source, destination string) {
 	t.Helper()
 	data, err := os.ReadFile(source)

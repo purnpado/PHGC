@@ -18,6 +18,10 @@ export function CheckSetupComplete() {
   return window['go']['main']['App']['CheckSetupComplete']();
 }
 
+export function CloseAdmissionYear(arg1, arg2) {
+  return window['go']['main']['App']['CloseAdmissionYear'](arg1, arg2);
+}
+
 export function CreateUser(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateUser'](arg1, arg2, arg3, arg4);
 }
@@ -40,6 +44,14 @@ export function ExportTeacherPatch(arg1, arg2, arg3, arg4, arg5) {
 
 export function FetchCutoffsFromBridge(arg1) {
   return window['go']['main']['App']['FetchCutoffsFromBridge'](arg1);
+}
+
+export function GetAdmissionClosure(arg1) {
+  return window['go']['main']['App']['GetAdmissionClosure'](arg1);
+}
+
+export function GetAdmissionClosureReview(arg1) {
+  return window['go']['main']['App']['GetAdmissionClosureReview'](arg1);
 }
 
 export function GetAppVersion() {
@@ -180,6 +192,10 @@ export function ProcessExcel(arg1) {
 
 export function ProcessVolunteerExcel(arg1) {
   return window['go']['main']['App']['ProcessVolunteerExcel'](arg1);
+}
+
+export function ReopenAdmissionYear(arg1) {
+  return window['go']['main']['App']['ReopenAdmissionYear'](arg1);
 }
 
 export function ResetAcademicYear(arg1) {
