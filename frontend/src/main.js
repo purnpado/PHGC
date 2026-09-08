@@ -1366,7 +1366,7 @@ async function renderStudentList(students, classNum) {
 
     document.getElementById('teacherContent').innerHTML = `
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
-            <div class="text-sm text-text-muted flex-1 min-w-[200px]">
+            <div class="text-sm text-text-muted flex-1 min-w-50">
                 <span class="text-white font-semibold">학생 목록</span> (총 <span class="font-bold text-indigo-400">${students.length}</span>명)
                 <div class="text-[11px] mt-1">개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다</div>
             </div>
@@ -1853,7 +1853,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     try {
         await render();
     } catch (err) {
-        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">지원 현황을 열 수 없습니다</h2><p class="text-text-muted break-words">${err?.message || err}</p><button id="closeApplicationModal" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
+        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">지원 현황을 열 수 없습니다</h2><p class="text-text-muted wrap-break-word">${err?.message || err}</p><button id="closeApplicationModal" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
     }
 }
