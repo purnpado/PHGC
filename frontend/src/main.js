@@ -2671,6 +2671,9 @@ export async function renderLoginScreen(schoolName) {
                     <button type="button" id="passwordResetImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
                         담임 비밀번호를 재설정했나요? 재설정 파일 가져오기
                     </button>
+                    <button type="button" id="distributionPackageImportBtn" class="w-full mt-1 text-[11px] text-slate-400 hover:text-indigo-300 underline underline-offset-2">
+                        학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기
+                    </button>
                 </form>
 
                 <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
@@ -2716,6 +2719,30 @@ export async function renderLoginScreen(schoolName) {
             } finally {
                 button.disabled = false;
                 button.textContent = '담임 비밀번호를 재설정했나요? 재설정 파일 가져오기';
+            }
+        });
+
+        document.getElementById('distributionPackageImportBtn').addEventListener('click', async () => {
+            const button = document.getElementById('distributionPackageImportBtn');
+            try {
+                button.disabled = true;
+                button.textContent = '배포 자료 적용 중...';
+                const username = await window.go.main.App.OpenDistributionPackage();
+                if (!username) return;
+                const accountSelect = document.getElementById('loginUsername');
+                const exists = [...accountSelect.options].some(option => option.value === username);
+                if (!exists) {
+                    accountSelect.insertAdjacentHTML('beforeend', `<option value="${username}">${username}</option>`);
+                }
+                accountSelect.value = username;
+                await refreshSharedPasswordRequirement();
+                document.getElementById('loginPassword').focus();
+                alert(`'${username}' 계정의 배포 자료를 적용했습니다.\n학년부장에게 받은 공용 데이터 암호와 초기 비밀번호로 처음 로그인하세요.`);
+            } catch (err) {
+                alert('배포 자료 가져오기 실패: ' + err);
+            } finally {
+                button.disabled = false;
+                button.textContent = '학년부장에게 받은 배포 자료가 있나요? 배포 자료 가져오기';
             }
         });
 
@@ -2947,11 +2974,12 @@ export async function renderUserManagementScreen(schoolName) {
                                     <th class="p-3.5 font-semibold">사용자 아이디</th>
                                     <th class="p-3.5 font-semibold">비번 상태</th>
                                     <th class="p-3.5 font-semibold text-center">비밀번호 재발급</th>
+                                    <th class="p-3.5 font-semibold text-center">교사용 배포 자료</th>
                                     <th class="p-3.5 font-semibold text-center w-24">계정 삭제</th>
                                 </tr>
                             </thead>
                             <tbody id="userListBody" class="divide-y divide-slate-700/50">
-                                <tr><td colspan="5" class="p-8 text-center text-text-muted">불러오는 중...</td></tr>
+                                <tr><td colspan="6" class="p-8 text-center text-text-muted">불러오는 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -3071,6 +3099,12 @@ export async function renderUserManagementScreen(schoolName) {
                         </div>
                     </td>
                     <td class="p-3.5 text-center">
+                        ${isMasterAdmin
+                            ? '<span class="text-xs text-slate-600 font-bold">해당 없음</span>'
+                            : `<button class="text-xs text-indigo-200 hover:text-white font-bold px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/30 transition-colors" onclick="createDistributionPackage('${u.Username}')">배포 자료 만들기</button>`
+                        }
+                    </td>
+                    <td class="p-3.5 text-center">
                         ${isMasterAdmin 
                             ? '<span class="text-xs text-slate-600 font-bold">보호됨</span>' 
                             : `<button class="text-xs text-danger hover:underline font-bold px-2 py-1 rounded bg-danger/10 hover:bg-danger/20 border border-danger/30 transition-colors" onclick="deleteUserAccount('${u.Username}')">삭제</button>`
@@ -3080,7 +3114,7 @@ export async function renderUserManagementScreen(schoolName) {
                 tbody.appendChild(tr);
             });
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-danger font-bold">${error}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-danger font-bold">${error}</td></tr>`;
         }
     }
 
@@ -3121,6 +3155,17 @@ export async function renderUserManagementScreen(schoolName) {
             } catch (err) {
                 alert('삭제 실패: ' + err);
             }
+        }
+    };
+
+    window.createDistributionPackage = async (username) => {
+        if (!confirm(`'${username}' 계정용 교사용 배포 자료를 만들까요?\n\n담임용 자료에는 해당 반 DB만, 진로부장용 자료에는 조회용 전체 학급 DB가 포함됩니다. 관리자 계정과 다른 담임 계정은 포함되지 않습니다.`)) return;
+        try {
+            const path = await window.go.main.App.SaveDistributionPackage(username);
+            if (!path) return;
+            alert(`배포 자료를 만들었습니다.\n\n프로그램 실행 파일과 다음 배포 자료를 함께 전달하세요.\n${path}\n\n받는 교사는 로그인 화면에서 ‘배포 자료 가져오기’를 누른 뒤, 공용 데이터 암호와 초기 비밀번호로 처음 로그인합니다.`);
+        } catch (err) {
+            alert('배포 자료 생성 실패: ' + err);
         }
     };
 

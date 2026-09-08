@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -55,6 +56,17 @@ type ExpectedSupportAggregate struct {
 	PreferenceRank int    `json:"preferenceRank"`
 	PlannedCount   int    `json:"plannedCount"`
 	SubmittedCount int    `json:"submittedCount"`
+}
+
+// DistributionPackageManifest identifies a teacher/viewer deployment package.
+// The ZIP contains only individually AES-GCM encrypted database files and an
+// encrypted shared-key envelope; it never contains a plaintext password.
+type DistributionPackageManifest struct {
+	Format   string   `json:"format"`
+	Username string   `json:"username"`
+	Role     string   `json:"role"`
+	ClassNum int      `json:"classNum"`
+	Files    []string `json:"files"`
 }
 
 // App struct
@@ -494,6 +506,288 @@ func (a *App) OpenPasswordResetPackage() (string, error) {
 		return "", err
 	}
 	return a.ImportPasswordResetPackage(path)
+}
+
+// SaveDistributionPackage creates a portable teacher/viewer deployment
+// package. It is intentionally separate from password-reset packages.
+func (a *App) SaveDistributionPackage(username string) (string, error) {
+	if a.user == nil || a.user.Role != "master" {
+		return "", fmt.Errorf("교사용 배포 자료 생성은 학년부장 계정만 할 수 있습니다")
+	}
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title: "교사용 배포 자료 저장", DefaultFilename: fmt.Sprintf("PHGC-%s-배포자료.phgcpkg", username),
+		Filters: []runtime.FileFilter{{DisplayName: "PHGC 교사용 배포 자료", Pattern: "*.phgcpkg"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+	if err := a.ExportDistributionPackage(username, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// ExportDistributionPackage writes only the intended teacher's class DB (or
+// all class DBs for the read-only career viewer). Administrator envelopes and
+// other staff accounts are omitted.
+func (a *App) ExportDistributionPackage(username, outputPath string) error {
+	if a.user == nil || a.user.Role != "master" || len(a.dataKey) != 32 {
+		return fmt.Errorf("학년부장으로 로그인한 뒤에만 배포 자료를 만들 수 있습니다")
+	}
+	users, err := a.db.GetUsers()
+	if err != nil {
+		return err
+	}
+	var target *User
+	for i := range users {
+		if users[i].Username == username {
+			target = &users[i]
+			break
+		}
+	}
+	if target == nil || target.Role == "master" {
+		return fmt.Errorf("담임 또는 진로부장 계정을 선택해주세요")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil || config == nil {
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("학교 초기 설정을 먼저 완료해주세요")
+	}
+	// Older installations may predate the revision manifest. Create it before
+	// packaging so a recipient can later export a compatible teacher patch.
+	if _, err := os.Stat(manifestPath(a.db.dataDir)); os.IsNotExist(err) {
+		packageID, keyErr := newDataKey()
+		if keyErr != nil {
+			return keyErr
+		}
+		manifestBytes, marshalErr := json.Marshal(DataManifest{
+			Format: "PHGC-DATA-1", PackageID: hex.EncodeToString(packageID), AdmissionYear: config.AdmissionYear,
+		})
+		if marshalErr != nil {
+			return marshalErr
+		}
+		if writeErr := writePrivateFileAtomically(manifestPath(a.db.dataDir), manifestBytes); writeErr != nil {
+			return writeErr
+		}
+	} else if err != nil {
+		return err
+	}
+	tmpDir, err := os.MkdirTemp("", "phgc-package-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmpDir)
+	keyPassword := hex.EncodeToString(a.dataKey)
+	files := []string{"config.db.phgc", "shared-key.json", "manifest.json", "login-index.json"}
+
+	// Create a temporary config snapshot that contains only the target account.
+	configCopy := filepath.Join(tmpDir, "config.db")
+	if err := snapshotDatabase(a.db, a.db.getConfigDBPath(), configCopy); err != nil {
+		return err
+	}
+	copyDB, err := a.db.openDB(configCopy)
+	if err != nil {
+		return err
+	}
+	_, err = copyDB.Exec("DELETE FROM users WHERE username <> ?", target.Username)
+	if err == nil {
+		_, err = copyDB.Exec("UPDATE school_config SET admin_password = '' WHERE id = 1")
+	}
+	copyDB.Close()
+	if err != nil {
+		return fmt.Errorf("배포용 계정 정보 준비 실패: %w", err)
+	}
+	if err := encryptFileGCM(keyPassword, configCopy, filepath.Join(tmpDir, "config.db.phgc")); err != nil {
+		return err
+	}
+
+	if err := copyPackageFile(sharedEnvelopePath(a.db.dataDir), filepath.Join(tmpDir, "shared-key.json")); err != nil {
+		return err
+	}
+	if err := copyPackageFile(manifestPath(a.db.dataDir), filepath.Join(tmpDir, "manifest.json")); err != nil {
+		return err
+	}
+	if err := saveLoginIndex(tmpDir, config.SchoolName, []User{*target}); err != nil {
+		return err
+	}
+
+	classNumbers := []int{}
+	if target.Role == "homeroom" {
+		classNumbers = append(classNumbers, target.ClassNum)
+	} else {
+		for classNum := 1; classNum <= config.ClassCount; classNum++ {
+			classNumbers = append(classNumbers, classNum)
+		}
+	}
+	for _, classNum := range classNumbers {
+		source := a.db.getClassDBPath(classNum)
+		if _, err := os.Stat(source); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return err
+		}
+		name := fmt.Sprintf("class_%d.db.phgc", classNum)
+		if err := snapshotAndEncryptDatabase(a.db, source, filepath.Join(tmpDir, name), keyPassword); err != nil {
+			return err
+		}
+		files = append(files, name)
+	}
+	manifest := DistributionPackageManifest{Format: "PHGC-DEPLOYMENT-1", Username: target.Username, Role: target.Role, ClassNum: target.ClassNum, Files: files}
+	manifestJSON, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), manifestJSON, 0600); err != nil {
+		return err
+	}
+	files = append([]string{"package.json"}, files...)
+	return writeDistributionZip(outputPath, tmpDir, files)
+}
+
+// OpenDistributionPackage imports a deployment package on a fresh copy of the
+// program. The recipient still supplies the shared password once on login.
+func (a *App) OpenDistributionPackage() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "교사용 배포 자료 선택", Filters: []runtime.FileFilter{{DisplayName: "PHGC 교사용 배포 자료", Pattern: "*.phgcpkg"}}})
+	if err != nil || path == "" {
+		return "", err
+	}
+	return a.ImportDistributionPackage(path)
+}
+
+func (a *App) ImportDistributionPackage(inputPath string) (string, error) {
+	if a.db.hasEncryptedConfigDB() {
+		return "", fmt.Errorf("기존 학교 자료가 있습니다. 새 프로그램 폴더에서 배포 자료를 가져오거나 기존 data 폴더를 백업하세요")
+	}
+	if _, err := os.Stat(a.db.getConfigDBPath()); err == nil {
+		config, configErr := a.db.GetSchoolConfig()
+		if configErr != nil || config != nil {
+			return "", fmt.Errorf("기존 학교 설정이 있습니다. 새 프로그램 폴더에서 배포 자료를 가져오세요")
+		}
+		removePlainDatabaseArtifacts(a.db.getConfigDBPath())
+	}
+	reader, err := zip.OpenReader(inputPath)
+	if err != nil {
+		return "", fmt.Errorf("배포 자료를 열 수 없습니다: %w", err)
+	}
+	defer reader.Close()
+	entries := map[string]*zip.File{}
+	for _, file := range reader.File {
+		if filepath.Base(file.Name) != file.Name || strings.Contains(file.Name, "..") {
+			return "", fmt.Errorf("허용되지 않은 배포 파일 경로입니다")
+		}
+		entries[file.Name] = file
+	}
+	pkgFile := entries["package.json"]
+	if pkgFile == nil {
+		return "", fmt.Errorf("배포 자료 정보가 없습니다")
+	}
+	pkgBytes, err := readZipEntry(pkgFile)
+	if err != nil {
+		return "", err
+	}
+	var manifest DistributionPackageManifest
+	if err := json.Unmarshal(pkgBytes, &manifest); err != nil {
+		return "", fmt.Errorf("배포 자료 정보가 올바르지 않습니다")
+	}
+	if manifest.Format != "PHGC-DEPLOYMENT-1" || manifest.Username == "" || (manifest.Role != "homeroom" && manifest.Role != "viewer") {
+		return "", fmt.Errorf("지원하지 않는 배포 자료입니다")
+	}
+	for _, name := range manifest.Files {
+		file := entries[name]
+		if file == nil {
+			return "", fmt.Errorf("배포 자료에 %s 파일이 없습니다", name)
+		}
+		data, err := readZipEntry(file)
+		if err != nil {
+			return "", err
+		}
+		if err := writePrivateFileAtomically(filepath.Join(a.db.dataDir, name), data); err != nil {
+			return "", err
+		}
+	}
+	return manifest.Username, nil
+}
+
+func snapshotDatabase(dm *DBManager, source, destination string) error {
+	db, err := dm.openDB(source)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE")
+	db.Close()
+	if err != nil {
+		return err
+	}
+	return copyPackageFile(source, destination)
+}
+
+func snapshotAndEncryptDatabase(dm *DBManager, source, destination, password string) error {
+	db, err := dm.openDB(source)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE")
+	db.Close()
+	if err != nil {
+		return err
+	}
+	return encryptFileGCM(password, source, destination)
+}
+
+func copyPackageFile(source, destination string) error {
+	data, err := os.ReadFile(source)
+	if err != nil {
+		return err
+	}
+	return writePrivateFileAtomically(destination, data)
+}
+
+func writeDistributionZip(outputPath, sourceDir string, names []string) error {
+	tmp, err := os.CreateTemp(filepath.Dir(outputPath), ".phgc-package-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	writer := zip.NewWriter(tmp)
+	for _, name := range names {
+		data, err := os.ReadFile(filepath.Join(sourceDir, name))
+		if err != nil {
+			writer.Close()
+			tmp.Close()
+			return err
+		}
+		entry, err := writer.Create(name)
+		if err != nil {
+			writer.Close()
+			tmp.Close()
+			return err
+		}
+		if _, err := entry.Write(data); err != nil {
+			writer.Close()
+			tmp.Close()
+			return err
+		}
+	}
+	if err := writer.Close(); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, outputPath)
+}
+
+func readZipEntry(file *zip.File) ([]byte, error) {
+	reader, err := file.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+	return io.ReadAll(io.LimitReader(reader, 64<<20))
 }
 
 // AddViewerUser 뷰어 계정 추가 (관리자용)

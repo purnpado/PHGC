@@ -1,8 +1,10 @@
 package main
 
 import (
+	"archive/zip"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -279,6 +281,75 @@ func TestSelectedTeacherPatchMergeAndExpectedSupportToken(t *testing.T) {
 	records, err := dm.GetStudentApplications(1, "1", "홍길동")
 	if err != nil || len(records) != 1 || records[0].SchoolName != "울산외국어고등학교" {
 		t.Fatalf("application-only merge failed: %#v, %v", records, err)
+	}
+}
+
+func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
+	masterDir := t.TempDir()
+	master := &App{db: &DBManager{dataDir: masterDir}}
+	if err := master.db.InitConfigDB(); err != nil {
+		t.Fatal(err)
+	}
+	if err := master.SetupApp(SetupRequest{
+		SchoolName:         "배포테스트중학교",
+		ClassCount:         2,
+		AdminPassword:      "admin-password",
+		SharedDataPassword: "shared-password",
+		AdmissionYear:      2027,
+	}); err != nil {
+		t.Fatalf("SetupApp: %v", err)
+	}
+	if _, err := master.UnlockAndLogin("admin", "admin-password"); err != nil {
+		t.Fatalf("master login: %v", err)
+	}
+	if err := master.SetUserPassword("301", "teacher-initial-password"); err != nil {
+		t.Fatalf("set teacher password: %v", err)
+	}
+	for _, classNum := range []int{1, 2} {
+		if err := master.db.InitClassDB(classNum); err != nil {
+			t.Fatalf("InitClassDB(%d): %v", classNum, err)
+		}
+	}
+	pkgPath := filepath.Join(masterDir, "PHGC-301.phgcpkg")
+	if err := master.ExportDistributionPackage("301", pkgPath); err != nil {
+		t.Fatalf("ExportDistributionPackage: %v", err)
+	}
+
+	archive, err := zip.OpenReader(pkgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entryNames := map[string]bool{}
+	for _, entry := range archive.File {
+		entryNames[entry.Name] = true
+		if strings.HasPrefix(entry.Name, "keys/") {
+			t.Fatalf("personal key envelope must not be distributed: %s", entry.Name)
+		}
+	}
+	archive.Close()
+	if !entryNames["config.db.phgc"] || !entryNames["class_1.db.phgc"] || entryNames["class_2.db.phgc"] {
+		t.Fatalf("unexpected homeroom package entries: %#v", entryNames)
+	}
+
+	receiverDir := t.TempDir()
+	receiver := &App{db: &DBManager{dataDir: receiverDir}}
+	if err := receiver.db.InitConfigDB(); err != nil {
+		t.Fatal(err)
+	}
+	username, err := receiver.ImportDistributionPackage(pkgPath)
+	if err != nil || username != "301" {
+		t.Fatalf("ImportDistributionPackage: %q, %v", username, err)
+	}
+	if !receiver.NeedsSharedDataPassword("301") {
+		t.Fatal("recipient must be enrolled with the shared password on first login")
+	}
+	user, err := receiver.UnlockSharedAndLogin("301", "teacher-initial-password", "shared-password")
+	if err != nil || user.Username != "301" || user.Role != "homeroom" {
+		t.Fatalf("recipient first login: %#v, %v", user, err)
+	}
+	users, err := receiver.db.GetUsers()
+	if err != nil || len(users) != 1 || users[0].Username != "301" {
+		t.Fatalf("recipient must contain only the target account: %#v, %v", users, err)
 	}
 }
 

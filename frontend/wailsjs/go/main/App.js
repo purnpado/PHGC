@@ -26,6 +26,10 @@ export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
 
+export function ExportDistributionPackage(arg1, arg2) {
+  return window['go']['main']['App']['ExportDistributionPackage'](arg1, arg2);
+}
+
 export function ExportPasswordResetPackage(arg1, arg2) {
   return window['go']['main']['App']['ExportPasswordResetPackage'](arg1, arg2);
 }
@@ -114,6 +118,10 @@ export function GetUsers() {
   return window['go']['main']['App']['GetUsers']();
 }
 
+export function ImportDistributionPackage(arg1) {
+  return window['go']['main']['App']['ImportDistributionPackage'](arg1);
+}
+
 export function ImportPasswordResetPackage(arg1) {
   return window['go']['main']['App']['ImportPasswordResetPackage'](arg1);
 }
@@ -136,6 +144,10 @@ export function Logout() {
 
 export function NeedsSharedDataPassword(arg1) {
   return window['go']['main']['App']['NeedsSharedDataPassword'](arg1);
+}
+
+export function OpenDistributionPackage() {
+  return window['go']['main']['App']['OpenDistributionPackage']();
 }
 
 export function OpenExcelFile() {
@@ -188,6 +200,10 @@ export function SaveCurrentClassPatch(arg1) {
 
 export function SaveCutoffs(arg1) {
   return window['go']['main']['App']['SaveCutoffs'](arg1);
+}
+
+export function SaveDistributionPackage(arg1) {
+  return window['go']['main']['App']['SaveDistributionPackage'](arg1);
 }
 
 export function SavePasswordResetPackage(arg1) {

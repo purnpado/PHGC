@@ -14,6 +14,8 @@ export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Prom
 
 export function DeleteUser(arg1:string):Promise<void>;
 
+export function ExportDistributionPackage(arg1:string,arg2:string):Promise<void>;
+
 export function ExportPasswordResetPackage(arg1:string,arg2:string):Promise<void>;
 
 export function ExportTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>,arg5:string):Promise<void>;
@@ -58,6 +60,8 @@ export function GetStudentTranscript(arg1:number,arg2:string,arg3:string):Promis
 
 export function GetUsers():Promise<Array<main.User>>;
 
+export function ImportDistributionPackage(arg1:string):Promise<string>;
+
 export function ImportPasswordResetPackage(arg1:string):Promise<string>;
 
 export function ImportTeacherPatch(arg1:string,arg2:string):Promise<number>;
@@ -69,6 +73,8 @@ export function InspectTeacherPatch(arg1:string,arg2:string):Promise<main.PatchP
 export function Logout():Promise<void>;
 
 export function NeedsSharedDataPassword(arg1:string):Promise<boolean>;
+
+export function OpenDistributionPackage():Promise<string>;
 
 export function OpenExcelFile():Promise<string>;
 
@@ -95,6 +101,8 @@ export function RollbackSchoolCutoffs(arg1:number):Promise<string>;
 export function SaveCurrentClassPatch(arg1:string):Promise<string>;
 
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
+
+export function SaveDistributionPackage(arg1:string):Promise<string>;
 
 export function SavePasswordResetPackage(arg1:string):Promise<string>;
 
