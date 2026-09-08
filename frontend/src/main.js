@@ -1485,15 +1485,15 @@ async function openClassApplicationSummaryModal(classNum) {
         let rows = '<tr><td colspan="11" class="p-10 text-center text-text-muted">우리 반에 기록된 지원희망이 없습니다.</td></tr>';
         if (summaries.length) {
             let currentSchool = null, currentCategory = null, currentYear = null;
-            let currentDept = null, currentTrack = null;
+            let currentDept = null, currentRank = null;
             const groupedRows = [];
             
             summaries.forEach(s => {
                 const isSameGroup = currentSchool === s.schoolName && currentCategory === s.category && currentYear === s.admissionYear;
                 const isSameDept = isSameGroup && currentDept === s.department;
-                const isSameTrack = isSameDept && currentTrack === s.track;
+                const isSameRank = isSameDept && currentRank === s.preferenceRank;
                 
-                let rowSpanSchool = 0, rowSpanDept = 0, rowSpanTrack = 0;
+                let rowSpanSchool = 0, rowSpanDept = 0, rowSpanRank = 0;
 
                 if (!isSameGroup) {
                     currentSchool = s.schoolName; currentCategory = s.category; currentYear = s.admissionYear;
@@ -1503,29 +1503,29 @@ async function openClassApplicationSummaryModal(classNum) {
                     currentDept = s.department;
                     rowSpanDept = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept).length;
                 }
-                if (!isSameTrack) {
-                    currentTrack = s.track;
-                    rowSpanTrack = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept && x.track === currentTrack).length;
+                if (!isSameRank) {
+                    currentRank = s.preferenceRank;
+                    rowSpanRank = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept && x.preferenceRank === currentRank).length;
                 }
                 
                 groupedRows.push({ 
                     ...s, 
                     isFirstGroup: !isSameGroup, rowSpanSchool,
                     isFirstDept: !isSameDept, rowSpanDept,
-                    isFirstTrack: !isSameTrack, rowSpanTrack
+                    isFirstRank: !isSameRank, rowSpanRank
                 });
             });
             
             rows = groupedRows.map(s => {
                 const groupCells = s.isFirstGroup ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.admissionYear}학년도</td><td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${categoryLabel(s.category)}</td><td class="p-3 font-bold text-white border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.schoolName || '후기 일반고'}</td>` : '';
                 const deptCell = s.isFirstDept ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanDept}">${s.department || '-'}</td>` : '';
-                const trackCell = s.isFirstTrack ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanTrack}">${s.track || '-'}</td>` : '';
+                const rankCell = s.isFirstRank ? `<td class="p-3 text-center border-r border-slate-700/50" rowspan="${s.rowSpanRank}">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td>` : '';
                 
                 return `<tr class="border-b border-slate-700/60 hover:bg-slate-800/40 transition-colors">
                     ${groupCells}
                     ${deptCell}
-                    ${trackCell}
-                    <td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td>
+                    ${rankCell}
+                    <td class="p-3">${s.track || '-'}</td>
                     <td class="p-3 text-center text-cyan-200 font-medium">${s.plannedCount}</td>
                     <td class="p-3 text-center text-indigo-200 font-medium">${s.submittedCount}</td>
                     <td class="p-3 text-center text-emerald-300 font-medium">${s.acceptedCount}</td>
@@ -1534,7 +1534,7 @@ async function openClassApplicationSummaryModal(classNum) {
                 </tr>`;
             }).join('');
         }
-        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">학과</th><th class="p-3">전형</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
+        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">전형</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
         document.getElementById('printClassSummary').onclick = () => printOnly('summary', 'landscape');
     } catch (err) {
@@ -1715,7 +1715,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
         const count = Math.min(5, departments.length);
         const chosen = preferences.filter(Boolean);
-        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(앞 지망에서 선택한 학과는 다음 목록에서 제외됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, chosen.filter(department => department !== selected))}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(지망 학과는 중복될 수 없으며, 중복 선택 시 이전 지망은 해제됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, [])}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
@@ -1751,15 +1751,22 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         document.getElementById('closeApplicationModal').onclick = () => modal.remove();
         if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
-        const refreshDepartmentControls = () => {
+        const refreshDepartmentControls = (changedIdx = -1) => {
             const schoolName = document.getElementById('appSchool').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value);
+            if (changedIdx !== -1 && preferences[changedIdx]) {
+                for (let i = 0; i < preferences.length; i++) {
+                    if (i !== changedIdx && preferences[i] === preferences[changedIdx]) {
+                        preferences[i] = '';
+                    }
+                }
+            }
             const assigned = document.getElementById('appAssigned')?.value || '';
             const area = document.getElementById('appPreferenceArea');
             area.innerHTML = departmentControls(schoolName, preferences, assigned);
             if (!canEdit) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
-            area.querySelectorAll('.app-pref').forEach(select => {
-                select.onchange = () => refreshDepartmentControls();
+            area.querySelectorAll('.app-pref').forEach((select, idx) => {
+                select.onchange = () => refreshDepartmentControls(idx);
             });
         };
         let scoreRequestID = 0;

@@ -1342,10 +1342,10 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 		if out[i].Department != out[j].Department {
 			return out[i].Department < out[j].Department
 		}
-		if out[i].Track != out[j].Track {
-			return out[i].Track < out[j].Track
+		if out[i].PreferenceRank != out[j].PreferenceRank {
+			return out[i].PreferenceRank < out[j].PreferenceRank
 		}
-		return out[i].PreferenceRank < out[j].PreferenceRank
+		return out[i].Track < out[j].Track
 	})
 	return out, nil
 }
