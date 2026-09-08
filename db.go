@@ -251,12 +251,12 @@ func (dm *DBManager) openDB(dbPath string) (*sql.DB, error) {
 			return nil, fmt.Errorf("데이터 잠금을 먼저 해제해주세요")
 		}
 	}
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("DB 연결 실패: %w", err)
 	}
 	// WAL 모드 활성화 (암호화 저장 계층 연결 전까지 기존 SQLite 동작 유지)
-	_, err = db.Exec("PRAGMA journal_mode=WAL")
+	_, err = db.Exec("PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;")
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("WAL 모드 설정 실패: %w", err)

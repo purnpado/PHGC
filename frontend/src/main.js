@@ -1705,17 +1705,24 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         if (!type) return '<option value="">해당 없음</option>';
         return `<option value="">학교 선택</option>${catalog.filter(s => s.type === type).map(s => `<option value="${s.name}" ${s.name === selected ? 'selected' : ''}>${s.name}</option>`).join('')}`;
     };
-    const departmentOptions = (schoolName, selected = '', placeholder = '', excluded = []) => {
+    const departmentOptions = (schoolName, selected = '', placeholder = '', allPreferences = [], currentIndex = -1) => {
         const school = catalog.find(s => s.name === schoolName);
-        return `<option value="">${placeholder}</option>${(school?.departments || []).filter(d => d === selected || !excluded.includes(d)).map(d => `<option value="${d}" ${d === selected ? 'selected' : ''}>${d}</option>`).join('')}`;
+        return `<option value="">${placeholder}</option>${(school?.departments || []).map(d => {
+            const isSelectedHere = d === selected;
+            const otherIndex = allPreferences.findIndex((p, i) => i !== currentIndex && p === d && p !== '');
+            if (otherIndex !== -1) {
+                return `<option value="${d}" disabled>${d} (${otherIndex + 1}지망에 선택됨)</option>`;
+            }
+            return `<option value="${d}" ${isSelectedHere ? 'selected' : ''}>${d}</option>`;
+        }).join('')}`;
     };
     const departmentControls = (schoolName, preferences = [], assignedDepartment = '') => {
         const departments = catalog.find(s => s.name === schoolName)?.departments || [];
         if (!schoolName) return '<p class="text-xs text-text-muted">지원 학교를 선택하면 해당 학교의 학과 수에 맞춰 지망 입력란이 표시됩니다.</p>';
         if (!departments.length) return '<p class="text-xs text-amber-300">이 학교의 학과 목록을 불러오지 못했습니다. 학년부장에게 최신 배포자료를 받아 다시 적용하세요.</p>';
         const count = Math.min(5, departments.length);
-        const chosen = preferences.filter(Boolean);
-        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(앞 지망에서 선택한 학과는 다음 목록에서 제외됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${Array.from({ length: count }, (_, i) => { const selected = preferences[i] || ''; return `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, chosen.filter(department => department !== selected))}</select>`; }).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
+        const paddedPrefs = Array.from({ length: count }, (_, i) => preferences[i] || '');
+        return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(다른 지망에 선택된 학과는 비활성화됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${paddedPrefs.map((selected, i) => `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, paddedPrefs, i)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
