@@ -242,6 +242,10 @@ func TestApplicationSummaryCalculatesAcceptedAndRejectedScores(t *testing.T) {
 	if err != nil || len(classOne) != 1 || classOne[0].AcceptedCount != 1 || classOne[0].RejectedCount != 0 {
 		t.Fatalf("unexpected class-only summary: %#v, %v", classOne, err)
 	}
+	records, err := dm.GetSchoolApplicationRecords()
+	if err != nil || len(records) != len(entries) {
+		t.Fatalf("unexpected school application register: %#v, %v", records, err)
+	}
 }
 
 func TestSelectedTeacherPatchMergeAndExpectedSupportToken(t *testing.T) {

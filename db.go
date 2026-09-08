@@ -1035,6 +1035,40 @@ func (dm *DBManager) GetStudentApplications(classNum int, studentNum, name strin
 	return out, rows.Err()
 }
 
+func (dm *DBManager) GetSchoolApplicationRecords() ([]ApplicationRecord, error) {
+	config, err := dm.GetSchoolConfig()
+	if err != nil {
+		return nil, err
+	}
+	var all []ApplicationRecord
+	for classNum := 1; classNum <= config.ClassCount; classNum++ {
+		db, err := dm.openDB(dm.getClassDBPath(classNum))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications ORDER BY student_num,updated_at`)
+		if err != nil {
+			db.Close()
+			continue
+		}
+		for rows.Next() {
+			var r ApplicationRecord
+			var prefs string
+			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err == nil {
+				r.ClassNum = classNum
+				_ = json.Unmarshal([]byte(prefs), &r.Preferences)
+				all = append(all, r)
+			}
+		}
+		rows.Close()
+		db.Close()
+	}
+	return all, nil
+}
+
 // GetClassPatchChanges creates an encrypted-transfer snapshot of the fields a
 // homeroom teacher may maintain for their own class. The caller encrypts it
 // with the shared package password before it leaves the computer.

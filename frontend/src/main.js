@@ -978,7 +978,7 @@ window.getGeneralGuideBadge = getGeneralGuideBadge;
 // 화면 전체가 아닌 선택한 문서만 A4로 인쇄한다.
 // 매트릭스는 열 수가 많아 A4 가로, 개인 문서는 A4 세로를 기본값으로 사용한다.
 function printOnly(kind, orientation = 'portrait') {
-    const allowedKinds = new Set(['report', 'transcript', 'matrix']);
+    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register']);
     const safeKind = allowedKinds.has(kind) ? kind : 'report';
     const safeOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
     const previous = document.getElementById('runtimePrintPageStyle');
@@ -1308,6 +1308,7 @@ async function renderStudentList(students, classNum) {
                 📋 우리 반 지원희망
             </button>
             ${(window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer') ? `<button id="openApplicationSummaryBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">📋 우리 학교 지원현황</button>` : ''}
+            ${(window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer') ? `<button id="openApplicationRegisterBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">🖨️ 원서접수대장</button>` : ''}
         </div>
 
         <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
@@ -1353,6 +1354,7 @@ async function renderStudentList(students, classNum) {
         }
     });
     document.getElementById('openApplicationSummaryBtn')?.addEventListener('click', openApplicationSummaryModal);
+    document.getElementById('openApplicationRegisterBtn')?.addEventListener('click', openApplicationRegisterModal);
 
     // 1. 학생 고교별 진학 상담 버튼 클릭 이벤트 바인딩
     document.querySelectorAll('.btn-student-counsel').forEach(el => {
@@ -1387,6 +1389,14 @@ async function renderStudentList(students, classNum) {
 // Homeroom teachers need a compact view of their own students' intended
 // applications, without receiving any other class's data or school-wide
 // result-management controls.
+async function openApplicationRegisterModal() {
+    document.getElementById('applicationRegisterModal')?.remove();
+    const records = await window.go.main.App.GetSchoolApplicationRecords();
+    const rows = records.map((r,i)=>`<tr><td>${i+1}</td><td>${r.classNum}반</td><td>${r.studentNum}</td><td><b>${r.studentName}</b></td><td>${r.admissionYear}</td><td>${r.schoolName||'후기 일반고'}</td><td>${r.track||'-'}</td><td>${(r.assignedDepartment||r.preferences?.join(' → ')||'-')}</td><td>${r.score ? r.score.toFixed(2):'-'}</td><td>${r.status}</td></tr>`).join('') || '<tr><td colspan="10">기록된 지원현황이 없습니다.</td></tr>';
+    const modal=document.createElement('div'); modal.id='applicationRegisterModal'; modal.className='fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modal.innerHTML=`<div class="glass-card print-document p-7 w-full max-w-7xl"><div class="flex justify-between mb-4"><div><h2 class="text-2xl font-bold">🗂️ 학교 내부 원서접수·진학 결과대장</h2><p class="text-xs text-text-muted">학교 내부 관리용이며 공식 원서 서식을 대체하지 않습니다.</p></div><div class="no-print"><button id="printRegister" class="btn-secondary px-3 py-2">🖨️ 인쇄 / PDF</button><button id="closeRegister" class="ml-2 text-xl">×</button></div></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>번호</th><th>반</th><th>번</th><th>성명</th><th>입학년도</th><th>지원학교</th><th>전형</th><th>학과/지망</th><th>점수</th><th>결과</th></tr></thead><tbody>${rows}</tbody></table></div></div>`; document.body.appendChild(modal); document.getElementById('closeRegister').onclick=()=>modal.remove(); document.getElementById('printRegister').onclick=()=>printOnly('register');
+}
+
 async function openClassApplicationSummaryModal(classNum) {
     document.getElementById('classApplicationSummaryModal')?.remove();
     const modal = document.createElement('div');

@@ -58,6 +58,8 @@ export function GetLoginIndex():Promise<main.LoginIndex>;
 
 export function GetOfficialAdmissionData():Promise<main.OfficialAdmissionData>;
 
+export function GetSchoolApplicationRecords():Promise<Array<main.ApplicationRecord>>;
+
 export function GetSchoolConfig():Promise<main.SchoolConfig>;
 
 export function GetSchoolRuleList():Promise<Array<Record<string, string>>>;

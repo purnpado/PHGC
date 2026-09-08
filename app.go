@@ -1442,6 +1442,13 @@ func (a *App) GetClassApplicationSummaries(classNum int) ([]ApplicationSummary, 
 	return a.db.GetClassApplicationSummaries(classNum)
 }
 
+func (a *App) GetSchoolApplicationRecords() ([]ApplicationRecord, error) {
+	if a.user == nil || (a.user.Role != "master" && a.user.Role != "viewer") {
+		return nil, fmt.Errorf("학교 결과대장은 학년부장·진로부장만 조회할 수 있습니다")
+	}
+	return a.db.GetSchoolApplicationRecords()
+}
+
 // GetAdmissionClosureReview returns only school-level counts for the selected
 // year; it never exposes individual student records in the summary screen.
 func (a *App) GetAdmissionClosureReview(admissionYear int) (AdmissionClosureReview, error) {

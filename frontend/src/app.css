@@ -276,7 +276,8 @@ input[type="number"]::-webkit-inner-spin-button {
     }
     body.printing[data-print-kind="report"] #studentDetailModal,
     body.printing[data-print-kind="transcript"] #studentTranscriptModal,
-    body.printing[data-print-kind="matrix"] #matrixModal {
+    body.printing[data-print-kind="matrix"] #matrixModal,
+    body.printing[data-print-kind="register"] #applicationRegisterModal {
         display: block !important;
         position: static !important;
         inset: auto !important;

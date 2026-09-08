@@ -114,6 +114,10 @@ export function GetOfficialAdmissionData() {
   return window['go']['main']['App']['GetOfficialAdmissionData']();
 }
 
+export function GetSchoolApplicationRecords() {
+  return window['go']['main']['App']['GetSchoolApplicationRecords']();
+}
+
 export function GetSchoolConfig() {
   return window['go']['main']['App']['GetSchoolConfig']();
 }
