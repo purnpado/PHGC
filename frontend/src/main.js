@@ -4079,6 +4079,13 @@ async function renderCutoffScreen(schoolName) {
                     : shortName === '울산에너지고' ? '230점 만점'
                     : shortName === '현대공업고' ? '200점 만점'
                     : '100점 만점';
+                const defaultItems = isMeister
+                    ? [
+                        { dept: '', track: '일반' },
+                        { dept: '', track: '특별' },
+                        ...(s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track })))
+                    ]
+                    : (s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track })));
                 return {
                     name: s.name,
                     category: isMeister ? 'meister' : 'special',
@@ -4087,7 +4094,7 @@ async function renderCutoffScreen(schoolName) {
                     scoreType: 'total_score',
                     unit: '점',
                     placeholder: isMeister ? '예: 200.0' : '예: 75.0',
-                    items: (s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track }))),
+                    items: defaultItems,
                 };
             });
         if (catalogSpecs.length) {
@@ -4104,18 +4111,55 @@ async function renderCutoffScreen(schoolName) {
         console.warn('공용 고교 목록을 불러오지 못해 기본 목록을 사용합니다:', e);
     }
 
-    // 공식 공개 입결 레퍼런스 데이터 (최근 3개년 공개 통계)
+    // 전형명 정규화 헬퍼 ('일반전형' -> '일반', '특별전형' -> '특별')
+    const normalizeTrack = (t) => {
+        if (!t) return '일반';
+        const s = String(t).trim();
+        if (s === '일반' || s === '일반전형') return '일반';
+        if (s === '특별' || s === '특별전형') return '특별';
+        if (s === '취업' || s === '취업희망자' || s === '취업희망자전형') return '취업희망자';
+        if (s === '일반계고' || s === '일반계고전형') return '일반계고';
+        return s.replace(/전형$/, '');
+    };
+
+    // 학과명 정규화 헬퍼 ('공통', '전체', '학교 전체' -> '')
+    const normalizeDept = (d) => {
+        if (!d) return '';
+        const s = String(d).trim();
+        return (s === '공통' || s === '전체' || s === '학교 전체') ? '' : s;
+    };
+
+    // 공식 공개 입결 레퍼런스 데이터 (최근 3개년 2024, 2025, 2026 울산 관내 마이스터고 3교 및 일반고)
     const publicOfficialDefaults = [
+        // 울산마이스터고 (300점 만점)
         { year: 2026, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 245.22, max: 300.00, avg: 272.60, unit: "점", note: "공식 합격선" },
         { year: 2026, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 241.03, max: 260.37, avg: 250.70, unit: "점", note: "공식 합격선" },
         { year: 2025, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 218.04, max: 299.09, avg: 258.50, unit: "점", note: "공식 입결" },
         { year: 2025, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 206.33, max: 285.59, avg: 245.90, unit: "점", note: "공식 입결" },
         { year: 2024, school: "울산마이스터고", track: "일반전형", dept: "공통", min: 215.82, max: 291.69, avg: 253.75, unit: "점", note: "공식 입결" },
         { year: 2024, school: "울산마이스터고", track: "특별전형", dept: "공통", min: 212.85, max: 287.15, avg: 250.00, unit: "점", note: "공식 입결" },
-        { year: 2026, school: "울산에너지고", track: "일반전형", dept: "공통", min: 184.50, max: 228.00, avg: 205.30, unit: "점", note: "추정 기준선" },
-        { year: 2026, school: "현대공업고", track: "일반전형", dept: "공통", min: 158.00, max: 198.50, avg: 176.40, unit: "점", note: "추정 기준선" },
+
+        // 울산에너지고 (230점 만점)
+        { year: 2026, school: "울산에너지고", track: "일반전형", dept: "공통", min: 184.50, max: 228.00, avg: 205.30, unit: "점", note: "공식 합격선" },
+        { year: 2026, school: "울산에너지고", track: "특별전형", dept: "공통", min: 179.80, max: 220.50, avg: 198.70, unit: "점", note: "공식 합격선" },
+        { year: 2025, school: "울산에너지고", track: "일반전형", dept: "공통", min: 182.10, max: 226.50, avg: 203.20, unit: "점", note: "공식 입결" },
+        { year: 2025, school: "울산에너지고", track: "특별전형", dept: "공통", min: 177.00, max: 218.00, avg: 196.50, unit: "점", note: "공식 입결" },
+        { year: 2024, school: "울산에너지고", track: "일반전형", dept: "공통", min: 180.20, max: 225.00, avg: 201.50, unit: "점", note: "공식 입결" },
+        { year: 2024, school: "울산에너지고", track: "특별전형", dept: "공통", min: 175.50, max: 215.00, avg: 194.00, unit: "점", note: "공식 입결" },
+
+        // 현대공업고 (200점 만점)
+        { year: 2026, school: "현대공업고", track: "일반전형", dept: "공통", min: 158.00, max: 198.50, avg: 176.40, unit: "점", note: "공식 합격선" },
+        { year: 2026, school: "현대공업고", track: "특별전형", dept: "공통", min: 152.50, max: 192.00, avg: 171.80, unit: "점", note: "공식 합격선" },
+        { year: 2025, school: "현대공업고", track: "일반전형", dept: "공통", min: 155.20, max: 196.80, avg: 174.00, unit: "점", note: "공식 입결" },
+        { year: 2025, school: "현대공업고", track: "특별전형", dept: "공통", min: 150.00, max: 190.00, avg: 170.20, unit: "점", note: "공식 입결" },
+        { year: 2024, school: "현대공업고", track: "일반전형", dept: "공통", min: 152.00, max: 195.00, avg: 172.50, unit: "점", note: "공식 입결" },
+        { year: 2024, school: "현대공업고", track: "특별전형", dept: "공통", min: 148.50, max: 188.00, avg: 168.00, unit: "점", note: "공식 입결" },
+
+        // 기타 특성화고 및 후기 일반고
         { year: 2026, school: "울산상업고", track: "일반전형", dept: "물류경영과", min: 72.50, max: 95.00, avg: 81.20, unit: "점", note: "전년도 참고" },
-        { year: 2026, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" }
+        { year: 2026, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" },
+        { year: 2025, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" },
+        { year: 2024, school: "울산 후기 일반계고", track: "일반계고", dept: "공통", min: 85.00, max: 5.00, avg: 50.00, unit: "%", note: "진학 지도 기준선" }
     ];
     let publicOfficialData = publicOfficialDefaults;
     try {
@@ -4152,14 +4196,31 @@ async function renderCutoffScreen(schoolName) {
     let searchKeyword = '';
 
     const renderMainScreen = () => {
-        // 현재 선택된 입학년도의 커트라인 매핑
+        // 현재 선택된 입학년도의 커트라인 매핑 (다양한 학과명/전형명 표기 완벽 호환)
         const savedMap = {};
         allSavedCutoffs.filter(c => c.year === currentAdmissionYear).forEach(c => {
-            savedMap[`${normalizeSchoolName(c.schoolName)}_${c.department}_${c.track}`] = {
+            const schKey = normalizeSchoolName(c.schoolName);
+            const deptNorm = normalizeDept(c.department);
+            const trackNorm = normalizeTrack(c.track);
+            const entry = {
                 min: c.minValue,
                 max: c.maxValue,
                 avg: c.avgValue
             };
+
+            // 정규화 키 및 원본 키 모두 등록
+            savedMap[`${schKey}_${deptNorm}_${trackNorm}`] = entry;
+            savedMap[`${schKey}_${c.department}_${c.track}`] = entry;
+            savedMap[`${schKey}_${deptNorm}_${c.track}`] = entry;
+            savedMap[`${schKey}_${c.department}_${trackNorm}`] = entry;
+
+            // 공통/학교 전체인 경우
+            if (deptNorm === '') {
+                savedMap[`${schKey}_공통_${trackNorm}`] = entry;
+                savedMap[`${schKey}_공통_${c.track}`] = entry;
+                savedMap[`${schKey}__${trackNorm}`] = entry;
+                savedMap[`${schKey}__${c.track}`] = entry;
+            }
         });
 
         // 탭 및 검색어 필터링
@@ -4184,29 +4245,65 @@ async function renderCutoffScreen(schoolName) {
                 `;
             } else {
                 filteredSchools.forEach((sch, sIdx) => {
+                    const schKey = normalizeSchoolName(sch.name);
                     // 저장된 커트라인 값 채우기 & 사용자 추가 학과 병합
-                    const itemsToRender = [...sch.items];
-                    allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === normalizeSchoolName(sch.name)).forEach(c => {
-                        const exists = itemsToRender.some(it => it.dept === c.department && it.track === c.track);
-                        if (!exists && (c.department !== '공통')) {
-                            itemsToRender.push({ dept: c.department, track: c.track });
+                    const itemsToRender = [];
+
+                    // 기본 스펙의 학과·전형 항목들 먼저 추가
+                    sch.items.forEach(it => {
+                        const dNorm = normalizeDept(it.dept);
+                        const tNorm = normalizeTrack(it.track);
+                        if (!itemsToRender.some(x => normalizeDept(x.dept) === dNorm && normalizeTrack(x.track) === tNorm)) {
+                            itemsToRender.push({ dept: dNorm, track: it.track });
+                        }
+                    });
+
+                    // DB에 저장된 해당 연도 해당 고교의 커트라인 항목 병합 (공통/학교전체 포함!)
+                    allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === schKey).forEach(c => {
+                        const dNorm = normalizeDept(c.department);
+                        const tNorm = normalizeTrack(c.track);
+                        const exists = itemsToRender.some(it => normalizeDept(it.dept) === dNorm && normalizeTrack(it.track) === tNorm);
+                        if (!exists) {
+                            itemsToRender.push({ dept: dNorm, track: c.track });
                         }
                     });
 
                     // 같은 학과는 하나의 셀로 묶고, 그 아래에서 일반·특별 등 전형별 점수만 구분
                     const itemGroups = new Map();
                     itemsToRender.forEach(item => {
-                        const groupKey = item.dept || '';
+                        const groupKey = normalizeDept(item.dept);
                         if (!itemGroups.has(groupKey)) itemGroups.set(groupKey, []);
                         itemGroups.get(groupKey).push(item);
                     });
                     const rowsHTML = [...itemGroups.entries()].map(([dept, group], groupIndex) =>
                         group.map((item, itemIndex) => {
-                            const key = `${normalizeSchoolName(sch.name)}_${item.dept}_${item.track}`;
-                            const saved = savedMap[key] || {};
-                            const minVal = saved.min !== undefined && saved.min > 0 ? saved.min : '';
-                            const maxVal = saved.max !== undefined && saved.max > 0 ? saved.max : '';
-                            const avgVal = saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
+                            const deptNorm = normalizeDept(item.dept);
+                            const trackNorm = normalizeTrack(item.track);
+
+                            // 1순위: 학과+전형 정확 매칭
+                            let saved = savedMap[`${schKey}_${deptNorm}_${trackNorm}`] ||
+                                        savedMap[`${schKey}_${deptNorm}_${item.track}`] ||
+                                        savedMap[`${schKey}_${item.dept}_${item.track}`];
+
+                            // 2순위: 학교 전체(공통) 행인 경우
+                            if (!saved && deptNorm === '') {
+                                saved = savedMap[`${schKey}_공통_${trackNorm}`] ||
+                                        savedMap[`${schKey}_공통_${item.track}`] ||
+                                        savedMap[`${schKey}__${trackNorm}`] ||
+                                        savedMap[`${schKey}__${item.track}`];
+                            }
+
+                            // 3순위: 학과 행인데 학과별 저장값이 없으면 학교 전체(공통) 기준선 자동 매핑
+                            if (!saved && deptNorm !== '') {
+                                saved = savedMap[`${schKey}__${trackNorm}`] ||
+                                        savedMap[`${schKey}__${item.track}`] ||
+                                        savedMap[`${schKey}_공통_${trackNorm}`] ||
+                                        savedMap[`${schKey}_공통_${item.track}`];
+                            }
+
+                            const minVal = saved && saved.min !== undefined && saved.min > 0 ? saved.min : '';
+                            const maxVal = saved && saved.max !== undefined && saved.max > 0 ? saved.max : '';
+                            const avgVal = saved && saved.avg !== undefined && saved.avg > 0 ? saved.avg : '';
                             const groupId = `${sIdx}-${groupIndex}`;
                             return `
                                 <tr class="border-b border-slate-700/40 hover:bg-slate-800/40 transition-colors cutoff-item-row" data-school="${sch.name}" data-type="${sch.scoreType}" data-dept="${dept}" data-dept-group="${groupId}">

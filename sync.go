@@ -269,10 +269,30 @@ func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error
 	localPath := filepath.Join(sm.dataDir, filename)
 	if data, err := os.ReadFile(localPath); err == nil {
 		var result OfficialAdmissionData
-		if err := json.Unmarshal(data, &result.Items); err == nil {
+		if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
 			return &result, nil
 		}
 	}
+
+	// 실행파일 위치 기준 server-data/official_admission_data.json 시도
+	if exePath, err := os.Executable(); err == nil {
+		serverDataPath := filepath.Join(filepath.Dir(exePath), "server-data", filename)
+		if data, err := os.ReadFile(serverDataPath); err == nil {
+			var result OfficialAdmissionData
+			if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
+				return &result, nil
+			}
+		}
+	}
+
+	// 작업 디렉토리 기준 server-data/official_admission_data.json 시도
+	if data, err := os.ReadFile(filepath.Join("server-data", filename)); err == nil {
+		var result OfficialAdmissionData
+		if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
+			return &result, nil
+		}
+	}
+
 	data, err := sm.downloadFile(filename)
 	if err != nil {
 		return nil, err
