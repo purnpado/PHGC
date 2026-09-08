@@ -62,6 +62,10 @@ export function GetApplicationSummaries() {
   return window['go']['main']['App']['GetApplicationSummaries']();
 }
 
+export function GetClassApplicationSummaries(arg1) {
+  return window['go']['main']['App']['GetClassApplicationSummaries'](arg1);
+}
+
 export function GetClassFullGrades(arg1) {
   return window['go']['main']['App']['GetClassFullGrades'](arg1);
 }

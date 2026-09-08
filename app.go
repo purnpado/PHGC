@@ -1250,6 +1250,15 @@ func (a *App) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	return a.db.GetApplicationSummaries()
 }
 
+// GetClassApplicationSummaries is used by a homeroom teacher's own-class
+// dashboard. A homeroom account is never allowed to select another class.
+func (a *App) GetClassApplicationSummaries(classNum int) ([]ApplicationSummary, error) {
+	if a.user != nil && a.user.Role == "homeroom" && a.user.ClassNum != classNum {
+		return nil, fmt.Errorf("담임 계정은 본인 학급 지원현황만 조회할 수 있습니다")
+	}
+	return a.db.GetClassApplicationSummaries(classNum)
+}
+
 // GetAdmissionClosureReview returns only school-level counts for the selected
 // year; it never exposes individual student records in the summary screen.
 func (a *App) GetAdmissionClosureReview(admissionYear int) (AdmissionClosureReview, error) {

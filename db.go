@@ -1061,6 +1061,23 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 	if err != nil {
 		return nil, err
 	}
+	classNums := make([]int, 0, config.ClassCount)
+	for classNum := 1; classNum <= config.ClassCount; classNum++ {
+		classNums = append(classNums, classNum)
+	}
+	return dm.getApplicationSummaries(classNums)
+}
+
+// GetClassApplicationSummaries is the homeroom-safe view: it aggregates only
+// one class DB and never exposes other homeroom teachers' records.
+func (dm *DBManager) GetClassApplicationSummaries(classNum int) ([]ApplicationSummary, error) {
+	if classNum < 1 {
+		return nil, fmt.Errorf("학급 정보가 올바르지 않습니다")
+	}
+	return dm.getApplicationSummaries([]int{classNum})
+}
+
+func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSummary, error) {
 	type accumulator struct {
 		ApplicationSummary
 		acceptedSum    float64
@@ -1115,7 +1132,7 @@ func (dm *DBManager) GetApplicationSummaries() ([]ApplicationSummary, error) {
 			a.MaxRejectedScore, a.hasMax = r.Score, true
 		}
 	}
-	for classNum := 1; classNum <= config.ClassCount; classNum++ {
+	for _, classNum := range classNums {
 		db, err := dm.openDB(dm.getClassDBPath(classNum))
 		if err != nil {
 			if os.IsNotExist(err) {

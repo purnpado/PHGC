@@ -32,6 +32,8 @@ export function GetAppVersion():Promise<string>;
 
 export function GetApplicationSummaries():Promise<Array<main.ApplicationSummary>>;
 
+export function GetClassApplicationSummaries(arg1:number):Promise<Array<main.ApplicationSummary>>;
+
 export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;
 
 export function GetClassGrades(arg1:number):Promise<Array<main.StudentCalcResult>>;

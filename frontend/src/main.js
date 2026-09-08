@@ -1290,6 +1290,9 @@ async function renderStudentList(students, classNum) {
             <button id="openMatrixBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">
                 📊 우리 반 전체 고교별 신호등 매트릭스 보기
             </button>
+            <button id="openClassApplicationSummaryBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">
+                📋 우리 반 지원희망
+            </button>
             ${(window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer') ? `<button id="openApplicationSummaryBtn" class="btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2">📋 우리 학교 지원현황</button>` : ''}
         </div>
 
@@ -1319,6 +1322,10 @@ async function renderStudentList(students, classNum) {
     // 신호등 매트릭스 버튼
     document.getElementById('openMatrixBtn').addEventListener('click', () => {
         openMatrixModal(classNum);
+    });
+
+    document.getElementById('openClassApplicationSummaryBtn')?.addEventListener('click', () => {
+        openClassApplicationSummaryModal(classNum);
     });
 
     document.getElementById('exportCurrentClassPatchBtn')?.addEventListener('click', async () => {
@@ -1361,6 +1368,28 @@ async function renderStudentList(students, classNum) {
             openStudentTranscriptModal(cNum, sNum, sName);
         });
     });
+}
+
+// Homeroom teachers need a compact view of their own students' intended
+// applications, without receiving any other class's data or school-wide
+// result-management controls.
+async function openClassApplicationSummaryModal(classNum) {
+    document.getElementById('classApplicationSummaryModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'classApplicationSummaryModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 우리 반 지원희망을 집계하는 중...</div>';
+    document.body.appendChild(modal);
+    try {
+        const summaries = await window.go.main.App.GetClassApplicationSummaries(classNum);
+        const categoryLabel = category => ({ meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고', other: '기타(집계 제외)' }[category] || category);
+        const rows = summaries.length ? summaries.map(s => `<tr class="border-b border-slate-700/60"><td class="p-3">${s.admissionYear}학년도</td><td class="p-3">${categoryLabel(s.category)}</td><td class="p-3 font-bold">${s.schoolName || '후기 일반고'}</td><td class="p-3">${s.track || '-'}</td><td class="p-3">${s.department || '-'}</td><td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td><td class="p-3 text-center text-cyan-200">${s.plannedCount}</td><td class="p-3 text-center text-indigo-200">${s.submittedCount}</td><td class="p-3 text-center text-emerald-300">${s.acceptedCount}</td><td class="p-3 text-center text-rose-300">${s.rejectedCount}</td><td class="p-3 text-center">${s.finalCount}</td></tr>`).join('') : '<tr><td colspan="11" class="p-10 text-center text-text-muted">우리 반에 기록된 지원희망이 없습니다.</td></tr>';
+        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 담임 변경분은 학년부장에게 전달해 취합할 수 있습니다.</p></div>`;
+        document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
+    } catch (err) {
+        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">우리 반 지원희망을 불러올 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeClassApplicationSummary" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
+        document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
+    }
 }
 
 async function openApplicationSummaryModal() {
