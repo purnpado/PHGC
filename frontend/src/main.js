@@ -3341,83 +3341,96 @@ async function openMatrixModal(classNum) {
         const fullGrades = await window.go.main.App.GetClassFullGrades(classNum);
         const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
 
-        // 학교별 연도별 커트라인 히스토리 맵 구축 (연도 내림차순 정렬)
+        // 학교 목록 정의
         const schoolKeywords = [
-            { key: '마이스터', label: '울산마이스터고', max: 300 },
-            { key: '에너지', label: '울산에너지고', max: 230 },
-            { key: '현대', label: '현대공업고', max: 200 },
-            { key: '상업고', label: '울산상고', max: 100 },
-            { key: '여자상업고', label: '울산여상', max: 100 },
-            { key: '생활과학', label: '울산생과고', max: 100 },
-            { key: '공업고', label: '울산공고', max: 100 },
-            { key: '산업고', label: '울산산업고', max: 100 },
-            { key: '미용예술', label: '미용예술고', max: 100 },
-            { key: '기술공업', label: '기술공고', max: 100 }
+            { key: '마이스터', label: '울산마이스터', isMeister: true },
+            { key: '에너지', label: '에너지고', isMeister: true },
+            { key: '현대', label: '현대공고', isMeister: true },
+            { key: '상업고', label: '울산상고', isMeister: false },
+            { key: '여자상업고', label: '울산여상', isMeister: false },
+            { key: '생활과학', label: '울산생과고', isMeister: false },
+            { key: '공업고', label: '울산공고', isMeister: false },
+            { key: '산업고', label: '울산산업고', isMeister: false },
+            { key: '미용예술', label: '미용예술고', isMeister: false },
+            { key: '기술공업', label: '기술공고', isMeister: false }
         ];
 
+        // 전형별(general/special) 및 학교별 연도별 커트라인 히스토리 맵 구축
+        // key: `${schoolKey}_${trackType}` (trackType: 'general' | 'special')
         const cutoffHistoryMap = new Map();
         schoolKeywords.forEach(s => {
-            const historyByYear = new Map();
-            (cutoffs || []).filter(c => c.schoolName.includes(s.key) && Number(c.minValue) > 0)
-                .sort((a, b) => b.year - a.year)
-                .forEach(c => {
-                    if (!historyByYear.has(c.year)) {
-                        historyByYear.set(c.year, c.minValue);
-                    }
-                });
-            const sortedHistory = [...historyByYear.entries()].sort((a, b) => b[0] - a[0]).map(x => x[1]);
-            cutoffHistoryMap.set(s.key, sortedHistory);
+            ['general', 'special'].forEach(trackType => {
+                const historyByYear = new Map();
+                (cutoffs || []).filter(c => {
+                    if (!c.schoolName.includes(s.key) || Number(c.minValue) <= 0) return false;
+                    const isSpec = c.track.includes('특별') || c.track.includes('취업');
+                    return trackType === 'special' ? isSpec : !isSpec;
+                }).sort((a, b) => b.year - a.year)
+                  .forEach(c => {
+                      if (!historyByYear.has(c.year)) {
+                          historyByYear.set(c.year, Number(c.minValue));
+                      }
+                  });
+
+                const sortedValues = [...historyByYear.entries()].sort((a, b) => b[0] - a[0]).map(x => x[1]);
+                cutoffHistoryMap.set(`${s.key}_${trackType}`, sortedValues);
+            });
         });
 
-        // 특정 모드에서의 학교별 기준선 계산 함수
-        const getSchoolCutoffVal = (schoolKey, mode) => {
-            const history = cutoffHistoryMap.get(schoolKey) || [];
+        // 특정 학교/전형/연도모드 기준선 계산 함수
+        const getSchoolCutoffVal = (schoolKey, trackType, yearMode) => {
+            const history = cutoffHistoryMap.get(`${schoolKey}_${trackType}`) || [];
             if (!history.length) return 0;
-            if (mode === 'last') {
+            if (yearMode === 'last') {
                 return history[0] || 0;
-            } else if (mode === 'avg3') {
+            } else if (yearMode === 'avg3') {
                 const slice3 = history.slice(0, 3);
                 return slice3.length ? slice3.reduce((a, b) => a + b, 0) / slice3.length : 0;
-            } else if (mode === 'avg5') {
+            } else if (yearMode === 'avg5') {
                 const slice5 = history.slice(0, 5);
                 return slice5.length ? slice5.reduce((a, b) => a + b, 0) / slice5.length : 0;
             }
             return history[0] || 0;
         };
 
-        let currentMatrixMode = 'last'; // 'last', 'avg3', 'avg5'
+        // 6개 탭 모드 정의: yearMode ('last' | 'avg3' | 'avg5') & trackMode ('general' | 'special')
+        let currentYearMode = 'last';
+        let currentTrackMode = 'general';
 
         // 테이블 본문(tbody) 생성 함수
-        const generateTableRows = (mode) => {
+        const generateTableRows = (yearMode, trackMode) => {
             let rowsHTML = '';
             fullGrades.forEach(s => {
-                const getBadge = (schoolKey, track = '일반') => {
-                    const r = s.schoolResults.find(x => x.schoolName.includes(schoolKey) && x.trackName.includes(track));
+                const getBadge = (schoolItem) => {
+                    // 학생 점수 찾기: 전형에 따라 일반전형 성적 또는 특별/취업자전형 성적 추출
+                    let r = null;
+                    if (trackMode === 'special') {
+                        r = s.schoolResults.find(x => x.schoolName.includes(schoolItem.key) && (x.trackName.includes('특별') || x.trackName.includes('취업')));
+                    }
+                    if (!r) {
+                        r = s.schoolResults.find(x => x.schoolName.includes(schoolItem.key) && x.trackName.includes('일반'));
+                    }
                     if (!r) return '<span class="text-slate-600">-</span>';
 
-                    const cutoffVal = getSchoolCutoffVal(schoolKey, mode);
+                    const cutoffVal = getSchoolCutoffVal(schoolItem.key, trackMode, yearMode);
+                    const score = Number(r.totalScore || 0);
+
                     if (cutoffVal && cutoffVal > 0) {
-                        if (r.totalScore >= cutoffVal + 5) {
-                            return `<span class="inline-flex items-center gap-1 font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (안정)">🟢 ${r.totalScore.toFixed(1)}</span>`;
-                        } else if (r.totalScore >= cutoffVal) {
-                            return `<span class="inline-flex items-center gap-1 font-bold text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (적정/경계)">🟡 ${r.totalScore.toFixed(1)}</span>`;
+                        const diff = score - cutoffVal;
+                        const diffStr = diff >= 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`;
+                        const tooltip = `기준선: ${cutoffVal.toFixed(1)}점 (${diffStr}점 차이)`;
+
+                        if (score >= cutoffVal + 5) {
+                            return `<span class="inline-flex items-center gap-1 font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-xs shadow-xs" title="${tooltip} - 안정">🟢 ${score.toFixed(1)}</span>`;
+                        } else if (score >= cutoffVal) {
+                            return `<span class="inline-flex items-center gap-1 font-bold text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-xs shadow-xs" title="${tooltip} - 적정/경계">🟡 ${score.toFixed(1)}</span>`;
                         } else {
-                            return `<span class="inline-flex items-center gap-1 font-semibold text-rose-400 bg-rose-950/30 border border-rose-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (소신/주의)">🔴 ${r.totalScore.toFixed(1)}</span>`;
+                            return `<span class="inline-flex items-center gap-1 font-semibold text-rose-400 bg-rose-950/30 border border-rose-500/30 px-2.5 py-0.5 rounded-full text-xs shadow-xs" title="${tooltip} - 소신/주의">🔴 ${score.toFixed(1)}</span>`;
                         }
                     }
-                    return `<span class="text-slate-300 font-medium text-xs">${r.totalScore.toFixed(1)}</span>`;
+                    return `<span class="text-slate-300 font-medium text-xs">${score.toFixed(1)}</span>`;
                 };
 
-                const meister = getBadge('마이스터');
-                const energy = getBadge('에너지');
-                const hyundai = getBadge('현대');
-                const sangop = getBadge('상업고');
-                const yeosang = getBadge('여자상업고');
-                const saenggwa = getBadge('생활과학');
-                const gongop = getBadge('공업고');
-                const sanup = getBadge('산업고');
-                const miyong = getBadge('미용예술');
-                const gisul = getBadge('기술공업');
                 const generalBadge = getGeneralGuideBadge(s.generalHSPercentile);
 
                 rowsHTML += `
@@ -3428,16 +3441,7 @@ async function openMatrixModal(classNum) {
                             ${s.name}
                         </td>
                         <td class="p-2.5 text-indigo-300 font-bold font-mono text-xs">${s.allAverage.toFixed(1)}</td>
-                        <td class="p-2.5">${meister}</td>
-                        <td class="p-2.5">${energy}</td>
-                        <td class="p-2.5">${hyundai}</td>
-                        <td class="p-2.5">${sangop}</td>
-                        <td class="p-2.5">${yeosang}</td>
-                        <td class="p-2.5">${saenggwa}</td>
-                        <td class="p-2.5">${gongop}</td>
-                        <td class="p-2.5">${sanup}</td>
-                        <td class="p-2.5">${miyong}</td>
-                        <td class="p-2.5">${gisul}</td>
+                        ${schoolKeywords.map(sch => `<td class="p-2.5">${getBadge(sch)}</td>`).join('')}
                         <td class="p-2.5 font-bold whitespace-nowrap">${generalBadge}</td>
                     </tr>
                 `;
@@ -3445,15 +3449,18 @@ async function openMatrixModal(classNum) {
             return rowsHTML;
         };
 
-        const getModeDescription = (mode) => {
-            if (mode === 'last') {
-                return '🎯 <strong>직전 1개년(작년)</strong> 최종 합격선을 기준으로 반 전체 합격 가능성을 판정합니다.';
-            } else if (mode === 'avg3') {
-                return '📊 <strong>최근 3개년 누적 평균선</strong>을 기준으로 판정합니다 (단년도 커트라인 요동 완화).';
-            } else if (mode === 'avg5') {
-                return '📈 <strong>최근 5개년 장기 추세 평균선</strong>을 기준으로 중장기 합격 안정성을 판정합니다.';
-            }
-            return '';
+        const getModeDescription = (yearMode, trackMode) => {
+            const yearText = yearMode === 'last' ? '🎯 <strong>직전 1개년(작년)</strong>'
+                           : yearMode === 'avg3' ? '📊 <strong>최근 3개년 누적 평균선</strong>'
+                           : '📈 <strong>최근 5개년 장기 추세선</strong>';
+            const trackText = trackMode === 'special' ? '<span class="text-amber-300 font-bold">[특별전형 · 취업희망자]</span>'
+                                                      : '<span class="text-indigo-300 font-bold">[일반전형]</span>';
+            
+            // 마이스터고 실시간 기준값 예시 안내
+            const meisterCutoff = getSchoolCutoffVal('마이스터', trackMode, yearMode);
+            const meisterInfo = meisterCutoff > 0 ? ` · <span class="text-emerald-300">울산마이스터 기준선: ${meisterCutoff.toFixed(1)}점</span>` : '';
+
+            return `${yearText} 기준 ${trackText} 학생 환산점수 및 합격선을 대조합니다.${meisterInfo}`;
         };
 
         modalEl.innerHTML = `
@@ -3472,26 +3479,40 @@ async function openMatrixModal(classNum) {
                     <button id="closeMatrixBtn" class="no-print text-slate-400 hover:text-white p-2 text-2xl font-bold bg-transparent border-none cursor-pointer leading-none">✕</button>
                 </div>
 
-                <!-- 판정 기준 탭 바 & 실시간 설명 바 -->
+                <!-- 6개 원클릭 탭 바 & 실시간 설명 바 -->
                 <div class="flex items-center justify-between gap-3 flex-wrap bg-slate-900/70 p-3 rounded-2xl border border-slate-700/60 shadow-inner">
-                    <div class="flex items-center gap-2.5 flex-wrap">
-                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1">
-                            <span>⚙️</span> 판정 기준:
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1 mr-1">
+                            <span>⚙️</span> 전형·연도 선택:
                         </span>
-                        <div class="inline-flex rounded-xl bg-slate-800 p-1 border border-slate-700/80 shadow-xs">
-                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'last' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="last">
-                                🎯 직전 1개년 (작년)
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <!-- 1. 직전 1개년 -->
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="last" data-track="general">
+                                🎯 직전 1년 · 일반
                             </button>
-                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'avg3' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="avg3">
-                                📊 최근 3개년 평균
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="last" data-track="special">
+                                🌟 직전 1년 · 특별(취업)
                             </button>
-                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'avg5' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="avg5">
-                                📈 최근 5개년 장기추세
+
+                            <!-- 2. 최근 3개년 평균 -->
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="avg3" data-track="general">
+                                📊 최근 3년 · 일반
+                            </button>
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="avg3" data-track="special">
+                                ✨ 최근 3년 · 특별(취업)
+                            </button>
+
+                            <!-- 3. 최근 5개년 장기 -->
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="avg5" data-track="general">
+                                📈 최근 5년 · 일반
+                            </button>
+                            <button class="matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border" data-year="avg5" data-track="special">
+                                🚀 최근 5년 · 특별(취업)
                             </button>
                         </div>
                     </div>
                     <div id="matrixModeDesc" class="text-xs text-indigo-200 font-medium">
-                        ${getModeDescription(currentMatrixMode)}
+                        ${getModeDescription(currentYearMode, currentTrackMode)}
                     </div>
                 </div>
 
@@ -3517,7 +3538,7 @@ async function openMatrixModal(classNum) {
                             </tr>
                         </thead>
                         <tbody id="matrixTableBody">
-                            ${generateTableRows(currentMatrixMode)}
+                            ${generateTableRows(currentYearMode, currentTrackMode)}
                         </tbody>
                     </table>
                 </div>
@@ -3538,27 +3559,48 @@ async function openMatrixModal(classNum) {
             </div>
         `;
 
-        // 탭 전환 이벤트 바인딩
-        modalEl.querySelectorAll('.matrix-mode-tab').forEach(tabBtn => {
-            tabBtn.addEventListener('click', () => {
-                const mode = tabBtn.dataset.mode;
-                if (currentMatrixMode === mode) return;
-                currentMatrixMode = mode;
+        // 탭 스타일 갱신 헬퍼 함수
+        const updateTabStyles = () => {
+            modalEl.querySelectorAll('.matrix-6tab').forEach(btn => {
+                const y = btn.dataset.year;
+                const t = btn.dataset.track;
+                const isSelected = (y === currentYearMode && t === currentTrackMode);
 
-                modalEl.querySelectorAll('.matrix-mode-tab').forEach(b => {
-                    if (b.dataset.mode === mode) {
-                        b.className = 'matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-primary text-white shadow-md';
+                if (isSelected) {
+                    if (t === 'special') {
+                        btn.className = 'matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/25 scale-105';
                     } else {
-                        b.className = 'matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-slate-400 hover:text-white';
+                        btn.className = 'matrix-6tab px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-primary text-white border-indigo-400 shadow-lg shadow-indigo-500/25 scale-105';
                     }
-                });
+                } else {
+                    if (t === 'special') {
+                        btn.className = 'matrix-6tab px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer bg-amber-950/30 text-amber-300/80 border-amber-500/30 hover:bg-amber-900/40 hover:text-amber-200';
+                    } else {
+                        btn.className = 'matrix-6tab px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white';
+                    }
+                }
+            });
+        };
+
+        updateTabStyles();
+
+        // 6개 탭 클릭 이벤트 바인딩
+        modalEl.querySelectorAll('.matrix-6tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const y = btn.dataset.year;
+                const t = btn.dataset.track;
+                if (currentYearMode === y && currentTrackMode === t) return;
+
+                currentYearMode = y;
+                currentTrackMode = t;
+                updateTabStyles();
 
                 const descEl = modalEl.querySelector('#matrixModeDesc');
-                if (descEl) descEl.innerHTML = getModeDescription(currentMatrixMode);
+                if (descEl) descEl.innerHTML = getModeDescription(currentYearMode, currentTrackMode);
 
                 const tbodyEl = modalEl.querySelector('#matrixTableBody');
                 if (tbodyEl) {
-                    tbodyEl.innerHTML = generateTableRows(currentMatrixMode);
+                    tbodyEl.innerHTML = generateTableRows(currentYearMode, currentTrackMode);
                     bindStudentNameClick();
                 }
             });
