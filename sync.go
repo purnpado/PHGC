@@ -1,11 +1,9 @@
-﻿package main
+package main
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,18 +11,10 @@ import (
 )
 
 const (
-	// 애플리케이션 버전 (v2.0.0 오프라인 전용 전환)
+	// 애플리케이션 버전 (v1.2.0 오프라인 전용 에디션)
 	AppVersion = "1.2.0"
 
-	// 오프라인 전용 모드 (정보보안 지침 준수: 외부 네트워크 통신 원천 차단)
-	OfflineMode = true
-
-	// Gitea 저장소 정보
-	GiteaBaseURL = "https://gitea.gguk.link"
-	GiteaOwner   = "purnpadosori"
-	GiteaRepo    = "PHGC-OFFLINE"
-
-	// 기본 데이터 폴더
+	// 기본 로컬 데이터 폴더
 	ServerDataPath = "server-data"
 )
 
@@ -76,48 +66,16 @@ type SyncStepResult struct {
 	Message string `json:"message"`
 }
 
-// SyncManager 동기화 관리자
+// SyncManager 로컬 데이터 관리자 (오프라인 전용: 네트워크 I/O 전무)
 type SyncManager struct {
-	dataDir    string
-	httpClient *http.Client
+	dataDir string
 }
 
 // NewSyncManager 동기화 관리자 생성
 func NewSyncManager(dataDir string) *SyncManager {
 	return &SyncManager{
 		dataDir: dataDir,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
 	}
-}
-
-// getRawFileURL 파일 다운로드 URL 반환
-func (sm *SyncManager) getRawFileURL(filePath string) string {
-	return fmt.Sprintf("https://go.gguk.link/api/sync/server-data/%s", filePath)
-}
-
-// downloadFile 파일 다운로드 (오프라인 모드에서는 차단)
-func (sm *SyncManager) downloadFile(remotePath string) ([]byte, error) {
-	if OfflineMode {
-		return nil, fmt.Errorf("오프라인 모드에서는 외부 다운로드가 차단됩니다")
-	}
-	url := sm.getRawFileURL(remotePath)
-	resp, err := sm.httpClient.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("서버 연결 실패: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("파일 다운로드 실패 (HTTP %d)", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("데이터 읽기 실패: %w", err)
-	}
-	return data, nil
 }
 
 // saveToFile 로컬 파일로 저장
@@ -129,57 +87,29 @@ func (sm *SyncManager) saveToFile(filename string, data []byte) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
-// CheckVersion 최신 버전 확인 (오프라인 모드에서는 자체 버전 유지)
+// CheckVersion 로컬 버전 확인
 func (sm *SyncManager) CheckVersion() (*VersionInfo, error) {
-	if OfflineMode {
-		return &VersionInfo{
-			LatestVersion: AppVersion,
-			MinVersion:    "1.0.0",
-			ReleaseNotes:  "오프라인 전용 버전 (보안 지침 준수)",
-			DownloadURL:   "",
-		}, nil
-	}
-	data, err := sm.downloadFile("version.json")
-	if err != nil {
-		return nil, err
-	}
-	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
-
-	var versionInfo VersionInfo
-	if err := json.Unmarshal(data, &versionInfo); err != nil {
-		return nil, fmt.Errorf("버전 정보 파싱 실패: %w", err)
-	}
-	return &versionInfo, nil
+	return &VersionInfo{
+		LatestVersion: AppVersion,
+		MinVersion:    "1.0.0",
+		ReleaseNotes:  "100% 오프라인 전용 버전 (정보보안 지침 완벽 준수, 외부 통신 원천 차단)",
+		DownloadURL:   "",
+	}, nil
 }
 
-// SyncHighSchools 고등학교 목록 동기화
+// SyncHighSchools 로컬 고등학교 목록 로드
 func (sm *SyncManager) SyncHighSchools() (*HighSchoolData, error) {
-	if OfflineMode {
-		return sm.GetHighSchools()
-	}
-	data, err := sm.downloadFile("highschools.json")
-	if err != nil {
-		return nil, err
-	}
-	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
-
-	var schoolData HighSchoolData
-	if err := json.Unmarshal(data, &schoolData); err != nil {
-		return nil, fmt.Errorf("고등학교 데이터 파싱 실패: %w", err)
-	}
-
-	_ = sm.saveToFile("highschools.json", data)
-	return &schoolData, nil
+	return sm.GetHighSchools()
 }
 
-// FullSync 전체 동기화 실행 (오프라인 모드 완벽 대응)
+// FullSync 전체 동기화 실행 (100% 로컬 데이터 로드)
 func (sm *SyncManager) FullSync() *SyncResult {
 	result := &SyncResult{
 		CurrentVersion: AppVersion,
 		LatestVersion:  AppVersion,
 		HasUpdate:      false,
 		Success:        true,
-		Message:        "100% 안전한 오프라인 모드로 실행 중입니다 (외부 통신 차단)",
+		Message:        "100% 안전한 오프라인 모드로 실행 중입니다 (외부 통신 원천 차단)",
 	}
 
 	schoolData, err := sm.GetHighSchools()
@@ -230,7 +160,7 @@ func (sm *SyncManager) GetHighSchools() (*HighSchoolData, error) {
 		}
 	}
 
-	// 기본 고등학교 목록 데이터
+	// 기본 내장 고등학교 목록 데이터
 	return sm.getDefaultHighSchools(), nil
 }
 
@@ -294,6 +224,3 @@ func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
 	}
 	return []NoticeItem{}, nil
 }
-
-
-

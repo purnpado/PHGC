@@ -224,7 +224,7 @@ function showNoticePopupModal(notice, allNotices = []) {
                 <div class="flex items-center gap-2.5">
                     <span class="text-2xl">📢</span>
                     <div>
-                        <span class="text-[11px] font-bold text-cyan-400 tracking-wider">EDUBRIDGE 운영센터 공지</span>
+                        <span class="text-[11px] font-bold text-cyan-400 tracking-wider">PHGC 프로그램 안내</span>
                         <h2 class="text-lg font-bold text-white">${String(notice.title || '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c])}</h2>
                     </div>
                 </div>
@@ -2226,36 +2226,9 @@ async function openApplicationSummaryModal() {
                 openApplicationSummaryModal();
             } catch (err) { alert('입시 결과 확정 해제 실패: ' + err); }
         });
-        document.getElementById('submitExpectedSupport')?.addEventListener('click', async () => {
-            if (!confirm('현재 입학년도의 [지원희망] 집계만 중앙 서버에 제출할까요?\n학생·학급·교사·개별 점수는 전송하지 않으며, 참여 학교는 울산 전체 인원 집계만 조회할 수 있습니다.')) return;
-            try {
-                const count = await window.go.main.App.SubmitExpectedSupport();
-                alert(`${count}개 집계 항목을 제출했습니다. 이후 참여 학교 전용 울산 전체 현황을 조회할 수 있습니다.`);
-            } catch (err) { alert('예상 지원현황 제출 실패: ' + err); }
-        });
-        document.getElementById('viewExpectedSupport')?.addEventListener('click', openExpectedSupportModal);
     } catch (err) {
         modal.innerHTML = `<div class="glass-card p-7 my-auto max-w-lg"><h2 class="text-xl font-bold mb-3">지원현황 집계 실패</h2><p class="text-text-muted mb-4">${err}</p><button id="closeApplicationSummaryError" class="btn-secondary w-auto px-4 py-2">← 닫기</button></div>`;
         document.getElementById('closeApplicationSummaryError').onclick = closeModal;
-    }
-}
-
-async function openExpectedSupportModal() {
-    document.getElementById('expectedSupportModal')?.remove();
-    const modal = document.createElement('div');
-    modal.id = 'expectedSupportModal';
-    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 overflow-y-auto';
-    modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 울산 전체 예상 지원현황을 불러오는 중...</div>';
-    document.body.appendChild(modal);
-    try {
-        const items = await window.go.main.App.GetExpectedSupportAggregate();
-        const categoryLabel = category => ({ meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고' }[category] || category);
-        const rows = items.length ? items.map(item => `<tr class="border-b border-slate-700/60"><td class="p-3">${item.admissionYear}학년도</td><td class="p-3">${categoryLabel(item.category)}</td><td class="p-3 font-bold">${item.targetSchool}</td><td class="p-3">${item.department || '전체'}</td><td class="p-3">${item.track || '-'}</td><td class="p-3 text-center">${item.preferenceRank ? `${item.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${item.plannedCount}</td><td class="p-3 text-center">${item.submittedCount}</td></tr>`).join('') : '<tr><td colspan="8" class="p-10 text-center text-text-muted">현재 참여 학교의 제출 자료가 없습니다.</td></tr>';
-        modal.innerHTML = `<div class="glass-card p-7 w-full max-w-5xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">👥 울산 전체 예상 지원현황</h2><p class="text-sm text-text-muted mt-1">참여 학교 전체의 인원만 합산합니다. 다른 중학교명·학생·학급·교사·점수는 표시하지 않습니다.</p></div><button id="closeExpectedSupport" class="text-3xl text-text-muted">×</button></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">지원 고교</th><th class="p-3">학과</th><th class="p-3">전형</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
-        document.getElementById('closeExpectedSupport').onclick = () => modal.remove();
-    } catch (err) {
-        modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">예상 지원현황을 조회할 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeExpectedSupport" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
-        document.getElementById('closeExpectedSupport').onclick = () => modal.remove();
     }
 }
 
@@ -4009,207 +3982,6 @@ async function init() {
 init();
 
 // ==========================================
-// 글로벌 피드백 모달 로직
-// ==========================================
-document.addEventListener('DOMContentLoaded', () => {
-    const feedbackModal = document.createElement('div');
-    feedbackModal.id = 'feedbackModal';
-    feedbackModal.className = 'hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4';
-    feedbackModal.innerHTML = `
-        <div class="glass-card max-w-2xl w-full flex flex-col fade-in">
-            <div class="p-6 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/30 rounded-t-2xl">
-                <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <span>💬</span> 피드백 및 문의하기
-                </h2>
-                <button id="closeFeedbackBtn" class="text-text-muted hover:text-white transition-colors bg-transparent border-none text-xl">&times;</button>
-            </div>
-            <div class="p-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
-                
-                <div class="flex gap-2 mb-6 border-b border-slate-700/50 pb-2">
-                    <button id="tabWrite" class="font-bold text-primary border-b-2 border-primary pb-2 px-2 transition-colors">문의 작성</button>
-                    <button id="tabList" class="font-bold text-text-muted hover:text-white pb-2 px-2 transition-colors">내 문의 내역</button>
-                </div>
-
-                <div id="feedbackWriteView">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm text-text-muted mb-1">답변 받을 이메일 (선택)</label>
-                            <input type="email" id="fbEmail" class="input-field" placeholder="example@email.com">
-                        </div>
-                        <div>
-                            <label class="block text-sm text-text-muted mb-1">제목</label>
-                            <input type="text" id="fbTitle" class="input-field" placeholder="개선 사항 또는 버그 제보" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm text-text-muted mb-1">내용</label>
-                            <textarea id="fbContent" class="input-field resize-none" style="min-height: 150px;" placeholder="자세한 내용을 적어주세요..." required></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm text-text-muted mb-1">사진 첨부 (선택)</label>
-                            <input type="file" id="fbImage" accept="image/*" class="w-full file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 cursor-pointer">
-                        </div>
-                        <button id="submitFeedbackBtn" class="btn-primary w-full mt-4">제출하기</button>
-                    </div>
-                </div>
-
-                <div id="feedbackListView" class="hidden space-y-4">
-                    <div id="fbListContent" class="text-center text-text-muted py-8"><span class="spinner"></span> 목록을 불러오는 중...</div>
-                </div>
-
-            </div>
-        </div>
-    `;
-    document.body.appendChild(feedbackModal);
-
-    const btn = document.getElementById('globalFeedbackBtn');
-    if (btn) {
-        btn.addEventListener('click', () => {
-            feedbackModal.classList.remove('hidden');
-            document.getElementById('tabWrite').click();
-        });
-    }
-
-    document.getElementById('closeFeedbackBtn').addEventListener('click', () => {
-        feedbackModal.classList.add('hidden');
-    });
-
-    document.getElementById('tabWrite').addEventListener('click', (e) => {
-        e.target.classList.add('text-primary', 'border-b-2', 'border-primary');
-        e.target.classList.remove('text-text-muted');
-        document.getElementById('tabList').classList.remove('text-primary', 'border-b-2', 'border-primary');
-        document.getElementById('tabList').classList.add('text-text-muted');
-        document.getElementById('feedbackWriteView').classList.remove('hidden');
-        document.getElementById('feedbackListView').classList.add('hidden');
-    });
-
-    document.getElementById('tabList').addEventListener('click', async (e) => {
-        e.target.classList.add('text-primary', 'border-b-2', 'border-primary');
-        e.target.classList.remove('text-text-muted');
-        document.getElementById('tabWrite').classList.remove('text-primary', 'border-b-2', 'border-primary');
-        document.getElementById('tabWrite').classList.add('text-text-muted');
-        document.getElementById('feedbackWriteView').classList.add('hidden');
-        document.getElementById('feedbackListView').classList.remove('hidden');
-
-        const listContent = document.getElementById('fbListContent');
-        listContent.innerHTML = '<div class="text-center py-8"><span class="spinner"></span> 목록을 불러오는 중...</div>';
-
-        try {
-            const issues = await window.go.main.App.GetLocalFeedbacks();
-            if (!issues || issues.length === 0) {
-                listContent.innerHTML = '<div class="text-center text-text-muted py-8">작성한 문의 내역이 없습니다.</div>';
-                return;
-            }
-
-            let html = '';
-            for (const issue of issues) {
-                let answered = issue.status !== 'open';
-                try {
-                    const remote = await window.go.main.App.GetFeedbackDetails(issue.issue_id);
-                    answered = answered || remote.state === 'closed' || (remote.comments && remote.comments.length > 0);
-                } catch (_) { }
-                let statusBadge = answered ? '<span class="text-xs bg-success/20 text-success px-2 py-1 rounded">답변 완료</span>' : '<span class="text-xs bg-warning/20 text-warning px-2 py-1 rounded">답변 대기</span>';
-                html += `
-                    <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 cursor-pointer hover:bg-slate-700/50 transition-colors" onclick="loadIssueDetails(${issue.issue_id})">
-                        <div class="flex justify-between items-center mb-2">
-                            <h4 class="font-bold text-white text-sm">${issue.title}</h4>
-                            ${statusBadge}
-                        </div>
-                        <div class="text-xs text-text-muted">${new Date(issue.created_at).toLocaleString()}</div>
-                    </div>
-                `;
-            }
-            listContent.innerHTML = html;
-        } catch (err) {
-            listContent.innerHTML = `<div class="text-danger text-center text-sm">${err}</div>`;
-        }
-    });
-
-    document.getElementById('submitFeedbackBtn').addEventListener('click', async () => {
-        const title = document.getElementById('fbTitle').value.trim();
-        const content = document.getElementById('fbContent').value.trim();
-        const email = document.getElementById('fbEmail').value.trim();
-        const fileInput = document.getElementById('fbImage');
-
-        if (!title || !content) {
-            return alert('제목과 내용을 입력해주세요.');
-        }
-
-        let attachmentName = '';
-        let attachmentB64 = '';
-
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            attachmentName = file.name;
-            try {
-                attachmentB64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = error => reject(error);
-                    reader.readAsDataURL(file);
-                });
-            } catch (err) {
-                return alert('이미지 첨부 오류: ' + err);
-            }
-        }
-
-        const btn = document.getElementById('submitFeedbackBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> 전송 중...';
-
-        try {
-            await window.go.main.App.SubmitFeedback(title, content, email, attachmentName, attachmentB64);
-            alert('피드백이 성공적으로 등록되었습니다.');
-            document.getElementById('fbTitle').value = '';
-            document.getElementById('fbContent').value = '';
-            if (fileInput) fileInput.value = '';
-            document.getElementById('tabList').click();
-        } catch (err) {
-            alert('등록 실패: ' + err);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '제출하기';
-        }
-    });
-});
-
-window.loadIssueDetails = async (issueID) => {
-    const listContent = document.getElementById('fbListContent');
-    const originalHTML = listContent.innerHTML;
-    listContent.innerHTML = '<div class="text-center py-8"><span class="spinner"></span> 상세 내용을 불러오는 중...</div>';
-
-    try {
-        const details = await window.go.main.App.GetFeedbackDetails(issueID);
-        let commentsHtml = '';
-        if (details.comments && details.comments.length > 0) {
-            details.comments.forEach(c => {
-                commentsHtml += `
-                    <div class="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-lg">
-                        <div class="font-bold text-xs text-primary mb-1">관리자 답변 (${new Date(c.created_at).toLocaleString()})</div>
-                        <div class="text-sm text-white whitespace-pre-wrap">${c.body}</div>
-                    </div>
-                `;
-            });
-        } else {
-            commentsHtml = '<div class="mt-4 text-xs text-text-muted text-center">아직 답변이 등록되지 않았습니다.</div>';
-        }
-
-        listContent.innerHTML = `
-            <div class="mb-4">
-                <button class="text-xs text-text-muted hover:text-white" onclick="document.getElementById('tabList').click()">← 목록으로 돌아가기</button>
-            </div>
-            <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700/50">
-                <h3 class="font-bold text-white mb-2">상태: ${details.state === 'open' ? '열림' : '닫힘'}</h3>
-                ${commentsHtml}
-            </div>
-        `;
-    } catch (err) {
-        alert('상세 내용 불러오기 실패: ' + err);
-        listContent.innerHTML = originalHTML;
-    }
-};
-
-
-// ==========================================
 // ===== 로그인 화면 =====
 export async function renderLoginScreen(schoolName) {
     app.className = '';
@@ -5364,12 +5136,6 @@ async function renderCutoffScreen(schoolName) {
                         <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
                             <span>💾</span> 커트라인 저장
                         </button>
-                        <button id="exportBridgeCutoffBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
-                            <span>📤</span> 서버 전송
-                        </button>
-                        <button id="importBridgeCutoffBtn" class="text-xs bg-slate-800 border border-slate-600 text-slate-200 hover:bg-slate-700 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors">
-                            <span>📥</span> 서버 데이터 내려받기
-                        </button>
                         <button id="backToAdminBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold">
                             ← 대시보드
                         </button>
@@ -5707,102 +5473,7 @@ async function renderCutoffScreen(schoolName) {
             }
         };
 
-        // 9. 중앙 서버 전송 (SweetAlert2 스타일 커스텀 모달 confirm 적용 및 안내문구 현행화)
-        document.getElementById('exportBridgeCutoffBtn')?.addEventListener('click', async () => {
-            const confirmed = await showModalConfirm({
-                title: '☁️ 커트라인 및 공식 입결 중앙 서버 제출',
-                message: `
-                    <div class="space-y-3 text-xs leading-relaxed text-left">
-                        <div class="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-indigo-200">
-                            <p class="font-bold text-sm text-indigo-100 mb-1">📅 ${currentAdmissionYear}학년도 입시 기준 제출 안내</p>
-                            <p>입력하신 고교별 합격선(최저/최고불합격)과 <strong>고교 공식 공개 합격선 데이터</strong>가 중앙 EduBridge 서버로 안전하게 제출됩니다.</p>
-                        </div>
-                        <div class="space-y-2 text-slate-300">
-                            <p class="flex items-start gap-1.5"><span class="text-emerald-400 font-bold">✓</span> <span><strong>개인정보 철저 보호:</strong> 학생 성명, 학급, 교사 정보, 개별 성적은 일절 전송되지 않으며 순수 학교·전형별 기준점만 전송됩니다.</span></p>
-                            <p class="flex items-start gap-1.5"><span class="text-cyan-400 font-bold">✓</span> <span><strong>관내 진학 지도 공유:</strong> 전송된 자료는 운영자 검토 후 울산 관내 참여 학교 간 진학 지도 참고자료로 공유됩니다.</span></p>
-                        </div>
-                    </div>
-                `,
-                type: 'info',
-                confirmText: '🚀 서버로 제출하기',
-                cancelText: '취소'
-            });
-
-            if (!confirmed) return;
-
-            const btn = document.getElementById('exportBridgeCutoffBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 전송 중...';
-
-            try {
-                await saveAllCutoffs(true);
-                await window.go.main.App.SendCutoffsToBridge(currentAdmissionYear);
-                await showModalAlert({
-                    title: '제출 완료',
-                    message: `<strong>${currentAdmissionYear}학년도</strong> 커트라인 및 공식 공개 합격선이 중앙 서버에 안전하게 제출되었습니다.<br>운영자 검토 후 관내 학교 공유 자료에 반영됩니다.`,
-                    type: 'success'
-                });
-            } catch (err) {
-                await showModalAlert({ title: '서버 전송 실패', message: String(err), type: 'error' });
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span>📤</span> 서버 전송';
-            }
-        });
-
-        // 10. 중앙 서버 데이터 내려받기 (커트라인 + 고교·교육청 공식 공개자료 동시 동기화)
-        document.getElementById('importBridgeCutoffBtn')?.addEventListener('click', async () => {
-            const btn = document.getElementById('importBridgeCutoffBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> 내려받는 중...';
-
-            try {
-                const count = await window.go.main.App.FetchCutoffsFromBridge(currentAdmissionYear);
-                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
-
-                // 서버에 배포된 최신 공식 입시자료(official_admission_data.json) 동기화
-                let officialCount = 0;
-                try {
-                    const officialResp = await window.go.main.App.GetOfficialAdmissionData();
-                    if (officialResp?.items && Array.isArray(officialResp.items) && officialResp.items.length > 0) {
-                        const serverOfficialList = officialResp.items.map(item => ({
-                            year: item.admissionYear || item.year || currentAdmissionYear,
-                            school: item.schoolName || item.school || '',
-                            dept: item.department || '',
-                            track: item.track || '일반전형',
-                            min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
-                            max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
-                            avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
-                            unit: String(item.schoolName || '').includes('일반계고') ? '%' : '점',
-                            note: item.source || item.note || '공식자료'
-                        })).filter(x => x.school);
-
-                        if (serverOfficialList.length > 0) {
-                            officialCount = serverOfficialList.length;
-                            publicOfficialData = serverOfficialList;
-                            localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
-                        }
-                    }
-                } catch (e) {
-                    console.warn('공식 입결 데이터 서버 동기화 생략:', e);
-                }
-
-                const msgExtra = officialCount > 0 ? `<br>✓ 공식 입결 자료 <strong>${officialCount}건</strong>도 최신으로 동기화되었습니다.` : '';
-                await showModalAlert({
-                    title: '내려받기 완료',
-                    message: `<strong>${currentAdmissionYear}학년도</strong> 중앙 서버에서 커트라인 <strong>${count}건</strong>을 성공적으로 내려받았습니다!${msgExtra}`,
-                    type: 'success'
-                });
-                renderMainScreen();
-            } catch (err) {
-                await showModalAlert({ title: '서버 데이터 내려받기 실패', message: String(err), type: 'error' });
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<span>📥</span> 서버 데이터 내려받기';
-            }
-        });
-
-        // 11. 대시보드로 돌아가기
+        // 9. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });

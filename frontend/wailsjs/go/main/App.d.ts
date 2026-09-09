@@ -28,8 +28,6 @@ export function ExportPasswordResetPackage(arg1:string,arg2:string):Promise<void
 
 export function ExportTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>,arg5:string):Promise<void>;
 
-export function FetchCutoffsFromBridge(arg1:number):Promise<number>;
-
 export function GetAdmissionClosure(arg1:number):Promise<main.AdmissionClosure>;
 
 export function GetAdmissionClosureReview(arg1:number):Promise<main.AdmissionClosureReview>;
@@ -50,13 +48,7 @@ export function GetCutoffs():Promise<Array<main.CutoffInfo>>;
 
 export function GetDataUpdateStatus():Promise<Record<string, any>>;
 
-export function GetExpectedSupportAggregate():Promise<Array<main.ExpectedSupportAggregate>>;
-
-export function GetFeedbackDetails(arg1:number):Promise<Record<string, any>>;
-
 export function GetHighSchoolsData():Promise<main.HighSchoolData>;
-
-export function GetLocalFeedbacks():Promise<Array<main.FeedbackIssue>>;
 
 export function GetLoginIndex():Promise<main.LoginIndex>;
 
@@ -124,8 +116,6 @@ export function ResetAcademicYear(arg1:number):Promise<void>;
 
 export function ResetAllData():Promise<void>;
 
-export function RollbackSchoolCutoffs(arg1:number):Promise<string>;
-
 export function SaveCurrentClassPatch(arg1:string):Promise<string>;
 
 export function SaveCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
@@ -144,17 +134,11 @@ export function SaveTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<
 
 export function SelfDestruct():Promise<void>;
 
-export function SendCutoffsToBridge(arg1:number):Promise<void>;
-
 export function SetUserPassword(arg1:string,arg2:string):Promise<void>;
 
 export function SetWindowTitle(arg1:string):Promise<void>;
 
 export function SetupApp(arg1:main.SetupRequest):Promise<void>;
-
-export function SubmitExpectedSupport():Promise<number>;
-
-export function SubmitFeedback(arg1:string,arg2:string,arg3:string,arg4:string,arg5:string):Promise<number>;
 
 export function SyncWithServer():Promise<main.SyncResult>;
 

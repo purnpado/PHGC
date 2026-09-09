@@ -178,50 +178,6 @@ export namespace main {
 	        this.avgValue = source["avgValue"];
 	    }
 	}
-	export class ExpectedSupportAggregate {
-	    admissionYear: number;
-	    category: string;
-	    targetSchool: string;
-	    department: string;
-	    track: string;
-	    preferenceRank: number;
-	    plannedCount: number;
-	    submittedCount: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new ExpectedSupportAggregate(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.admissionYear = source["admissionYear"];
-	        this.category = source["category"];
-	        this.targetSchool = source["targetSchool"];
-	        this.department = source["department"];
-	        this.track = source["track"];
-	        this.preferenceRank = source["preferenceRank"];
-	        this.plannedCount = source["plannedCount"];
-	        this.submittedCount = source["submittedCount"];
-	    }
-	}
-	export class FeedbackIssue {
-	    issue_id: number;
-	    title: string;
-	    status: string;
-	    created_at: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new FeedbackIssue(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.issue_id = source["issue_id"];
-	        this.title = source["title"];
-	        this.status = source["status"];
-	        this.created_at = source["created_at"];
-	    }
-	}
 	export class HighSchool {
 	    name: string;
 	    type: string;
