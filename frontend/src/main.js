@@ -1605,7 +1605,7 @@ function renderPredictionBadges(results, cutoffs, schoolGroup) {
     );
 
     if (!relevantCutoffs.length) {
-        return '<span class="text-xs text-slate-500 font-normal">커트라인 미등록</span>';
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/60 text-[11px] shadow-xs">커트라인 미등록</span>';
     }
 
     const badges = [];
@@ -1628,19 +1628,19 @@ function renderPredictionBadges(results, cutoffs, schoolGroup) {
                     : `${r.schoolName} (${r.trackName})`;
 
                 const badgeColor = isMeister
-                    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300'
-                    : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300';
+                    ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25'
+                    : 'border-cyan-400/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25';
 
-                badges.push(`<span class="inline-flex items-center rounded-lg border ${badgeColor} px-2 py-0.5 text-[11px] font-bold shadow-xs whitespace-nowrap">${displayLabel}</span>`);
+                badges.push(`<span class="inline-flex items-center rounded-full border ${badgeColor} px-2.5 py-0.5 text-[11px] font-bold shadow-xs whitespace-nowrap transition-colors">${displayLabel}</span>`);
             }
         });
     });
 
     if (!badges.length) {
-        return '<span class="text-xs text-slate-400/80 font-normal">지원권 밖</span>';
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-950/40 text-rose-300/80 border border-rose-500/30 text-[11px] font-medium shadow-xs">지원권 밖</span>';
     }
     const visible = badges.slice(0, 3).join('');
-    const extra = badges.length > 3 ? `<span class="text-[11px] font-bold text-indigo-300 ml-1">+${badges.length - 3}</span>` : '';
+    const extra = badges.length > 3 ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-indigo-950/60 border border-indigo-500/40 text-[10px] font-bold text-indigo-300 ml-1">+${badges.length - 3}</span>` : '';
     return `<div class="flex flex-wrap justify-center items-center gap-1.5">${visible}${extra}</div>`;
 }
 
@@ -1648,22 +1648,24 @@ function renderPredictionBadges(results, cutoffs, schoolGroup) {
 function renderApplicationSummary(applications) {
     const completed = (applications || []).filter(a => a.status && a.status !== '미입력');
     if (!completed.length) {
-        return '<span class="text-xs text-slate-500 font-medium">미입력</span>';
+        return '<span class="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-800/80 text-slate-400 text-xs border border-slate-700/60 font-medium shadow-xs">미입력</span>';
     }
 
     const getStatusTheme = (status) => {
         switch (status) {
             case '합격':
+            case '최종 진학':
+            case '최종진학':
                 return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold';
             case '불합격':
-                return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+                return 'bg-rose-500/20 text-rose-300 border-rose-500/40 font-medium';
             case '지원 완료':
                 return 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-semibold';
             case '미진학':
-                return 'bg-slate-700/50 text-slate-400 border-slate-600/40';
+                return 'bg-slate-700/50 text-slate-400 border-slate-600/40 font-medium';
             case '지원 예정':
             default:
-                return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+                return 'bg-amber-500/15 text-amber-300 border-amber-500/30 font-medium';
         }
     };
 
@@ -1676,9 +1678,9 @@ function renderApplicationSummary(applications) {
             school = `${school} (${a.assignedDepartment})`;
         }
         return `
-            <div class="inline-flex items-center justify-between w-full max-w-52.5 px-2.5 py-1 rounded-md text-[11px] border ${theme} shadow-xs">
-                <span class="truncate max-w-32.5 font-medium" title="${school}">${school}</span>
-                <span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-black/25 font-bold whitespace-nowrap">${a.status}</span>
+            <div class="inline-flex items-center justify-between w-full max-w-56 px-2.5 py-1 rounded-xl text-[11px] border ${theme} shadow-xs">
+                <span class="truncate max-w-36 font-semibold" title="${school}">${school}</span>
+                <span class="ml-1.5 text-[10px] px-2 py-0.5 rounded-full bg-black/30 font-bold whitespace-nowrap border border-white/10">${a.status}</span>
             </div>
         `;
     });
@@ -1762,21 +1764,23 @@ async function renderStudentList(students, classNum) {
         });
 
         const appButtonHTML = isFinalizedStudent ? `
-            <button class="text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all shadow-sm bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60 hover:scale-105"
+            <button class="text-xs px-3 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all shadow-sm bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/70 hover:scale-105"
                     data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" data-finalized="true" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
-                <span>🔒</span> 합격 확정
+                <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                <span>합격 확정</span>
             </button>
         ` : `
-            <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
+            <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
                     data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                <span>📝</span> 희망학교
+                <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                <span>희망학교</span>
             </button>
         `;
 
         tbody += `
             <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
                 <td class="p-3.5 text-center font-mono font-bold text-slate-400">
-                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 shadow-inner">
                         ${s.StudentNum || '-'}
                     </span>
                 </td>
@@ -1788,11 +1792,11 @@ async function renderStudentList(students, classNum) {
                 <td class="p-3.5 text-center min-w-68">
                     <div class="flex flex-col gap-2 justify-center items-center">
                         <div class="flex items-center gap-2 text-xs w-full justify-center">
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 font-bold whitespace-nowrap">마이스터</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold whitespace-nowrap shadow-xs">마이스터</span>
                             <div class="flex-1 text-center">${meisterBadges}</div>
                         </div>
                         <div class="flex items-center gap-2 text-xs w-full justify-center">
-                            <span class="text-[10px] px-1.5 py-0.5 rounded-md bg-cyan-950/60 text-cyan-300 border border-cyan-500/30 font-bold whitespace-nowrap">특성화</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold whitespace-nowrap shadow-xs">특성화</span>
                             <div class="flex-1 text-center">${specialBadges}</div>
                         </div>
                     </div>
@@ -1801,9 +1805,10 @@ async function renderStudentList(students, classNum) {
                 <td class="p-3.5 text-center">
                     <div class="flex items-center justify-center gap-2">
                         ${appButtonHTML}
-                        <button class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20"
+                        <button class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20"
                                 data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                            <span>🎯</span> 진학 상담
+                            <svg class="w-3.5 h-3.5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                            <span>진학 상담</span>
                         </button>
                     </div>
                 </td>
@@ -1819,10 +1824,12 @@ async function renderStudentList(students, classNum) {
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button id="openMatrixBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 전체 고교별 신호등 매트릭스 보기">
-                    📊 신호등 매트릭스
+                    <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span>신호등 매트릭스</span>
                 </button>
                 <button id="openClassApplicationSummaryBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 지원희망 통계">
-                    📋 우리 반 통계
+                    <svg class="w-3.5 h-3.5 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    <span>우리 반 통계</span>
                 </button>
             </div>
         </div>
