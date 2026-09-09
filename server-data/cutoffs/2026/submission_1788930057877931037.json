@@ -1,0 +1,77 @@
+{
+  "admissionYear": 2026,
+  "items": [
+    {
+      "cutoffScore": 245.22,
+      "department": "공통",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "공통 (특별전형)",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 245.22,
+      "department": "",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "특별",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 245.22,
+      "department": "",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "특별전형",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고"
+    },
+    {
+      "cutoffScore": 245.22,
+      "department": "전기시스템제어과",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "전기시스템제어과 (특별)",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 245.22,
+      "department": "자동화시스템과",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "자동화시스템과 (특별)",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 245.22,
+      "department": "정밀기계과",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    },
+    {
+      "cutoffScore": 241.03,
+      "department": "정밀기계과 (특별)",
+      "sourceMiddleSchoolName": "푸른파도소리중학교",
+      "targetHighSchoolName": "울산마이스터고등학교"
+    }
+  ]
+}
