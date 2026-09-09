@@ -542,6 +542,65 @@ func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	return cutoffs, nil
 }
 
+// MergeCutoffs 타 학교 커트라인을 우리 학교 커트라인과 스마트 병합
+func (dm *DBManager) MergeCutoffs(incoming []CutoffInfo) (int, error) {
+	if len(incoming) == 0 {
+		return 0, nil
+	}
+	existing, err := dm.GetCutoffs()
+	if err != nil {
+		return 0, err
+	}
+	type key struct {
+		year                int
+		school, dept, track string
+	}
+	existMap := make(map[key]CutoffInfo)
+	for _, e := range existing {
+		k := key{e.Year, e.SchoolName, e.Department, e.Track}
+		existMap[k] = e
+	}
+
+	mergedList := make([]CutoffInfo, 0, len(incoming))
+	count := 0
+	for _, inc := range incoming {
+		if inc.SchoolName == "" {
+			continue
+		}
+		k := key{inc.Year, inc.SchoolName, inc.Department, inc.Track}
+		if cur, ok := existMap[k]; ok {
+			updated := cur
+			changed := false
+			if inc.MinValue > 0 && (cur.MinValue == 0 || inc.MinValue < cur.MinValue) {
+				updated.MinValue = inc.MinValue
+				changed = true
+			}
+			if inc.MaxValue > cur.MaxValue {
+				updated.MaxValue = inc.MaxValue
+				changed = true
+			}
+			if updated.AvgValue == 0 && inc.AvgValue > 0 {
+				updated.AvgValue = inc.AvgValue
+				changed = true
+			}
+			if changed {
+				mergedList = append(mergedList, updated)
+				count++
+			}
+		} else {
+			mergedList = append(mergedList, inc)
+			count++
+		}
+	}
+
+	if len(mergedList) > 0 {
+		if err := dm.SaveCutoffs(mergedList); err != nil {
+			return 0, err
+		}
+	}
+	return count, nil
+}
+
 // ----------------------------------------------------
 // Feedback Issues
 // ----------------------------------------------------

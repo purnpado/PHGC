@@ -1692,6 +1692,183 @@ func (a *App) OpenTeacherPatch(password string) (int, error) {
 	return a.ImportTeacherPatch(password, path)
 }
 
+// JointSharePackage 관내 타 학교와 안전하게 공유하는 커트라인 및 지원현황 통계 패키지 (학생 개인정보 100% 원천 배제)
+type JointSharePackage struct {
+	Format        string                   `json:"format"`
+	SchoolName    string                   `json:"schoolName"`
+	AdmissionYear int                      `json:"admissionYear"`
+	ExportedAt    string                   `json:"exportedAt"`
+	Cutoffs       []CutoffInfo             `json:"cutoffs"`
+	Applications  []ApplicationSummary     `json:"applications"`
+	OfficialItems []map[string]interface{} `json:"officialItems"`
+}
+
+// ExportJointShareData 현재 연도의 커트라인과 지원현황 집계(개인정보 없음) 및 공식자료를 관내 공유용 파일로 내보냄
+func (a *App) ExportJointShareData(admissionYear int) (string, error) {
+	if a.user == nil || a.user.Role != "master" {
+		return "", fmt.Errorf("관내 진학자료 내보내기는 학년부장 계정만 가능합니다")
+	}
+	config, err := a.db.GetSchoolConfig()
+	if err != nil {
+		return "", fmt.Errorf("학교 설정을 불러올 수 없습니다: %w", err)
+	}
+	if admissionYear <= 0 {
+		admissionYear = config.AdmissionYear
+	}
+
+	// 1. 해당 연도 커트라인 추출
+	allCutoffs, err := a.db.GetCutoffs()
+	if err != nil {
+		allCutoffs = []CutoffInfo{}
+	}
+	var yearCutoffs []CutoffInfo
+	for _, c := range allCutoffs {
+		if c.Year == admissionYear {
+			yearCutoffs = append(yearCutoffs, c)
+		}
+	}
+
+	// 2. 해당 연도 지원현황 통계 추출 (개인 식별정보 완전 배제)
+	allApps, err := a.db.GetApplicationSummaries()
+	if err != nil {
+		allApps = []ApplicationSummary{}
+	}
+	var yearApps []ApplicationSummary
+	for _, app := range allApps {
+		if app.AdmissionYear == admissionYear {
+			yearApps = append(yearApps, app)
+		}
+	}
+
+	// 3. 고교 공식 공개 입결 데이터 추출
+	var officialList []map[string]interface{}
+	if officialResp, err := a.sync.GetOfficialAdmissionData(); err == nil && officialResp != nil {
+		officialList = officialResp.Items
+	}
+
+	pkg := JointSharePackage{
+		Format:        "PHGC_JOINT_SHARE_V1",
+		SchoolName:    config.SchoolName,
+		AdmissionYear: admissionYear,
+		ExportedAt:    time.Now().Format("2006-01-02 15:04:05"),
+		Cutoffs:       yearCutoffs,
+		Applications:  yearApps,
+		OfficialItems: officialList,
+	}
+
+	data, err := json.MarshalIndent(pkg, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("공유 패키지 생성 실패: %w", err)
+	}
+
+	defaultFilename := fmt.Sprintf("PHGC_관내진학자료_%d학년도.phgcdata", admissionYear)
+	path, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "관내 진학자료 내보내기",
+		DefaultFilename: defaultFilename,
+		Filters:         []runtime.FileFilter{{DisplayName: "PHGC 관내 진학자료 (*.phgcdata)", Pattern: "*.phgcdata"}},
+	})
+	if err != nil || path == "" {
+		return "", err
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("파일 저장 실패: %w", err)
+	}
+	return path, nil
+}
+
+// ImportJointShareData 타 학교의 진학자료 파일을 열어 우리 학교 커트라인과 공식자료에 병합
+func (a *App) ImportJointShareData(admissionYear int) (map[string]int, error) {
+	if a.user == nil || a.user.Role != "master" {
+		return nil, fmt.Errorf("타교자료 병합은 학년부장 계정만 가능합니다")
+	}
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "타교 진학자료 병합",
+		Filters: []runtime.FileFilter{{DisplayName: "PHGC 관내 진학자료 (*.phgcdata)", Pattern: "*.phgcdata"}},
+	})
+	if err != nil || path == "" {
+		return nil, err
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("파일을 읽을 수 없습니다: %w", err)
+	}
+
+	var pkg JointSharePackage
+	if err := json.Unmarshal(data, &pkg); err != nil {
+		return nil, fmt.Errorf("올바른 PHGC 관내 진학자료 파일이 아닙니다: %w", err)
+	}
+	if pkg.Format != "PHGC_JOINT_SHARE_V1" {
+		return nil, fmt.Errorf("지원하지 않는 자료 형식입니다")
+	}
+
+	// 1. 커트라인 병합
+	cutoffsToMerge := pkg.Cutoffs
+
+	// 2. 타교의 지원현황 중 합격/진학 결과가 있는 항목을 커트라인으로 자동 변환하여 추가 병합
+	for _, app := range pkg.Applications {
+		if app.AcceptedCount > 0 || app.FinalCount > 0 {
+			scoreType := "score"
+			if strings.Contains(app.SchoolName, "일반계고") || strings.Contains(app.Category, "general") {
+				scoreType = "percentile"
+			}
+			cutoffsToMerge = append(cutoffsToMerge, CutoffInfo{
+				Year:       app.AdmissionYear,
+				SchoolName: app.SchoolName,
+				Department: app.Department,
+				Track:      app.Track,
+				ScoreType:  scoreType,
+				MaxValue:   app.MaxAcceptedScore,
+				MinValue:   app.MinAcceptedScore,
+				AvgValue:   app.AvgAcceptedScore,
+			})
+		}
+	}
+
+	mergedCutoffCount, err := a.db.MergeCutoffs(cutoffsToMerge)
+	if err != nil {
+		return nil, fmt.Errorf("커트라인 병합 중 오류 발생: %w", err)
+	}
+
+	// 3. 공식자료 보완 (로컬 JSON에 신규 항목 병합)
+	mergedOfficialCount := 0
+	if len(pkg.OfficialItems) > 0 {
+		exePath, err := os.Executable()
+		if err == nil {
+			officialFile := filepath.Join(filepath.Dir(exePath), "official_admission_data.json")
+			var localData OfficialAdmissionData
+			if curBytes, readErr := os.ReadFile(officialFile); readErr == nil {
+				_ = json.Unmarshal(curBytes, &localData)
+			}
+			existKeyMap := make(map[string]bool)
+			for _, item := range localData.Items {
+				k := fmt.Sprintf("%v_%v_%v", item["schoolName"], item["department"], item["admissionYear"])
+				existKeyMap[k] = true
+			}
+			for _, item := range pkg.OfficialItems {
+				k := fmt.Sprintf("%v_%v_%v", item["schoolName"], item["department"], item["admissionYear"])
+				if !existKeyMap[k] {
+					localData.Items = append(localData.Items, item)
+					existKeyMap[k] = true
+					mergedOfficialCount++
+				}
+			}
+			if mergedOfficialCount > 0 {
+				if newBytes, marshalErr := json.MarshalIndent(localData, "", "  "); marshalErr == nil {
+					_ = os.WriteFile(officialFile, newBytes, 0644)
+				}
+			}
+		}
+	}
+
+	return map[string]int{
+		"cutoffs":      mergedCutoffCount,
+		"applications": len(pkg.Applications),
+		"official":     mergedOfficialCount,
+	}, nil
+}
+
 // StudentTranscriptData 학생의 전학년 교과/비교과 전체 상세 성적표
 type StudentTranscriptData struct {
 	ClassNum       int                 `json:"classNum"`

@@ -24,6 +24,8 @@ export function ExportDistributionPackage(arg1:string,arg2:string):Promise<void>
 
 export function ExportFinalArchive(arg1:string,arg2:string):Promise<void>;
 
+export function ExportJointShareData(arg1:number):Promise<string>;
+
 export function ExportPasswordResetPackage(arg1:string,arg2:string):Promise<void>;
 
 export function ExportTeacherPatch(arg1:string,arg2:string,arg3:number,arg4:Array<main.PatchChange>,arg5:string):Promise<void>;
@@ -75,6 +77,8 @@ export function GetUsers():Promise<Array<main.User>>;
 export function ImportDistributionPackage(arg1:string):Promise<string>;
 
 export function ImportFinalArchive(arg1:string,arg2:string):Promise<string>;
+
+export function ImportJointShareData(arg1:number):Promise<Record<string, number>>;
 
 export function ImportPasswordResetPackage(arg1:string):Promise<string>;
 

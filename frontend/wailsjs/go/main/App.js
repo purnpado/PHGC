@@ -46,6 +46,10 @@ export function ExportFinalArchive(arg1, arg2) {
   return window['go']['main']['App']['ExportFinalArchive'](arg1, arg2);
 }
 
+export function ExportJointShareData(arg1) {
+  return window['go']['main']['App']['ExportJointShareData'](arg1);
+}
+
 export function ExportPasswordResetPackage(arg1, arg2) {
   return window['go']['main']['App']['ExportPasswordResetPackage'](arg1, arg2);
 }
@@ -148,6 +152,10 @@ export function ImportDistributionPackage(arg1) {
 
 export function ImportFinalArchive(arg1, arg2) {
   return window['go']['main']['App']['ImportFinalArchive'](arg1, arg2);
+}
+
+export function ImportJointShareData(arg1) {
+  return window['go']['main']['App']['ImportJointShareData'](arg1);
 }
 
 export function ImportPasswordResetPackage(arg1) {

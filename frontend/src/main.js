@@ -3305,8 +3305,8 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ===== 앱 시작 시 자동 업데이트 확인 및 모달 팝업 =====
-async function checkUpdateOnStartup(localVer) {
+// ===== 앱 업데이트 확인 (수동 버튼 및 시작 시) =====
+async function checkUpdateOnStartup(localVer, isManual = false) {
     const statusEl = document.getElementById('startupUpdateStatus');
     if (statusEl) {
         statusEl.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 서버 확인 중...';
@@ -3327,16 +3327,30 @@ async function checkUpdateOnStartup(localVer) {
                 }
                 showStartupUpdateModal(result);
             } else {
+                const serverVer = result?.latestVersion || localVer || '';
                 if (statusEl) {
-                    const serverVer = result?.latestVersion || localVer || '';
-                    statusEl.innerHTML = `<span class="text-emerald-400">✅ 최신 버전 (서버: v${serverVer})</span>`;
+                    statusEl.innerHTML = `<span class="text-emerald-400">✅ 최신 버전 (v${serverVer})</span>`;
+                }
+                if (isManual) {
+                    await showModalAlert({
+                        title: '최신 버전 확인',
+                        message: `현재 최신 버전(<strong>v${serverVer}</strong>)을 사용하고 있습니다.<br>새로운 업데이트가 없습니다.`,
+                        type: 'success'
+                    });
                 }
             }
         }
     } catch (e) {
-        console.log("시작 시 업데이트 확인 실패:", e);
+        console.log("업데이트 확인 실패:", e);
         if (statusEl) {
-            statusEl.innerHTML = `<span class="text-slate-400">오프라인 모드</span>`;
+            statusEl.innerHTML = `<span class="text-slate-400">오프라인 안전 모드</span>`;
+        }
+        if (isManual) {
+            await showModalAlert({
+                title: '오프라인 상태',
+                message: '인터넷 연결이 필요합니다.<br>네트워크가 연결된 환경에서 다시 확인해 주세요.',
+                type: 'warning'
+            });
         }
     }
 }
@@ -3884,18 +3898,27 @@ export async function renderLoginScreen(schoolName) {
                     </div>
                 </form>
 
-                <!-- 현재 설치된 버전 및 실시간 자동 업데이트 검사 영역 -->
-                <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted">
-                    <div>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></div>
-                    <div id="startupUpdateStatus" class="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                        <span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 업데이트 검사 중...
+                <!-- 현재 설치된 버전 및 수동 업데이트 확인 버튼 -->
+                <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted gap-2">
+                    <div class="flex items-center gap-2">
+                        <span>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></span>
+                        <button type="button" id="manualCheckUpdateBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer">
+                            <span>🔄</span> 업데이트 확인
+                        </button>
                     </div>
+                    <div id="startupUpdateStatus" class="text-[11px] text-slate-400"></div>
                 </div>
             </div>
         `;
 
-        // 로그인 화면이 로드되면 자동으로 백그라운드 서버 업데이트 검사 실행
-        checkUpdateOnStartup(localVer);
+        document.getElementById('manualCheckUpdateBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('manualCheckUpdateBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 확인 중...';
+            await checkUpdateOnStartup(localVer, true);
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔄</span> 업데이트 확인';
+        });
 
         const refreshSharedPasswordRequirement = async () => {
             const username = document.getElementById('loginUsername').value;
@@ -4987,6 +5010,12 @@ async function renderCutoffScreen(schoolName) {
                         <button id="saveAllCutoffsBtn" class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center gap-1.5 shadow-sm" style="width: auto;">
                             <span>💾</span> 커트라인 저장
                         </button>
+                        <button id="exportJointDataBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer" style="width: auto;">
+                            <span>📤</span> 자료 내보내기
+                        </button>
+                        <button id="importJointDataBtn" class="text-xs bg-emerald-600/30 border border-emerald-500/50 text-emerald-200 hover:bg-emerald-600/50 px-3 py-2 rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer" style="width: auto;">
+                            <span>📥</span> 타교자료 병합
+                        </button>
                         <button id="backToAdminBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold">
                             ← 대시보드
                         </button>
@@ -5324,7 +5353,58 @@ async function renderCutoffScreen(schoolName) {
             }
         };
 
-        // 9. 대시보드로 돌아가기
+        // 9. 관내 진학자료 내보내기 (커트라인 + 지원현황 통계 + 공식자료 오프라인 패키징)
+        document.getElementById('exportJointDataBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('exportJointDataBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 내보내는 중...';
+            try {
+                // 현재 수정 중인 커트라인 우선 자동 저장
+                await saveAllCutoffs(true);
+                const path = await window.go.main.App.ExportJointShareData(currentAdmissionYear);
+                if (path) {
+                    await showModalAlert({
+                        title: '자료 내보내기 완료',
+                        message: `<strong>${currentAdmissionYear}학년도</strong> 관내 진학자료가 안전하게 저장되었습니다!<br><br>📂 <strong>저장 파일:</strong><br><span class="text-xs text-indigo-300 font-mono break-all">${path}</span><br><br><span class="text-emerald-400 text-xs">✓ 학생 성명, 학급 등 개인정보는 100% 원천 배제되었습니다.<br>✓ 이 파일을 타 학교 진학 담당 선생님께 전달하여 공유하세요.</span>`,
+                        type: 'success'
+                    });
+                }
+            } catch (err) {
+                await showModalAlert({ title: '내보내기 실패', message: String(err), type: 'error' });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📤</span> 자료 내보내기';
+            }
+        });
+
+        // 10. 타교 진학자료 병합 (타 학교 커트라인, 합격결과, 공식자료 스마트 병합)
+        document.getElementById('importJointDataBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('importJointDataBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> 병합 중...';
+            try {
+                const res = await window.go.main.App.ImportJointShareData(currentAdmissionYear);
+                if (res) {
+                    allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                    await showModalAlert({
+                        title: '타교자료 병합 완료',
+                        message: `타 학교 진학자료가 성공적으로 병합되었습니다!<br><br>` +
+                                 `• 커트라인 갱신: <strong>${res.cutoffs || 0}건</strong><br>` +
+                                 `• 타교 지원현황 합격선 반영: <strong>${res.applications || 0}건</strong><br>` +
+                                 `• 공식 공개자료 보완: <strong>${res.official || 0}건</strong>`,
+                        type: 'success'
+                    });
+                    renderMainScreen();
+                }
+            } catch (err) {
+                await showModalAlert({ title: '병합 실패', message: String(err), type: 'error' });
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>📥</span> 타교자료 병합';
+            }
+        });
+
+        // 11. 대시보드로 돌아가기
         document.getElementById('backToAdminBtn')?.addEventListener('click', () => {
             renderAdminScreen(schoolName);
         });
