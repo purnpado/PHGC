@@ -1,6 +1,6 @@
 {
-  "latestVersion": "0.5.44",
-  "minVersion": "0.5.0",
-  "releaseNotes": "v0.5.44 - 관리자 비밀번호 변경 안정화 및 담임 비밀번호 재설정 파일 지원",
-  "downloadUrl": "https://go.gguk.link/api/download/PHGC.exe"
+    "latestVersion":  "1.0.0",
+    "minVersion":  "0.5.0",
+    "releaseNotes":  "v1.0.0 - 정식 릴리즈 v1.0.0 - 개인정보보호 서약서 및 완전삭제, 담임 비번 재설정, 합격 확정 시 희망학교 비활성화 잠금, 일반고 배정고 수기입력 및 원서대장 출력 연동",
+    "downloadUrl":  "https://go.gguk.link/api/download/PHGC.exe"
 }
