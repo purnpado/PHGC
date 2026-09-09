@@ -1802,6 +1802,15 @@ func (a *App) ExportJointShareData(admissionYear int) (string, error) {
 	return path, nil
 }
 
+// OpenExternalURL 기본 웹브라우저로 외부 웹페이지(배포 게시판 등)를 엽니다.
+func (a *App) OpenExternalURL(targetURL string) error {
+	if targetURL == "" {
+		targetURL = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C"
+	}
+	runtime.BrowserOpenURL(a.ctx, targetURL)
+	return nil
+}
+
 // ImportJointShareData 타 학교의 진학자료 파일을 열어 우리 학교 커트라인과 공식자료에 병합
 func (a *App) ImportJointShareData(admissionYear int) (map[string]int, error) {
 	if a.user == nil || a.user.Role != "master" {

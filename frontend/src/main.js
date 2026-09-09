@@ -824,46 +824,63 @@ async function renderAdminScreen(schoolName) {
     app.innerHTML = `
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <!-- 헤더 영역 -->
-            <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-700/50">
-                <div>
-                    <h1 class="text-2xl font-bold text-white flex items-center gap-3">
+            <div class="flex items-center justify-between mb-5 pb-4 border-b border-slate-700/50 flex-wrap gap-4">
+                <div class="flex-shrink-0">
+                    <h1 class="text-2xl font-bold text-white flex items-center gap-3 whitespace-nowrap">
                         👔 관리자 대시보드
                         <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
                     </h1>
-                    <p class="text-text-muted text-sm mt-1">${schoolName} (총 ${classCount}학급)</p>
+                    <p class="text-text-muted text-xs mt-1 whitespace-nowrap">${schoolName} (총 ${classCount}학급)</p>
                 </div>
-                <div class="flex gap-2.5 flex-wrap justify-end">
+                <div class="flex items-center gap-2.5 flex-wrap">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
-                    <button id="goToTeacherBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
+                    <button id="goToTeacherBtn" class="btn-primary px-4 py-2 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-md hover:brightness-110 transition-all" style="width: auto;">
                         👩‍🏫 진학 상담 모드
                     </button>
-                    <button id="openAdminSchoolStatsBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs inline-flex items-center gap-1.5" style="width: auto;" title="전교 고교별 지원현황 및 학교 통계">
-                        🏫 전교 학교 통계
-                    </button>
-                    <button id="openAdminRegisterBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs inline-flex items-center gap-1.5" style="width: auto;" title="학교 내부 원서대장 출력">
-                        🖨️ 원서대장
-                    </button>
-                    <button id="importPatchBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
-                        📥 취합자료병합(학년부장)
-                    </button>
-                    <button id="finalArchiveBtn" class="btn-secondary px-3 py-2 rounded-lg font-bold text-xs" style="width: auto;">
-                        🗄️ 암호화 최종 보관본
-                    </button>
-                    <button id="resetYearBtn" class="text-warning border border-warning/30 hover:bg-warning/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;" title="커트라인은 유지하고 학생 데이터만 삭제">
-                        📅 새 입시년도 전환
-                    </button>
-                    <button id="resetDataBtn" class="text-danger border border-danger/30 hover:bg-danger/10 transition-colors cursor-pointer text-xs px-3 py-2 rounded-lg font-bold" style="width: auto;">
-                        전체 초기화
-                    </button>
                     ` : ''}
-                    <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;" title="프로그램 사용 설명서 열기">
+                    <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl" style="width: auto;" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
-                    <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;">
+                    <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl text-slate-300 hover:text-white" style="width: auto;">
                         <span>🚪</span> 로그아웃
                     </button>
                 </div>
             </div>
+
+            <!-- 학년부장 전용 관리 도구 바 -->
+            ${window.currentUser && window.currentUser.Role === 'master' ? `
+            <div class="mb-5 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/60 shadow-lg flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-xs font-bold text-indigo-200 whitespace-nowrap">
+                    <span class="text-base">🛠️</span>
+                    <span>학년부장 관리 도구:</span>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <!-- 통계 및 대장 -->
+                    <button id="openAdminSchoolStatsBtn" class="btn-secondary text-xs px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 hover:border-indigo-400/50" style="width: auto;" title="전교 고교별 지원현황 및 학교 통계">
+                        🏫 전교 학교 통계
+                    </button>
+                    <button id="openAdminRegisterBtn" class="btn-secondary text-xs px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 hover:border-indigo-400/50" style="width: auto;" title="학교 내부 원서대장 출력">
+                        🖨️ 원서대장
+                    </button>
+                    <span class="text-slate-600 hidden sm:inline">|</span>
+                    <!-- 취합 및 보관 -->
+                    <button id="importPatchBtn" class="btn-secondary text-xs px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 hover:border-emerald-400/50 text-emerald-300" style="width: auto;" title="담임교사가 제출한 취합자료(.phgcpatch) 병합">
+                        📥 취합자료병합
+                    </button>
+                    <button id="finalArchiveBtn" class="btn-secondary text-xs px-3 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 hover:border-amber-400/50 text-amber-300" style="width: auto;" title="입시 종료 후 암호화 보관본 생성">
+                        🗄️ 최종 보관본
+                    </button>
+                    <span class="text-slate-600 hidden sm:inline">|</span>
+                    <!-- 연도 전환 및 초기화 -->
+                    <button id="resetYearBtn" class="text-amber-400/90 border border-amber-500/30 hover:bg-amber-500/10 transition-colors cursor-pointer text-xs px-2.5 py-1.5 rounded-lg font-bold inline-flex items-center gap-1" style="width: auto;" title="커트라인은 유지하고 학생 데이터만 삭제">
+                        📅 입시년도 전환
+                    </button>
+                    <button id="resetDataBtn" class="text-rose-400/90 border border-rose-500/30 hover:bg-rose-500/10 transition-colors cursor-pointer text-xs px-2.5 py-1.5 rounded-lg font-bold inline-flex items-center gap-1" style="width: auto;">
+                        전체 초기화
+                    </button>
+                </div>
+            </div>
+            ` : ''}
 
             <!-- 데이터 연동 현황 바 -->
             <div class="mb-4 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -3495,17 +3512,38 @@ function showStartupUpdateModal(result) {
 
             <div id="startupUpdateStatusMsg" class="text-xs font-bold text-warning hidden"></div>
 
-            <div class="flex items-center justify-end gap-3 pt-2">
-                <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold" style="width: auto;">
-                    다음에 하기
+            <div class="flex items-center justify-between gap-3 pt-2 flex-wrap">
+                <button id="openDistributionBoardBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 text-indigo-300 border-indigo-500/40 hover:bg-indigo-950/40" style="width: auto;">
+                    🌐 공식 배포자료실 바로가기
                 </button>
-                <button id="applyStartupUpdateBtn" class="btn-primary text-xs px-4 py-2.5 font-bold flex items-center gap-2" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: auto;">
-                    🚀 지금 즉시 자동 업데이트 및 재시작
-                </button>
+                <div class="flex items-center gap-2">
+                    <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold" style="width: auto;">
+                        닫기
+                    </button>
+                    <button id="applyStartupUpdateBtn" class="btn-primary text-xs px-4 py-2 font-bold flex items-center gap-2" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: auto;">
+                        🚀 자동 업데이트 다운로드
+                    </button>
+                </div>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
+
+    const boardUrl = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C";
+
+    document.getElementById('openDistributionBoardBtn')?.addEventListener('click', async () => {
+        try {
+            if (window.go?.main?.App?.OpenExternalURL) {
+                await window.go.main.App.OpenExternalURL(boardUrl);
+            } else if (window.runtime?.BrowserOpenURL) {
+                window.runtime.BrowserOpenURL(boardUrl);
+            } else {
+                window.open(boardUrl, '_blank');
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    });
 
     document.getElementById('skipStartupUpdateBtn').addEventListener('click', () => {
         modal.remove();
@@ -4020,16 +4058,35 @@ export async function renderLoginScreen(schoolName) {
 
                 <!-- 현재 설치된 버전 및 수동 업데이트 확인 버튼 -->
                 <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted gap-2">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap justify-center">
                         <span>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></span>
                         <button type="button" id="manualCheckUpdateBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer">
                             <span>🔄</span> 업데이트 확인
+                        </button>
+                        <button type="button" id="loginBoardLinkBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 border border-indigo-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="공식 배포자료실 열기">
+                            <span>🌐</span> 배포자료실
                         </button>
                     </div>
                     <div id="startupUpdateStatus" class="text-[11px] text-slate-400"></div>
                 </div>
             </div>
         `;
+
+        const boardUrl = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C";
+
+        document.getElementById('loginBoardLinkBtn')?.addEventListener('click', async () => {
+            try {
+                if (window.go?.main?.App?.OpenExternalURL) {
+                    await window.go.main.App.OpenExternalURL(boardUrl);
+                } else if (window.runtime?.BrowserOpenURL) {
+                    window.runtime.BrowserOpenURL(boardUrl);
+                } else {
+                    window.open(boardUrl, '_blank');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        });
 
         document.getElementById('manualCheckUpdateBtn')?.addEventListener('click', async () => {
             const btn = document.getElementById('manualCheckUpdateBtn');
