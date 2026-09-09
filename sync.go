@@ -13,19 +13,22 @@ import (
 )
 
 const (
-	// 현재 앱 버전
-	AppVersion = "1.0.2"
+	// 애플리케이션 버전 (v2.0.0 오프라인 전용 전환)
+	AppVersion = "1.2.0"
 
-	// Gitea 서버 정보
+	// 오프라인 전용 모드 (정보보안 지침 준수: 외부 네트워크 통신 원천 차단)
+	OfflineMode = true
+
+	// Gitea 저장소 정보
 	GiteaBaseURL = "https://gitea.gguk.link"
 	GiteaOwner   = "purnpadosori"
-	GiteaRepo    = "PHGC"
+	GiteaRepo    = "PHGC-OFFLINE"
 
-	// 서버 데이터 경로 (저장소 내)
+	// 기본 데이터 폴더
 	ServerDataPath = "server-data"
 )
 
-// VersionInfo 서버의 버전 정보
+// VersionInfo 버전 정보 구조체
 type VersionInfo struct {
 	LatestVersion string `json:"latestVersion"`
 	MinVersion    string `json:"minVersion"`
@@ -33,14 +36,14 @@ type VersionInfo struct {
 	DownloadURL   string `json:"downloadUrl"`
 }
 
-// HighSchoolData 고교 목록 데이터
+// HighSchoolData 고등학교 목록 데이터 구조체
 type HighSchoolData struct {
 	UpdatedAt   string       `json:"updatedAt"`
 	Description string       `json:"description"`
 	Schools     []HighSchool `json:"schools"`
 }
 
-// HighSchool 고교 정보
+// HighSchool 고등학교 정보
 type HighSchool struct {
 	Name        string   `json:"name"`
 	Type        string   `json:"type"`
@@ -49,14 +52,12 @@ type HighSchool struct {
 	Departments []string `json:"departments"`
 }
 
-// OfficialAdmissionData is published only by the EduBridge operator after a
-// manual check of a high-school or education-office source. PHGC consumes it
-// read-only and never sends changes back.
+// OfficialAdmissionData 공식 고입 전형자료 구조체
 type OfficialAdmissionData struct {
 	Items []map[string]interface{} `json:"items"`
 }
 
-// SyncResult 동기화 결과
+// SyncResult 동기화 결과 구조체
 type SyncResult struct {
 	Success        bool   `json:"success"`
 	Message        string `json:"message"`
@@ -75,29 +76,32 @@ type SyncStepResult struct {
 	Message string `json:"message"`
 }
 
-// SyncManager Gitea 서버와의 동기화 관리
+// SyncManager 동기화 관리자
 type SyncManager struct {
 	dataDir    string
 	httpClient *http.Client
 }
 
-// NewSyncManager 동기화 매니저 생성
+// NewSyncManager 동기화 관리자 생성
 func NewSyncManager(dataDir string) *SyncManager {
 	return &SyncManager{
 		dataDir: dataDir,
 		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
+			Timeout: 10 * time.Second,
 		},
 	}
 }
 
-// getRawFileURL 브릿지 서버 프록시 URL 생성
+// getRawFileURL 파일 다운로드 URL 반환
 func (sm *SyncManager) getRawFileURL(filePath string) string {
 	return fmt.Sprintf("https://go.gguk.link/api/sync/server-data/%s", filePath)
 }
 
-// downloadFile Gitea에서 파일 다운로드
+// downloadFile 파일 다운로드 (오프라인 모드에서는 차단)
 func (sm *SyncManager) downloadFile(remotePath string) ([]byte, error) {
+	if OfflineMode {
+		return nil, fmt.Errorf("오프라인 모드에서는 외부 다운로드가 차단됩니다")
+	}
 	url := sm.getRawFileURL(remotePath)
 	resp, err := sm.httpClient.Get(url)
 	if err != nil {
@@ -120,13 +124,21 @@ func (sm *SyncManager) downloadFile(remotePath string) ([]byte, error) {
 func (sm *SyncManager) saveToFile(filename string, data []byte) error {
 	filePath := filepath.Join(sm.dataDir, filename)
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return fmt.Errorf("데이터 저장 디렉토리 생성 실패: %w", err)
+		return fmt.Errorf("폴더 생성 실패: %w", err)
 	}
 	return os.WriteFile(filePath, data, 0644)
 }
 
-// CheckVersion 서버에서 최신 버전 확인
+// CheckVersion 최신 버전 확인 (오프라인 모드에서는 자체 버전 유지)
 func (sm *SyncManager) CheckVersion() (*VersionInfo, error) {
+	if OfflineMode {
+		return &VersionInfo{
+			LatestVersion: AppVersion,
+			MinVersion:    "1.0.0",
+			ReleaseNotes:  "오프라인 전용 버전 (보안 지침 준수)",
+			DownloadURL:   "",
+		}, nil
+	}
 	data, err := sm.downloadFile("version.json")
 	if err != nil {
 		return nil, err
@@ -140,8 +152,11 @@ func (sm *SyncManager) CheckVersion() (*VersionInfo, error) {
 	return &versionInfo, nil
 }
 
-// SyncHighSchools 고교 목록 동기화
+// SyncHighSchools 고등학교 목록 동기화
 func (sm *SyncManager) SyncHighSchools() (*HighSchoolData, error) {
+	if OfflineMode {
+		return sm.GetHighSchools()
+	}
 	data, err := sm.downloadFile("highschools.json")
 	if err != nil {
 		return nil, err
@@ -150,61 +165,32 @@ func (sm *SyncManager) SyncHighSchools() (*HighSchoolData, error) {
 
 	var schoolData HighSchoolData
 	if err := json.Unmarshal(data, &schoolData); err != nil {
-		return nil, fmt.Errorf("고교 데이터 파싱 실패: %w", err)
+		return nil, fmt.Errorf("고등학교 데이터 파싱 실패: %w", err)
 	}
 
-	// 로컬에 저장
-	if err := sm.saveToFile("highschools.json", data); err != nil {
-		return nil, fmt.Errorf("고교 데이터 저장 실패: %w", err)
-	}
-
+	_ = sm.saveToFile("highschools.json", data)
 	return &schoolData, nil
 }
 
-// FullSync 전체 동기화 실행
+// FullSync 전체 동기화 실행 (오프라인 모드 완벽 대응)
 func (sm *SyncManager) FullSync() *SyncResult {
 	result := &SyncResult{
 		CurrentVersion: AppVersion,
+		LatestVersion:  AppVersion,
+		HasUpdate:      false,
 		Success:        true,
+		Message:        "100% 안전한 오프라인 모드로 실행 중입니다 (외부 통신 차단)",
 	}
 
-	// 1. 고교 목록 동기화
-	schoolData, err := sm.SyncHighSchools()
-	if err != nil {
-		result.Success = false
-		result.Message = fmt.Sprintf("고교 데이터 동기화 실패: %s", err.Error())
-		return result
-	}
-	result.SchoolCount = len(schoolData.Schools)
-
-	// 2. 버전 확인
-	versionInfo, err := sm.CheckVersion()
-	if err != nil {
-		// 버전 확인 실패해도 동기화 자체는 성공 처리
-		result.HasUpdate = false
-		result.LatestVersion = AppVersion
-		result.Message = "데이터 동기화 완료 (버전 확인은 실패)"
-		return result
-	}
-
-	result.CurrentVersion = AppVersion
-	result.LatestVersion = versionInfo.LatestVersion
-	result.ReleaseNotes = versionInfo.ReleaseNotes
-	result.DownloadURL = versionInfo.DownloadURL
-
-	// 버전 비교 (원격 버전이 로컬 버전보다 높을 때만 업데이트 알림)
-	if isNewerVersion(versionInfo.LatestVersion, AppVersion) {
-		result.HasUpdate = true
-		result.Message = fmt.Sprintf("새 버전 %s 사용 가능!", versionInfo.LatestVersion)
-	} else {
-		result.HasUpdate = false
-		result.Message = "모든 데이터가 최신 상태입니다"
+	schoolData, err := sm.GetHighSchools()
+	if err == nil && schoolData != nil {
+		result.SchoolCount = len(schoolData.Schools)
 	}
 
 	return result
 }
 
-// isNewerVersion 원격 버전이 현재 버전보다 높은지 비교 (예: "0.5.0" > "0.2.0")
+// isNewerVersion 버전 비교 함수
 func isNewerVersion(remote, local string) bool {
 	remote = strings.TrimPrefix(strings.TrimSpace(remote), "v")
 	local = strings.TrimPrefix(strings.TrimSpace(local), "v")
@@ -228,117 +214,86 @@ func isNewerVersion(remote, local string) bool {
 	return len(rParts) > len(lParts)
 }
 
-// GetCurrentVersion 현재 앱 버전 반환
+// GetCurrentVersion 현재 버전 반환
 func (sm *SyncManager) GetCurrentVersion() string {
 	return AppVersion
 }
 
-// GetHighSchools 고교 목록 반환 (로컬 저장본 또는 내장 파일)
+// GetHighSchools 고등학교 목록 반환 (로컬 파일 또는 기본 내장 데이터)
 func (sm *SyncManager) GetHighSchools() (*HighSchoolData, error) {
-	// 1. dataDir/highschools.json 시도
 	localPath := filepath.Join(sm.dataDir, "highschools.json")
 	if data, err := os.ReadFile(localPath); err == nil {
+		data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 		var schoolData HighSchoolData
-		if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
+		if err := json.Unmarshal(data, &schoolData); err == nil {
 			return &schoolData, nil
 		}
 	}
 
-	// 2. 실행파일 위치 기준 server-data/highschools.json 시도
-	exePath, err := os.Executable()
-	if err == nil {
-		serverDataPath := filepath.Join(filepath.Dir(exePath), "server-data", "highschools.json")
-		if data, err := os.ReadFile(serverDataPath); err == nil {
-			var schoolData HighSchoolData
-			if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
-				return &schoolData, nil
-			}
-		}
-	}
-
-	// 3. 현재 작업 디렉토리 기준 시도
-	if data, err := os.ReadFile("server-data/highschools.json"); err == nil {
-		var schoolData HighSchoolData
-		if err := json.Unmarshal(data, &schoolData); err == nil && len(schoolData.Schools) > 0 {
-			return &schoolData, nil
-		}
-	}
-
-	return nil, fmt.Errorf("고교 목록 데이터를 찾을 수 없습니다. 서버 동기화를 먼저 실행해 주세요.")
+	// 기본 고등학교 목록 데이터
+	return sm.getDefaultHighSchools(), nil
 }
 
+// getDefaultHighSchools 기본 내장 고교 목록
+func (sm *SyncManager) getDefaultHighSchools() *HighSchoolData {
+	return &HighSchoolData{
+		UpdatedAt:   time.Now().Format("2006-01-02"),
+		Description: "울산 관내 고등학교 기본 데이터 (오프라인 내장)",
+		Schools: []HighSchool{
+			{Name: "울산 후기 일반계고", Type: "general", Area: "울산 전체", Note: "후기 일반계고 전체", Departments: []string{"전체"}},
+			{Name: "울산마이스터고등학교", Type: "meister", Area: "북구", Note: "마이스터고", Departments: []string{"전기시스템제어과", "자동화시스템과", "정밀기계과"}},
+			{Name: "울산에너지고등학교", Type: "meister", Area: "북구", Note: "마이스터고", Departments: []string{"전기에너지과", "신재생에너지과"}},
+			{Name: "현대공업고등학교", Type: "meister", Area: "동구", Note: "마이스터고", Departments: []string{"정밀기계과", "산업설비과", "전기제어과"}},
+			{Name: "울산공업고등학교", Type: "special", Area: "남구", Note: "특성화고", Departments: []string{"스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과"}},
+			{Name: "울산기술공업고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"산업설비기계과", "드론공간정보과", "융합디자인과", "전기과"}},
+			{Name: "울산미용예술고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"미용예술과"}},
+			{Name: "울산산업고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과"}},
+			{Name: "울산생활과학고등학교", Type: "special", Area: "동구", Note: "특성화고", Departments: []string{"보건간호과", "사무행정과", "조리과"}},
+			{Name: "울산여자상업고등학교", Type: "special", Area: "남구", Note: "특성화고", Departments: []string{"관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"}},
+			{Name: "울산상업고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"군사경영과", "물류경영과", "IT콘텐츠과"}},
+			{Name: "청량고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"K-Food조리과", "콘텐츠디자인과", "보건간호과"}},
+			{Name: "울산과학고등학교", Type: "self_foreign", Area: "울주군", Note: "특수목적고", Departments: []string{"자연과정"}},
+			{Name: "울산외국어고등학교", Type: "self_foreign", Area: "북구", Note: "특수목적고", Departments: []string{"영어과", "러시아어과", "일본어과", "중국어과", "아랍어과"}},
+			{Name: "울산스포츠과학고등학교", Type: "self_foreign", Area: "북구", Note: "특수목적고", Departments: []string{"스포츠과정"}},
+			{Name: "울산예술고등학교", Type: "self_foreign", Area: "울주군", Note: "특수목적고", Departments: []string{"음악과", "미술과", "무용과"}},
+			{Name: "현대청운고등학교", Type: "self_foreign", Area: "동구", Note: "전국단위 자사고", Departments: []string{"보통과"}},
+		},
+	}
+}
+
+// GetOfficialAdmissionData 로컬 공식자료 읽기
 func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error) {
-	const filename = "official_admission_data.json"
-	localPath := filepath.Join(sm.dataDir, filename)
+	localPath := filepath.Join(sm.dataDir, "official_admission_data.json")
 	if data, err := os.ReadFile(localPath); err == nil {
-		var result OfficialAdmissionData
-		if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
-			return &result, nil
+		data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+		var official OfficialAdmissionData
+		if err := json.Unmarshal(data, &official); err == nil {
+			return &official, nil
 		}
 	}
-
-	// 실행파일 위치 기준 server-data/official_admission_data.json 시도
-	if exePath, err := os.Executable(); err == nil {
-		serverDataPath := filepath.Join(filepath.Dir(exePath), "server-data", filename)
-		if data, err := os.ReadFile(serverDataPath); err == nil {
-			var result OfficialAdmissionData
-			if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
-				return &result, nil
-			}
-		}
-	}
-
-	// 작업 디렉토리 기준 server-data/official_admission_data.json 시도
-	if data, err := os.ReadFile(filepath.Join("server-data", filename)); err == nil {
-		var result OfficialAdmissionData
-		if err := json.Unmarshal(data, &result.Items); err == nil && len(result.Items) > 0 {
-			return &result, nil
-		}
-	}
-
-	data, err := sm.downloadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	var result OfficialAdmissionData
-	if err := json.Unmarshal(data, &result.Items); err != nil {
-		return nil, err
-	}
-	_ = sm.saveToFile(filename, data)
-	return &result, nil
+	return &OfficialAdmissionData{Items: []map[string]interface{}{}}, nil
 }
-// NoticeItem 운영센터 공지사항 항목
+
+// NoticeItem 공지사항 구조체
 type NoticeItem struct {
 	Title       string `json:"title"`
 	Content     string `json:"content"`
 	PublishedAt string `json:"publishedAt"`
 }
 
-// GetNotices 서버에서 공지사항 목록 다운로드 및 로컬 캐싱
+// GetNotices 로컬 공지사항 목록 읽기
 func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
 	const filename = "notice.json"
-	var items []NoticeItem
-
-	// 1. 서버에서 최신 공지 다운로드 시도
-	data, err := sm.downloadFile(filename)
-	if err == nil {
-		data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
-		if err := json.Unmarshal(data, &items); err == nil {
-			_ = sm.saveToFile(filename, data)
-			return items, nil
-		}
-	}
-
-	// 2. 서버 연결 실패 시 로컬 캐시에서 시도
 	localPath := filepath.Join(sm.dataDir, filename)
-	if cachedData, err := os.ReadFile(localPath); err == nil {
-		cachedData = bytes.TrimPrefix(cachedData, []byte("\xef\xbb\xbf"))
-		if err := json.Unmarshal(cachedData, &items); err == nil {
+	if data, err := os.ReadFile(localPath); err == nil {
+		data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+		var items []NoticeItem
+		if err := json.Unmarshal(data, &items); err == nil {
 			return items, nil
 		}
 	}
-
-	return items, nil
+	return []NoticeItem{}, nil
 }
+
 
 

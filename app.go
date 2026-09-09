@@ -1254,6 +1254,9 @@ func (a *App) SendCutoffsToBridge(year int) error {
 
 // FetchCutoffsFromBridge 중앙 서버에서 취합된 커트라인 데이터를 다운로드하여 로컬 DB에 반영
 func (a *App) FetchCutoffsFromBridge(year int) (int, error) {
+	if OfflineMode {
+		return 0, fmt.Errorf("보안 지침에 따라 100% 오프라인 모드로 실행 중입니다. 외부 서버 조회가 차단되어 있습니다.")
+	}
 	url := fmt.Sprintf("%s/api/cutoff?year=%d", BridgeServerURL, year)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -1695,6 +1698,9 @@ func (a *App) ApplyApplicationCutoffs() (int, error) {
 // EduBridge. It is available only to the grade head and never sends student,
 // class, teacher, name, number or individual score data.
 func (a *App) SubmitExpectedSupport() (int, error) {
+	if OfflineMode {
+		return 0, fmt.Errorf("보안 지침에 따라 100% 오프라인 모드로 실행 중입니다. 외부 서버 전송이 차단되어 있습니다.")
+	}
 	if a.user == nil || a.user.Role != "master" {
 		return 0, fmt.Errorf("예상 지원현황 제출은 학년부장 계정만 할 수 있습니다")
 	}
@@ -1764,6 +1770,9 @@ func (a *App) SubmitExpectedSupport() (int, error) {
 // has explicitly participated. The server never returns other school names or
 // scores to this method.
 func (a *App) GetExpectedSupportAggregate() ([]ExpectedSupportAggregate, error) {
+	if OfflineMode {
+		return nil, fmt.Errorf("보안 지침에 따라 100% 오프라인 모드로 실행 중입니다. 교내 지원현황 조회를 이용해 주세요.")
+	}
 	if a.user == nil || (a.user.Role != "master" && a.user.Role != "viewer") {
 		return nil, fmt.Errorf("예상 지원현황은 학년부장·진로부장만 조회할 수 있습니다")
 	}

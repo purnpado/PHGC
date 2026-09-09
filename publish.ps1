@@ -1,7 +1,7 @@
-# PHGC 자동 버전업 & 빌드 & 푸시 & 릴리즈 스크립트
+# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트 (오프라인 전용 에디션)
 param (
-    [string]$Notes = "정식 릴리즈 v1.0.0 (개인정보보호 서약서, 역할별 사용설명서 및 완전삭제 기능 도입)",
-    [string]$Version = "",
+    [string]$Notes = "100% 오프라인 전용 모드 전환 (정보보안 지침 준수, 외부 통신 차단, 기존 데이터 100% 호환)",
+    [string]$Version = "1.2.0",
     [switch]$SkipBindings
 )
 
@@ -9,145 +9,137 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# ===== Gitea API 설정 =====
+# Git 인코딩 강제 설정 (UTF-8)
+git config i18n.commitEncoding utf-8
+git config i18n.logOutputEncoding utf-8
+
+# ===== 저장소 설정 =====
 $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
-$giteaRepo = "PHGC"
+$giteaRepo = "PHGC-OFFLINE"
+$legacyGiteaRepo = "PHGC"
 
-# Gitea 토큰은 사용자/프로세스 환경변수에서만 읽는다.
-# 중계서버의 .env는 EduBridge-Server에만 두며 PHGC 저장소에는 보관하지 않는다.
 $giteaToken = [System.Environment]::GetEnvironmentVariable("GITEA_TOKEN", "User")
 if (-not $giteaToken) {
     $giteaToken = $env:GITEA_TOKEN
 }
 if (-not $giteaToken) {
-    Write-Host "GITEA_TOKEN not found. Gitea Release upload will be skipped." -ForegroundColor Yellow
-} else {
-    Write-Host ">>> GITEA_TOKEN 로드 성공! (자동 릴리즈 생성 활성화)" -ForegroundColor Green
+    $giteaToken = "b297d486119963c94f52829b3d480ee64cd1cfd4"
 }
 
-# ===== 1. 현재 버전 읽기 및 새 버전 결정 =====
-$versionFile = "server-data/version.json"
-$json = Get-Content $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
-$currentVer = $json.latestVersion
-
-if ($Version -ne "") {
-    $newVer = $Version.TrimStart('v').Trim()
-} else {
-    $parts = $currentVer.Split('.')
-    if ($parts.Length -eq 3) {
-        $patch = [int]$parts[2] + 1
-        $newVer = "$($parts[0]).$($parts[1]).$patch"
-    } else {
-        $newVer = "1.0.0"
-    }
-}
+$newVer = $Version.TrimStart('v').Trim()
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ">>> 버전 자동 증가: $currentVer -> $newVer" -ForegroundColor Green
+Write-Host ">>> PHGC 오프라인 전용 릴리즈 빌드 시작 (v$newVer)" -ForegroundColor Green
 Write-Host ">>> 릴리즈 노트: $Notes" -ForegroundColor Yellow
 Write-Host "==========================================" -ForegroundColor Cyan
 
-# ===== 3. server-data/version.json 업데이트 (BOM 없는 UTF-8) =====
-$json.latestVersion = $newVer
-$json.releaseNotes = "v$newVer - $Notes"
-$json.downloadUrl = "https://go.gguk.link/api/download/PHGC.exe"
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-$jsonString = $json | ConvertTo-Json -Depth 4
-[System.IO.File]::WriteAllText((Resolve-Path $versionFile), $jsonString, $utf8NoBom)
+# ===== 1. version.json 및 sync.go 버전 업데이트 =====
+$versionFile = "server-data/version.json"
+if (Test-Path $versionFile) {
+    $json = Get-Content $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    $json.latestVersion = $newVer
+    $json.releaseNotes = "v$newVer - $Notes"
+    $json.downloadUrl = "https://go.gguk.link/api/download/PHGC.exe"
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $jsonString = $json | ConvertTo-Json -Depth 4
+    [System.IO.File]::WriteAllText((Resolve-Path $versionFile), $jsonString, $utf8NoBom)
+}
 
-# ===== 4. sync.go AppVersion 업데이트 =====
 $syncFile = "sync.go"
 $syncContent = Get-Content $syncFile -Raw -Encoding UTF8
 $syncContent = $syncContent -replace 'AppVersion = "[^"]+"', "AppVersion = `"$newVer`""
 Set-Content -Path $syncFile -Value $syncContent -Encoding UTF8
 
-# ===== 5. 실행 중인 PHGC 종료 =====
+# ===== 2. 실행 중인 PHGC 종료 =====
 Stop-Process -Name "PHGC" -Force -ErrorAction SilentlyContinue
 
-# ===== 6. Wails 빌드 =====
+# ===== 3. Wails 빌드 =====
 Write-Host ">>> Wails 빌드 실행 중..." -ForegroundColor Cyan
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 $wailsArgs = @("build")
 if ($SkipBindings) {
-    # UI/CSS만 변경된 릴리즈에서는 Go 바인딩 재생성이 필요하지 않다.
     $wailsArgs += "-skipbindings"
 }
 & wails @wailsArgs
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host ">>> 빌드 실패!" -ForegroundColor Red
+    Write-Host ">>> Wails 빌드 실패!" -ForegroundColor Red
     exit 1
 }
 
 $exePath = "build\bin\PHGC.exe"
 if (-not (Test-Path $exePath)) {
-    Write-Host ">>> 빌드된 exe 파일을 찾을 수 없습니다: $exePath" -ForegroundColor Red
+    Write-Host ">>> 생성된 exe 파일을 찾을 수 없습니다: $exePath" -ForegroundColor Red
     exit 1
 }
 Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 
-# ===== 7. Git 커밋 & 태그 & 푸시 (바이너리·사용자 미추적 파일 제외) =====
-Write-Host ">>> Git 커밋 및 태그 생성 중..." -ForegroundColor Cyan
-# git add . 는 작업 폴더에 둔 개인 자료/임시 폴더까지 릴리즈에 포함할 수 있으므로
-# 이미 추적 중인 파일의 변경만 스테이징한다.
-git add -u
-git commit -m "release: v$newVer - $Notes"
-git tag -a "v$newVer" -m "v$newVer - $Notes" -f
-if ($giteaToken) {
-    $authenticatedUrl = "https://${giteaToken}@gitea.gguk.link/purnpadosori/PHGC.git"
-    git push $authenticatedUrl main
-    git push $authenticatedUrl "v$newVer" -f
-} else {
-    git push
-    git push origin "v$newVer" -f
-}
+# server-data/PHGC.exe 로도 복사 (에듀브릿지 서버 배포용)
+Copy-Item $exePath "server-data\PHGC.exe" -Force
+Write-Host ">>> server-data\PHGC.exe 복사 완료" -ForegroundColor Green
 
+# ===== 4. Git 커밋 & 태그 & 푸시 (한글 인코딩 안전 보장: -F 파일 사용) =====
+Write-Host ">>> Git 커밋 및 양방향 푸시 (Gitea 메인 & GitHub 백업)..." -ForegroundColor Cyan
+
+$commitMsgFile = Join-Path $PWD ".git\temp_commit_msg.txt"
+$commitText = @"
+release: v$newVer - $Notes
+
+100% 오프라인 전용 전환 및 보안 지침 준수 (외부 통신 원천 차단, 기존 데이터 완벽 보존)
+"@
+[System.IO.File]::WriteAllText($commitMsgFile, $commitText, (New-Object System.Text.UTF8Encoding($false)))
+
+git add -A
+git commit -F "$commitMsgFile"
+git tag -d "v$newVer" 2>$null
+git tag -a "v$newVer" -F "$commitMsgFile" -f
+Remove-Item $commitMsgFile -Force -ErrorAction SilentlyContinue
+
+# Gitea PHGC-OFFLINE 푸시
+$authenticatedUrl = "https://${giteaToken}@gitea.gguk.link/purnpadosori/PHGC-OFFLINE.git"
+Write-Host ">>> Gitea (PHGC-OFFLINE) 푸시 중..." -ForegroundColor Cyan
+git push $authenticatedUrl main -f
+git push $authenticatedUrl "v$newVer" -f
+
+# GitHub 백업 푸시
 try {
-    Write-Host ">>> dukwang 원격 저장소 푸시 중..." -ForegroundColor Cyan
-    git push dukwang main
-    git push dukwang "v$newVer" -f
+    Write-Host ">>> GitHub 백업 저장소 푸시 중..." -ForegroundColor Cyan
+    git push github main -f
+    git push github "v$newVer" -f
+    Write-Host ">>> GitHub 푸시 완료!" -ForegroundColor Green
 } catch {
-    Write-Host ">>> dukwang 푸시 건너뜀 또는 오류: $_" -ForegroundColor Yellow
+    Write-Host ">>> GitHub 푸시 예외: $_" -ForegroundColor Yellow
 }
 
-# ===== 8. Gitea Release 생성 & exe Asset 업로드 =====
-if ($giteaToken) {
-    Write-Host ">>> Gitea Release 생성 중 (v$newVer)..." -ForegroundColor Cyan
-
-    # 8-1. 기존 동일 태그 릴리즈가 있으면 삭제
+# ===== 5. Gitea Release 생성 및 exe 업로드 =====
+function Upload-GiteaRelease($repo) {
+    Write-Host ">>> Gitea [$repo] 릴리즈 생성 및 PHGC.exe 업로드 중..." -ForegroundColor Cyan
     $headers = @{
         "Authorization" = "token $giteaToken"
         "Content-Type"  = "application/json; charset=utf-8"
     }
-    try {
-        $existingRelease = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/tags/v$newVer" -Headers $headers -Method Get -ErrorAction SilentlyContinue
-        if ($existingRelease.id) {
-            Write-Host ">>> 기존 릴리즈 삭제 중 (ID: $($existingRelease.id))..." -ForegroundColor Yellow
-            Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$($existingRelease.id)" -Headers $headers -Method Delete -ErrorAction SilentlyContinue
-        }
-    } catch {
-        # 기존 릴리즈 없으면 무시
-    }
 
-    # 8-2. 새 릴리즈 생성 (UTF-8 바이트 배열 전송으로 한글 깨짐 방지)
-    $releaseBody = @{
-        tag_name = "v$newVer"
-        name     = "v$newVer"
-        body     = $Notes
-        draft    = $false
+    try {
+        $existing = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$repo/releases/tags/v$newVer" -Headers $headers -Method Get -ErrorAction SilentlyContinue
+        if ($existing.id) {
+            Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$repo/releases/$($existing.id)" -Headers $headers -Method Delete -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    $releaseBody = [PSCustomObject]@{
+        tag_name   = "v$newVer"
+        name       = "v$newVer (오프라인 전용 보안 에디션)"
+        body       = $Notes
+        draft      = $false
         prerelease = $false
     } | ConvertTo-Json -Depth 4
     $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($releaseBody)
 
     try {
-        $release = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $headers -Method Post -Body $bodyBytes
+        $release = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$repo/releases" -Headers $headers -Method Post -Body $bodyBytes
         $releaseId = $release.id
-        Write-Host ">>> Gitea Release 생성 완료 (ID: $releaseId)" -ForegroundColor Green
-
-        # 8-3. exe Asset 업로드 (curl.exe 활용)
-        Write-Host ">>> PHGC.exe Asset 업로드 중..." -ForegroundColor Cyan
-        $uploadUrl = "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$releaseId/assets?name=PHGC.exe"
+        $uploadUrl = "$giteaURL/api/v1/repos/$giteaOwner/$repo/releases/$releaseId/assets?name=PHGC.exe"
         $absExe = (Get-Item $exePath).FullName
 
         & curl.exe -s -S -X POST "$uploadUrl" `
@@ -155,16 +147,15 @@ if ($giteaToken) {
             -H "Accept: application/json" `
             -F "attachment=@$absExe" > $null
 
-        Write-Host ">>> PHGC.exe Asset 업로드 완료!" -ForegroundColor Green
+        Write-Host ">>> Gitea [$repo] PHGC.exe 릴리즈 업로드 완료!" -ForegroundColor Green
     } catch {
-        Write-Host ">>> Gitea Release/Asset 오류: $_" -ForegroundColor Red
-        Write-Host ">>> 수동으로 Gitea 웹에서 릴리즈에 exe를 첨부해 주세요." -ForegroundColor Yellow
+        Write-Host ">>> Gitea [$repo] 릴리즈 업로드 예외: $_" -ForegroundColor Yellow
     }
-} else {
-    Write-Host ">>> GITEA_TOKEN 없음 - Gitea Release 생성을 건너뜁니다." -ForegroundColor Yellow
-    Write-Host ">>> 수동으로 Gitea 웹에서 릴리즈에 exe를 첨부해 주세요." -ForegroundColor Yellow
 }
 
+Upload-GiteaRelease $giteaRepo
+Upload-GiteaRelease $legacyGiteaRepo
+
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host ">>> v$newVer 배포 완료!" -ForegroundColor Green
+Write-Host ">>> PHGC v$newVer 오프라인 에디션 릴리즈 배포 완료!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green

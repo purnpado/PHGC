@@ -1,20 +1,31 @@
-# 빌드 결과물
+# 빌드 산출물
 build/bin/
 
 # 프론트엔드
 node_modules/
 frontend/dist/
 
-# Go
+# Go 바이너리
 *.exe
-server-data/*.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
+# 임시 및 테스트 데이터 (보안/개인정보 유출 원천 차단)
+test-data/
+*.csv
+*.xlsx
+*.db
+*.sqlite
+data/
+classes/
+server-data/cutoffs/
+server-data/expected_support.json
+
 # IDE
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
@@ -22,9 +33,8 @@ server-data/*.exe
 # OS
 .DS_Store
 Thumbs.db
-# 민감한 데이터 및 엑셀 파일 차단
+
+# 환경변수
 .env
 .env.*
 !.env.example
-*.xlsx
-*.db
