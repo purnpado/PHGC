@@ -2227,7 +2227,7 @@ async function openApplicationSummaryModal() {
 			} catch (err) { alert('입시 결과 확정 해제 실패: ' + err); }
 		});
 		document.getElementById('submitExpectedSupport')?.addEventListener('click', async () => {
-			if (!confirm('현재 입학년도 지원 예정·지원 완료 집계만 중앙 서버에 제출할까요?\n학생·학급·교사·개별 점수는 전송하지 않으며, 참여 학교는 울산 전체 인원 집계만 조회할 수 있습니다.')) return;
+			if (!confirm('현재 입학년도의 [지원희망] 집계만 중앙 서버에 제출할까요?\n학생·학급·교사·개별 점수는 전송하지 않으며, 참여 학교는 울산 전체 인원 집계만 조회할 수 있습니다.')) return;
 			try {
 				const count = await window.go.main.App.SubmitExpectedSupport();
 				alert(`${count}개 집계 항목을 제출했습니다. 이후 참여 학교 전용 울산 전체 현황을 조회할 수 있습니다.`);
@@ -2281,7 +2281,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
     };
 
     const canEdit = !window.currentUser || window.currentUser.Role !== 'viewer';
-    const statusOptions = ['미입력', '지원예정', '지원완료', '합격', '불합격'];
+    const statusOptions = ['지원희망', '지원완료', '합격', '불합격'];
     const categoryOptions = [['meister','마이스터고'], ['special','특성화고'], ['self_foreign','자사고·외고'], ['general','후기 일반고'], ['other','기타 (전기 기타고/타시도 등)'], ['none','미진학 (진학포기)']];
     // 지원현황 창은 목록 조회 실패 때문에 열리지 않으면 안 된다. Wails 바인딩
     // 누락·손상 또는 로컬 목록 파일 문제도 1.5초 안에 빈 목록으로 처리한다.
@@ -2385,7 +2385,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             () => window.go?.main?.App?.GetStudentApplications?.(classNum, studentNum, name),
             [],
         );
-        const record = records[selectedIndex] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '미입력', preferences: [] };
+        const record = records[selectedIndex] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '지원희망', preferences: [] };
         const isGeneral = record.category === 'general';
         const isNone = record.category === 'none';
         const isOther = record.category === 'other';
@@ -2410,7 +2410,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             const isRecNone = r.category === 'none';
             const nameLabel = isRecNone ? '미진학' : (r.schoolName || (r.category === 'general' ? (r.assignedSchool ? `일반고[${r.assignedSchool}]` : '후기 일반고') : '기타'));
             const trackPart = ['meister', 'special'].includes(r.category) ? formatTrack(r.track) : '';
-            const statusPart = isRecNone ? '미진학' : r.status;
+            const statusPart = isRecNone ? '미진학' : ((r.status === '지원예정' || r.status === '지원 예정' || !r.status) ? '지원희망' : r.status);
             const isRecPassed = ['합격', '최종 진학', '최종진학'].includes((r.status || '').trim());
             const isRecFin = isRecPassed && ((['meister', 'special'].includes(r.category) && !!r.assignedDepartment) || (r.category === 'general' && !!r.assignedSchool) || (!['meister', 'special', 'general'].includes(r.category)));
             const lockIcon = isRecFin ? '🔒 ' : '';

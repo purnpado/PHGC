@@ -924,6 +924,7 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	validCategories := map[string]bool{"meister": true, "special": true, "self_foreign": true, "general": true, "other": true, "none": true}
 	validStatuses := map[string]bool{
 		"미입력": true,
+		"지원희망": true, "지원 희망": true,
 		"지원예정": true, "지원 예정": true,
 		"지원완료": true, "지원 완료": true,
 		"합격": true, "불합격": true,
@@ -1052,7 +1053,7 @@ func (dm *DBManager) GetAdmissionClosureReview(admissionYear int) (AdmissionClos
 			}
 			review.TotalRecorded += count
 			switch status {
-			case "미입력", "지원예정", "지원 예정", "지원완료", "지원 완료":
+			case "미입력", "지원희망", "지원 희망", "지원예정", "지원 예정", "지원완료", "지원 완료":
 				review.PendingCount += count
 			case "합격":
 				review.AcceptedCount += count
@@ -1256,7 +1257,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 			groups[key] = a
 		}
 		switch r.Status {
-		case "지원예정", "지원 예정":
+		case "지원희망", "지원 희망", "지원예정", "지원 예정":
 			a.PlannedCount++
 		case "지원완료", "지원 완료":
 			a.SubmittedCount++
@@ -1268,7 +1269,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 			a.FinalCount++
 			a.AcceptedCount++
 		}
-		if (r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료") && r.Score > 0 {
+		if (r.Status == "지원희망" || r.Status == "지원 희망" || r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료") && r.Score > 0 {
 			a.expectedSum += r.Score
 			a.expectedCount++
 			if !a.hasExpectedMin || r.Score < a.MinExpectedScore {
@@ -1313,7 +1314,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 					// 예정·지원 단계에서만 여러 지망을 각각 집계한다. 합격·불합격
 					// 결과는 실제 배정 학과 한 곳(미입력 시 학교 전체)에만 반영해
 					// 한 학생이 여러 학과 합격자로 중복 집계되는 것을 막는다.
-					if r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료" {
+					if r.Status == "지원희망" || r.Status == "지원 희망" || r.Status == "지원예정" || r.Status == "지원 예정" || r.Status == "지원완료" || r.Status == "지원 완료" {
 						for i, department := range r.Preferences {
 							if department != "" {
 								add(r, department, i+1)

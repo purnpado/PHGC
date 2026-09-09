@@ -1735,6 +1735,9 @@ func (a *App) SubmitExpectedSupport() (int, error) {
 			MaxScore: summary.MaxExpectedScore, MinScore: summary.MinExpectedScore, AvgScore: summary.AvgExpectedScore,
 		})
 	}
+	if len(items) == 0 {
+		return 0, fmt.Errorf("제출할 지원희망 학생 데이터가 없습니다. 학생의 희망학교 지원상태를 '지원희망'으로 1명 이상 등록한 후 제출해주세요.")
+	}
 	payload, err := json.Marshal(ExpectedSupportSubmission{AdmissionYear: config.AdmissionYear, SourceMiddleSchoolName: config.SchoolName, Items: items})
 	if err != nil {
 		return 0, fmt.Errorf("예상 지원현황 변환 실패: %w", err)
