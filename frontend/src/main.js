@@ -1770,19 +1770,36 @@ async function renderStudentList(students, classNum) {
             return true;
         });
 
-        const appButtonHTML = isFinalizedStudent ? `
-            <button class="text-xs px-3 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all shadow-sm bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/70 hover:scale-105"
-                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" data-finalized="true" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
-                <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                <span>합격 확정</span>
-            </button>
-        ` : `
-            <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
-                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                <span>희망학교</span>
-            </button>
-        `;
+        let appCellHTML = '';
+        if (!applications.length || applications.every(a => !a.status || a.status === '미입력')) {
+            appCellHTML = `
+                <button class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/25 hover:border-indigo-400 text-indigo-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
+                        data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="클릭하여 희망학교 입력">
+                    <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    <span>희망학교 입력</span>
+                </button>
+            `;
+        } else {
+            appCellHTML = `
+                <div class="flex items-center justify-center gap-2 flex-wrap">
+                    <div class="flex-1 min-w-36">
+                        ${applicationSummary}
+                    </div>
+                    ${isFinalizedStudent ? `
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-xs whitespace-nowrap" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
+                            <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            <span>확정</span>
+                        </span>
+                    ` : `
+                        <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:border-indigo-400 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
+                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="희망학교 변경 및 수정">
+                            <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            <span>변경</span>
+                        </button>
+                    `}
+                </div>
+            `;
+        }
 
         tbody += `
             <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
@@ -1808,16 +1825,13 @@ async function renderStudentList(students, classNum) {
                         </div>
                     </div>
                 </td>
-                <td class="p-3.5 text-center min-w-52">${applicationSummary}</td>
-                <td class="p-3.5 text-center">
-                    <div class="flex items-center justify-center gap-2">
-                        ${appButtonHTML}
-                        <button class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                            <svg class="w-3.5 h-3.5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                            <span>진학 상담</span>
-                        </button>
-                    </div>
+                <td class="p-3.5 text-center min-w-56">${appCellHTML}</td>
+                <td class="p-3.5 text-center w-36">
+                    <button class="btn-primary w-full text-xs px-3.5 py-2 font-bold inline-flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20 cursor-pointer active:scale-95"
+                            data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
+                        <svg class="w-3.5 h-3.5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <span class="whitespace-nowrap">진학 상담</span>
+                    </button>
                 </td>
             </tr>
         `;
@@ -1844,13 +1858,13 @@ async function renderStudentList(students, classNum) {
         <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-slate-800/80 text-text-muted text-sm border-b border-slate-700/70">
-                        <th class="p-3.5 font-semibold text-center w-20">번호</th>
-                        <th class="p-3.5 font-semibold text-center w-36">성명</th>
-                        <th class="p-3.5 font-semibold text-center">일반계고 합격 예측</th>
-                        <th class="p-3.5 font-semibold text-center">마이스터 및 특성화고 지원가능</th>
-                        <th class="p-3.5 font-semibold text-center">희망학교</th>
-                        <th class="p-3.5 font-semibold text-center">진학 상담</th>
+                    <tr class="bg-slate-800/90 text-text-muted text-sm border-b border-slate-700/70">
+                        <th class="p-3.5 font-semibold text-center w-16">번호</th>
+                        <th class="p-3.5 font-semibold text-center w-32">성명</th>
+                        <th class="p-3.5 font-semibold text-center w-48">일반계고 합격 예측</th>
+                        <th class="p-3.5 font-semibold text-center min-w-64">마이스터 및 특성화고 지원가능</th>
+                        <th class="p-3.5 font-semibold text-center min-w-56">희망학교</th>
+                        <th class="p-3.5 font-semibold text-center w-36">진학 상담</th>
                     </tr>
                 </thead>
                 <tbody>
