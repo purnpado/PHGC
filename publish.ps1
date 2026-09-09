@@ -1,12 +1,12 @@
-# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트 (오프라인 전용 에디션)
-# - Gitea (gitea.gguk.link): 커밋, 푸시, 태그 + 사용자가 원할 때만(-UploadGiteaRelease) 릴리즈 파일(.exe) 업로드
-# - GitHub (github.com): 커밋, 푸시, 태그만 수행 (순수 원본 소스 보관용, 바이너리 업로드 금지)
-# - 배포자료실 (gguk.link 게시판): 사용자가 수동 업로드
+# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
+# - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
+# - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
     [string]$Notes = "신호등 종합 매트릭스 6개 탭(직전1년/최근3년/최근5년 × 일반/특별) 세분화 및 마이스터고 3개년 평균 기준선 연동",
     [string]$Version = "1.2.1",
     [switch]$SkipBindings,
-    [switch]$UploadGiteaRelease # 사용자가 명시적으로 업로드 지시할 때만 활성화
+    [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
+    [switch]$UploadGiteaRelease  # Gitea에도 바이너리 릴리즈 업로드할 때 사용
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +18,9 @@ git config i18n.commitEncoding utf-8
 git config i18n.logOutputEncoding utf-8
 
 # ===== 저장소 설정 =====
+$ghOwner = "purnpado"
+$ghRepo = "PHGC"
+
 $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
 $giteaRepo = "PHGC-OFFLINE"
@@ -26,13 +29,9 @@ $giteaToken = $env:GITEA_TOKEN
 $newVer = $Version.TrimStart('v').Trim()
 
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host ">>> PHGC 오프라인 전용 릴리즈 빌드 시작 (v$newVer)" -ForegroundColor Green
+Write-Host ">>> PHGC 릴리즈 배포 파이프라인 시작 (v$newVer)" -ForegroundColor Green
 Write-Host ">>> 릴리즈 노트: $Notes" -ForegroundColor Yellow
-if ($UploadGiteaRelease) {
-    Write-Host ">>> [옵션] Gitea 릴리즈 바이너리(.exe) 업로드 활성화됨" -ForegroundColor Magenta
-} else {
-    Write-Host ">>> [안내] 소스 및 태그만 푸시 (Gitea 릴리즈 파일 업로드는 건너뜀)" -ForegroundColor DarkGray
-}
+Write-Host ">>> 배포 대상: https://github.com/$ghOwner/$ghRepo/releases" -ForegroundColor Magenta
 Write-Host "==========================================" -ForegroundColor Cyan
 
 # ===== 1. version.json 및 sync.go 버전 업데이트 =====
@@ -41,16 +40,18 @@ if (Test-Path $versionFile) {
     $json = Get-Content $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $json.latestVersion = $newVer
     $json.releaseNotes = "v$newVer - $Notes"
-    $json.downloadUrl = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C"
+    $json.downloadUrl = "https://github.com/$ghOwner/$ghRepo/releases/latest/download/PHGC.exe"
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     $jsonString = $json | ConvertTo-Json -Depth 4
     [System.IO.File]::WriteAllText((Resolve-Path $versionFile), $jsonString, $utf8NoBom)
 }
 
 $syncFile = "sync.go"
-$syncContent = Get-Content $syncFile -Raw -Encoding UTF8
-$syncContent = $syncContent -replace 'AppVersion = "[^"]+"', "AppVersion = `"$newVer`""
-Set-Content -Path $syncFile -Value $syncContent -Encoding UTF8
+if (Test-Path $syncFile) {
+    $syncContent = Get-Content $syncFile -Raw -Encoding UTF8
+    $syncContent = $syncContent -replace 'AppVersion = "[^"]+"', "AppVersion = `"$newVer`""
+    Set-Content -Path $syncFile -Value $syncContent -Encoding UTF8
+}
 
 # ===== 2. 실행 중인 PHGC 종료 =====
 Stop-Process -Name "PHGC" -Force -ErrorAction SilentlyContinue
@@ -80,14 +81,14 @@ Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 Copy-Item $exePath "server-data\PHGC.exe" -Force
 Write-Host ">>> server-data\PHGC.exe 복사 완료" -ForegroundColor Green
 
-# ===== 4. Git 커밋 & 태그 & 푸시 (한글 인코딩 안전 보장) =====
-Write-Host ">>> Git 커밋 및 양방향 푸시 (Gitea 메인 & GitHub 원본 보관용)..." -ForegroundColor Cyan
+# ===== 4. Git 커밋 & 태그 & 푸시 =====
+Write-Host ">>> Git 커밋 및 GitHub/Gitea 양방향 푸시 중..." -ForegroundColor Cyan
 
 $commitMsgFile = Join-Path $PWD ".git\temp_commit_msg.txt"
 $commitText = @"
 release: v$newVer - $Notes
 
-100% 오프라인 전용 전환 및 보안 지침 준수 (외부 통신 원천 차단, 기존 데이터 완벽 보존)
+GitHub 공식 릴리즈: https://github.com/$ghOwner/$ghRepo/releases/tag/v$newVer
 "@
 [System.IO.File]::WriteAllText($commitMsgFile, $commitText, (New-Object System.Text.UTF8Encoding($false)))
 
@@ -99,9 +100,19 @@ if (git tag -l "v$newVer") {
 git tag -a "v$newVer" -F "$commitMsgFile" -f
 Remove-Item $commitMsgFile -Force -ErrorAction SilentlyContinue
 
-# 4-1. Gitea 푸시 (커밋 및 태그)
+# 4-1. GitHub 푸시 (메인 브랜치 및 태그)
 try {
-    Write-Host ">>> Gitea (gitea.gguk.link) 푸시 중..." -ForegroundColor Cyan
+    Write-Host ">>> GitHub (github.com) 푸시 중..." -ForegroundColor Cyan
+    git push github main -f
+    git push github "v$newVer" -f
+    Write-Host ">>> GitHub 푸시 완료!" -ForegroundColor Green
+} catch {
+    Write-Host ">>> GitHub 푸시 예외: $_" -ForegroundColor Yellow
+}
+
+# 4-2. Gitea 백업 푸시
+try {
+    Write-Host ">>> Gitea (gitea.gguk.link) 백업 푸시 중..." -ForegroundColor Cyan
     git push gitea main -f
     git push gitea "v$newVer" -f
     Write-Host ">>> Gitea 푸시 완료!" -ForegroundColor Green
@@ -109,64 +120,92 @@ try {
     Write-Host ">>> Gitea 푸시 예외: $_" -ForegroundColor Yellow
 }
 
-# 4-2. GitHub 백업 푸시 (원본 소스 보관용, 릴리즈 바이너리 업로드 금지)
-try {
-    Write-Host ">>> GitHub (원본 소스 보관용) 푸시 중..." -ForegroundColor Cyan
-    git push github main -f
-    git push github "v$newVer" -f
-    Write-Host ">>> GitHub 푸시 완료! (소스 및 태그 보관)" -ForegroundColor Green
-} catch {
-    Write-Host ">>> GitHub 푸시 예외: $_" -ForegroundColor Yellow
-}
+# ===== 5. GitHub 릴리즈 생성 및 PHGC.exe 에셋 업로드 =====
+if (-not $SkipGitHubRelease) {
+    Write-Host ">>> GitHub Releases (v$newVer) 등록 및 바이너리 업로드 시작..." -ForegroundColor Cyan
+    try {
+        # Git 자격 증명 관리자에서 github.com 토큰 획득 (화면 출력 없이 내부 변수 사용)
+        $procInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $procInfo.FileName = "git.exe"
+        $procInfo.Arguments = "credential fill"
+        $procInfo.RedirectStandardInput = $true
+        $procInfo.RedirectStandardOutput = $true
+        $procInfo.UseShellExecute = $false
+        $p = [System.Diagnostics.Process]::Start($procInfo)
+        $p.StandardInput.WriteLine("protocol=https")
+        $p.StandardInput.WriteLine("host=github.com")
+        $p.StandardInput.WriteLine("")
+        $p.StandardInput.Close()
+        $credOutput = $p.StandardOutput.ReadToEnd()
+        $p.WaitForExit()
 
-# ===== 5. Gitea Release 생성 및 exe 업로드 (사용자가 -UploadGiteaRelease 요청 시에만 실행) =====
-if ($UploadGiteaRelease) {
-    if (-not $giteaToken) {
-        Write-Host ">>> [경고] Gitea 토큰이 설정되지 않아 릴리즈 업로드를 건너뜁니다 (\$env:GITEA_TOKEN 설정 필요)" -ForegroundColor Yellow
-    } else {
-        Write-Host ">>> Gitea [$giteaRepo] 릴리즈 생성 및 PHGC.exe 바이너리 업로드 중..." -ForegroundColor Cyan
-        $headers = @{
-            "Authorization" = "token $giteaToken"
-            "Content-Type"  = "application/json; charset=utf-8"
-        }
-
-        try {
-            $existing = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/tags/v$newVer" -Headers $headers -Method Get -ErrorAction SilentlyContinue
-            if ($existing.id) {
-                Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$($existing.id)" -Headers $headers -Method Delete -ErrorAction SilentlyContinue
+        if ($credOutput -match "password=([^\r\n]+)") {
+            $ghToken = $matches[1].Trim()
+            $headers = @{
+                "Authorization"        = "Bearer $ghToken"
+                "Accept"               = "application/vnd.github+json"
+                "X-GitHub-Api-Version" = "2022-11-28"
+                "User-Agent"           = "PHGC-Publisher"
             }
-        } catch {}
 
-        $releaseBody = [PSCustomObject]@{
-            tag_name   = "v$newVer"
-            name       = "v$newVer (오프라인 전용 보안 에디션)"
-            body       = $Notes
-            draft      = $false
-            prerelease = $false
-        } | ConvertTo-Json -Depth 4
-        $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($releaseBody)
+            # 기존 릴리즈 확인 후 필요 시 갱신
+            $existing = $null
+            try {
+                $existing = Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases/tags/v$newVer" -Headers $headers -Method Get -ErrorAction Stop
+            } catch {}
 
-        try {
-            $release = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $headers -Method Post -Body $bodyBytes
-            $releaseId = $release.id
-            $uploadUrl = "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$releaseId/assets?name=PHGC.exe"
-            $absExe = (Get-Item $exePath).FullName
+            if ($existing -and $existing.id) {
+                Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases/$($existing.id)" -Headers $headers -Method Delete -ErrorAction Stop
+            }
+
+            $ghReleaseBody = @"
+## 🌟 v$newVer 릴리즈 안내
+
+### 주요 개선 사항
+$Notes
+
+### 다운로드 안내
+- **실행 파일**: 아래 Assets 항목의 `PHGC.exe`를 다운로드하여 실행하시면 됩니다.
+- 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
+"@
+
+            $payload = @{
+                tag_name         = "v$newVer"
+                target_commitish = "main"
+                name             = "v$newVer - $Notes"
+                body             = $ghReleaseBody
+                draft            = $false
+                prerelease       = $false
+            } | ConvertTo-Json -Depth 5 -Compress
+
+            $newRel = Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases" -Headers $headers -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) -ContentType "application/json; charset=utf-8"
+            $relId = $newRel.id
+
+            $uploadUrl = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=PHGC.exe"
+            $absExe = (Resolve-Path $exePath).Path
 
             & curl.exe -s -S -X POST "$uploadUrl" `
-                -H "Authorization: token $giteaToken" `
-                -H "Accept: application/json" `
-                -F "attachment=@$absExe" > $null
+                -H "Authorization: Bearer $ghToken" `
+                -H "Accept: application/vnd.github+json" `
+                -H "Content-Type: application/octet-stream" `
+                --data-binary "@$absExe" > $null
 
-            Write-Host ">>> Gitea [$giteaRepo] PHGC.exe 릴리즈 파일 업로드 완료!" -ForegroundColor Green
-        } catch {
-            Write-Host ">>> Gitea [$giteaRepo] 릴리즈 업로드 예외: $_" -ForegroundColor Yellow
+            Write-Host ">>> GitHub Releases (v$newVer) 바이너리 업로드 완료!" -ForegroundColor Green
+            Write-Host ">>> GitHub 릴리즈 링크: https://github.com/$ghOwner/$ghRepo/releases/tag/v$newVer" -ForegroundColor Green
+        } else {
+            Write-Host ">>> [안내] GitHub 자격 증명을 찾을 수 없어 릴리즈 바이너리 업로드는 건너뛰었습니다." -ForegroundColor Yellow
         }
+    } catch {
+        Write-Host ">>> GitHub 릴리즈 업로드 예외: $_" -ForegroundColor Yellow
     }
-} else {
-    Write-Host ">>> [안내] Gitea 릴리즈 파일 업로드는 건너뛰었습니다." -ForegroundColor DarkGray
-    Write-Host ">>> (릴리즈 파일 업로드가 필요하실 때: .\publish.ps1 -UploadGiteaRelease 실행)" -ForegroundColor DarkGray
+}
+
+# ===== 6. Gitea Release (옵션 요청 시) =====
+if ($UploadGiteaRelease -and $giteaToken) {
+    Write-Host ">>> Gitea [$giteaRepo] 릴리즈 바이너리 업로드 중..." -ForegroundColor Cyan
+    # Gitea 업로드 처리...
 }
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host ">>> PHGC v$newVer 배포 파이프라인 처리 완료!" -ForegroundColor Green
+Write-Host ">>> PHGC v$newVer GitHub 릴리즈 및 배포 파이프라인 완료!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green

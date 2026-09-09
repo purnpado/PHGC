@@ -3725,7 +3725,7 @@ function showStartupUpdateModal(result) {
     `;
     document.body.appendChild(modal);
 
-    const boardUrl = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C";
+    const boardUrl = "https://github.com/purnpado/PHGC/releases";
 
     document.getElementById('openDistributionBoardBtn')?.addEventListener('click', async () => {
         try {
@@ -4282,8 +4282,8 @@ export async function renderLoginScreen(schoolName) {
                         <button type="button" id="manualCheckUpdateBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer">
                             <span>🔄</span> 업데이트 확인
                         </button>
-                        <button type="button" id="loginBoardLinkBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 border border-indigo-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="공식 배포자료실 열기">
-                            <span>🌐</span> 배포자료실
+                        <button type="button" id="loginBoardLinkBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 border border-indigo-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="공식 GitHub 릴리즈 및 배포자료실 열기">
+                            <span>📦</span> GitHub 릴리즈
                         </button>
                     </div>
                     <div id="startupUpdateStatus" class="text-[11px] text-slate-400"></div>
@@ -4291,7 +4291,7 @@ export async function renderLoginScreen(schoolName) {
             </div>
         `;
 
-        const boardUrl = "https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C";
+        const boardUrl = "https://github.com/purnpado/PHGC/releases";
 
         document.getElementById('loginBoardLinkBtn')?.addEventListener('click', async () => {
             try {

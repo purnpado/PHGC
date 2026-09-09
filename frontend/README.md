@@ -43,8 +43,8 @@ frontend/
 4. **최근 5개년 커트라인 통합 분석**:
    - 최근 5개년(2027~2023) 합격선 탭별 즉시 전환 및 4단계 신호등(안정/적정/소신/위험) 합격 확률 진단.
 
-5. **공식 배포자료실 연계 안내**:
-   - 최신 버전 및 릴리즈 소식 확인 시 공식 배포자료실(`https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C`)로 바로 연결.
+5. **공식 GitHub 릴리즈 연계 안내**:
+   - 최신 버전 및 릴리즈 바이너리 확인 시 공식 GitHub Releases(`https://github.com/purnpado/PHGC/releases`)로 바로 연결.
 
 ## 로컬 개발 및 빌드
 

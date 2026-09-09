@@ -52,10 +52,10 @@
    - DB 파일(`phgc_master.db`) 및 로컬 자산은 `os.Executable()`로 획득한 실행 파일 위치를 기준으로 생성하여, 상대경로 실행에 따른 데이터 유실이나 미연결 오류를 원천 차단합니다.
 3. **로컬 DB 및 보안 데이터 격리**:
    - `.gitignore`에 `*.db`, `*.sqlite`를 철저히 등록하여 학생 개인정보 및 로컬 DB 파일이 원격 저장소에 절대 업로드되지 않도록 보장합니다.
-4. **저장소 분리 및 역할 준수**:
-   - **Gitea (`PHGC-OFFLINE`)**: 내부 개발 소스 버전 관리 및 릴리즈 바이너리 업로드(사용자 승인 시).
-   - **GitHub (`PHGC`)**: 순수 원본 소스 보관 전용 저장소 (릴리즈 바이너리 업로드 절대 금지).
-   - **공식 배포자료실**: 사용자 배포 및 업데이트 패키지는 공식 웹 게시판 안내 링크(`https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C`)를 통해 제공.
+4. **저장소 및 배포 관리**:
+   - **GitHub (`PHGC`)**: 공식 소스 코드 및 릴리즈 바이너리(`PHGC.exe`) 배포 저장소 (`https://github.com/purnpado/PHGC/releases`)
+   - **Gitea (`PHGC-OFFLINE`)**: 내부 백업 및 버전 관리 저장소
+   - **공식 배포 릴리즈**: 사용자 배포 및 최신 바이너리는 GitHub Releases(`https://github.com/purnpado/PHGC/releases`)를 통해 제공.
 
 ---
 

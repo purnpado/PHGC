@@ -11,7 +11,7 @@ server-data/
 
 ## 파일별 세부 역할
 
-- **`version.json`**: 프로그램의 최신 버전, 업데이트 공지 및 공식 배포자료실(`https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C`) 링크를 정의합니다.
+- **`version.json`**: 프로그램의 최신 버전, 업데이트 공지 및 공식 GitHub Releases(`https://github.com/purnpado/PHGC/releases`) 링크를 정의합니다.
 - **`highschools.json`**: 희망학교 선택 및 커트라인 관리 화면에서 기준이 되는 학교명, 계열, 학과 목록입니다.
 - **`cutoffs/`**: 최근 5개년 고교별 합격선 원자료입니다. 학생 식별 정보나 개인정보는 일체 포함되지 않으며 오직 학교/학과/전형별 합격선 점수 데이터만 관리합니다.
 
