@@ -36,7 +36,7 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
         document.getElementById('phgcCustomAlertModal')?.remove();
         const modal = document.createElement('div');
         modal.id = 'phgcCustomAlertModal';
-        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4 animate-in fade-in duration-200';
 
         const iconConfig = {
             success: {
@@ -110,7 +110,7 @@ function showModalConfirm({ title = '확인', message = '', type = 'warning', co
         document.getElementById('phgcCustomConfirmModal')?.remove();
         const modal = document.createElement('div');
         modal.id = 'phgcCustomConfirmModal';
-        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4 animate-in fade-in duration-200';
 
         const iconConfig = {
             success: {
@@ -848,6 +848,9 @@ async function renderAdminScreen(schoolName) {
                         전체 초기화
                     </button>
                     ` : ''}
+                    <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;" title="프로그램 사용 설명서 열기">
+                        <span>📖</span> 사용 설명서
+                    </button>
                     <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;">
                         <span>🚪</span> 로그아웃
                     </button>
@@ -952,6 +955,10 @@ async function renderAdminScreen(schoolName) {
         window.currentUser = null; // 로그아웃
         updateAppWindowTitle();
         renderLoginScreen(schoolName);
+    });
+
+    document.getElementById('openAdminGuideBtn')?.addEventListener('click', () => {
+        renderGuideModal('master');
     });
 
     document.getElementById('goToTeacherBtn')?.addEventListener('click', () => {
@@ -1269,7 +1276,7 @@ window.getGeneralGuideBadge = getGeneralGuideBadge;
 // 화면 전체가 아닌 선택한 문서만 A4로 인쇄한다.
 // 매트릭스는 열 수가 많아 A4 가로, 개인 문서는 A4 세로를 기본값으로 사용한다.
 function printOnly(kind, orientation = 'portrait') {
-    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register', 'summary']);
+    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register', 'summary', 'guide']);
     const safeKind = allowedKinds.has(kind) ? kind : 'report';
     const safeOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
     const previous = document.getElementById('runtimePrintPageStyle');
@@ -1403,6 +1410,9 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                         <span>🗂️</span> 학급 목록
                     </button>
                     ${window.currentUser && window.currentUser.Role === 'homeroom' ? `<button id="exportCurrentClassPatchBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5"><span>📤</span> 취합자료제출(담임)</button>` : ''}
+                    <button id="openTeacherGuideBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="프로그램 사용 설명서 열기">
+                        <span>📖</span> 사용 설명서
+                    </button>
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
@@ -1489,6 +1499,10 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     document.getElementById('classGridHomeBtn')?.addEventListener('click', () => {
         loadClass(null);
+    });
+
+    document.getElementById('openTeacherGuideBtn')?.addEventListener('click', () => {
+        renderGuideModal(window.currentUser?.Role || 'homeroom');
     });
 
     document.getElementById('backBtn').addEventListener('click', async () => {
@@ -3295,76 +3309,78 @@ function renderAgreementModal(onAcceptCallback) {
 
     const modal = document.createElement('div');
     modal.id = 'securityAgreementModal';
-    modal.className = 'fixed inset-0 bg-black/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-300';
+    modal.className = 'fixed inset-0 bg-black/90 backdrop-blur-md z-[50000] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-300';
     
     modal.innerHTML = `
-        <div class="glass-card max-w-2xl w-full p-6 sm:p-8 border border-indigo-500/40 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
-            <!-- 모달 헤더 -->
-            <div class="text-center pb-4 border-b border-slate-700/60">
-                <div class="text-4xl mb-2">📋</div>
-                <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    [그래서? 넌 어디갈래?] 프로그램 이용 및 학생 개인정보 보호 서약서
+        <div class="glass-card max-w-3xl w-full p-6 sm:p-10 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200 break-keep-all select-none">
+            <!-- 모달 헤더 (해상도 반응형 및 단어 분리 방지) -->
+            <div class="text-center pb-5 border-b border-slate-700/60">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 text-xs font-bold mb-3 shadow-inner">
+                    <span>🏫</span> 그래서? 넌 어디갈래?
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight leading-snug">
+                    프로그램 이용 및 학생 개인정보 보호 서약서
                 </h2>
-                <p class="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-                    본 프로그램은 중학교 3학년 고입 진학 상담 및 내신 산출을 돕기 위해 제작된 교원 전용 오프라인 업무 지원 프로그램입니다.<br>
+                <p class="text-xs sm:text-sm text-slate-300 mt-2.5 leading-relaxed max-w-2xl mx-auto opacity-90">
+                    본 프로그램은 중학교 3학년 고입 진학 상담 및 내신 산출을 돕기 위해 제작된 <strong>교원 전용 오프라인 업무 지원 도구</strong>입니다.<br class="hidden sm:inline">
                     안전한 학생 정보 보호와 책임 있는 진학 지도를 위해 아래 사항을 숙지하고 서약해 주시기 바랍니다.
                 </p>
             </div>
 
             <!-- 서약서 전문 스크롤 영역 -->
-            <div class="my-4 p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs sm:text-[13px] text-slate-300 leading-relaxed overflow-y-auto max-h-[46vh] space-y-4 font-sans select-text">
-                <div class="p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/20">
-                    <h3 class="font-bold text-indigo-300 text-sm mb-1.5 flex items-center gap-1.5">
+            <div class="my-5 p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs sm:text-[13px] text-slate-300 leading-relaxed overflow-y-auto max-h-[48vh] space-y-4 font-sans select-text custom-scrollbar">
+                <div class="p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/25 shadow-xs">
+                    <h3 class="font-bold text-indigo-200 text-sm sm:text-base mb-2 flex items-center gap-2">
                         <span>🔒</span> 1. [학생 개인정보의 로컬 보관 및 보안 의무]
                     </h3>
-                    <ul class="list-disc list-inside space-y-1 text-slate-300">
-                        <li>나이스(NEIS) 엑셀에서 불러온 학생 성명, 학번, 교과·비교과 성적, 지원 현황 등 <strong>모든 개인정보는 사용자 PC(프로그램 내부 DB)에만 암호화되어 안전하게 보관</strong>됩니다.</li>
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                        <li>나이스(NEIS) 엑셀에서 불러온 학생 성명, 학번, 교과·비교과 성적, 지원 현황 등 <strong class="text-white">모든 개인정보는 사용자 PC(프로그램 내부 DB)에만 암호화되어 안전하게 보관</strong>됩니다.</li>
                         <li>사용자는 「개인정보 보호법」에 따라 취득한 학생 정보를 외부로 무단 유출하거나 진학 상담 외 목적으로 활용할 수 없으며, 자리 이석 시 화면 잠금(Win+L) 등 보안 수칙을 철저히 준수해야 합니다.</li>
                     </ul>
                 </div>
 
-                <div class="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20">
-                    <h3 class="font-bold text-emerald-300 text-sm mb-1.5 flex items-center gap-1.5">
+                <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/25 shadow-xs">
+                    <h3 class="font-bold text-emerald-200 text-sm sm:text-base mb-2 flex items-center gap-2">
                         <span>☁️</span> 2. [『그래서? 넌 어디갈래?』 서버 연동 범위 (개인정보 원천 차단)]
                     </h3>
-                    <ul class="list-disc list-inside space-y-1 text-slate-300">
-                        <li>프로그램 서버와의 온라인 데이터 연동은 다음의 <strong>"익명 통계 자료"</strong>로 엄격히 제한됩니다:
-                            <div class="pl-4 py-1 text-slate-300 font-medium">
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                        <li>프로그램 서버와의 온라인 데이터 연동은 다음의 <strong class="text-emerald-300">"익명 통계 자료"</strong>로 엄격히 제한됩니다:
+                            <div class="pl-4 py-1 text-slate-200 font-medium">
                                 • 각 고등학교별 입학 커트라인 기준선 (합격자 최저·평균 점수 및 불합격자 최고점)<br>
                                 • 학교 단위의 고교별 단순 지원 희망 인원 통계 수치
                             </div>
                         </li>
-                        <li><strong>학생 개인 식별 정보(이름, 학번, 개별 성적 등)와 교사 개인정보는 서버로 일절 전송되지 않습니다.</strong></li>
+                        <li><strong class="text-white">학생 개인 식별 정보(이름, 학번, 개별 성적 등)와 교사 개인정보는 서버로 일절 전송되지 않습니다.</strong></li>
                         <li class="text-emerald-300 font-semibold">※ 고교별 커트라인 및 지원 통계 공유는 학교의 "자율적 선택사항"이며, 공유하지 않더라도 프로그램의 모든 기능(내신 산출, 합격 예측, 상담 출력 등)은 100% 정상 작동합니다.</li>
                     </ul>
                 </div>
 
-                <div class="p-3 rounded-lg bg-amber-950/40 border border-amber-500/20">
-                    <h3 class="font-bold text-amber-300 text-sm mb-1.5 flex items-center gap-1.5">
+                <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/25 shadow-xs">
+                    <h3 class="font-bold text-amber-200 text-sm sm:text-base mb-2 flex items-center gap-2">
                         <span>⚖️</span> 3. [진학 지도 참고용 고지 및 면책 안내]
                     </h3>
-                    <ul class="list-disc list-inside space-y-1 text-slate-300">
-                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 고교별 합격 예측선은 과거 입결과 공식 요강에 기반한 <strong>'진학 상담 보조 참고 자료'</strong>입니다.</li>
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 고교별 합격 예측선은 과거 입결과 공식 요강에 기반한 <strong class="text-white">'진학 상담 보조 참고 자료'</strong>입니다.</li>
                         <li>실제 고교 입학전형 합격 여부는 각 고등학교 입학전형위원회의 최종 사정에 따르며, 프로그램의 예측 결과가 법적 합격을 보증하는 것은 아닙니다.</li>
                     </ul>
                 </div>
 
-                <div class="p-3 rounded-lg bg-rose-950/40 border border-rose-500/20">
-                    <h3 class="font-bold text-rose-300 text-sm mb-1.5 flex items-center gap-1.5">
+                <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/25 shadow-xs">
+                    <h3 class="font-bold text-rose-200 text-sm sm:text-base mb-2 flex items-center gap-2">
                         <span>⚠️</span> 4. [동의 거부 권리 및 프로그램 자가 파기]
                     </h3>
-                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
                         <li>귀하는 본 서약 및 동의를 거부할 권리가 있습니다.</li>
-                        <li>단, 민감한 학생 정보 취급에 따른 보안 규정상 동의하지 않을 경우 프로그램 사용이 원천 차단되며, <strong>보안을 위해 프로그램 실행 파일 및 관련 데이터는 즉시 자가 삭제(폐기)</strong> 처리됩니다.</li>
+                        <li>단, 민감한 학생 정보 취급에 따른 보안 규정상 동의하지 않을 경우 프로그램 사용이 원천 차단되며, <strong class="text-rose-200">보안을 위해 프로그램 실행 파일 및 관련 데이터는 즉시 자가 삭제(폐기)</strong> 처리됩니다.</li>
                     </ul>
                 </div>
             </div>
 
             <!-- 동의 체크박스 -->
-            <div class="pt-2 pb-4">
-                <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 cursor-pointer hover:bg-slate-800 transition-colors select-none">
-                    <input type="checkbox" id="agreementCheckbox" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-600 cursor-pointer">
-                    <span class="text-xs sm:text-sm font-bold text-white">
+            <div class="pt-2 pb-5">
+                <label class="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/90 cursor-pointer hover:bg-slate-800 transition-colors select-none shadow-sm">
+                    <input type="checkbox" id="agreementCheckbox" class="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 border-slate-600 cursor-pointer">
+                    <span class="text-xs sm:text-sm font-bold text-white leading-tight">
                         위 서약 내용을 모두 충분히 확인하였으며, 학생 개인정보 보호 의무를 성실히 준수할 것에 동의합니다.
                     </span>
                 </label>
@@ -3373,11 +3389,11 @@ function renderAgreementModal(onAcceptCallback) {
             <!-- 하단 버튼 영역 -->
             <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-700/60">
                 <button type="button" id="rejectAgreementBtn" 
-                        class="px-4 py-2.5 rounded-xl border border-rose-500/40 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 font-bold text-xs sm:text-sm transition-all cursor-pointer">
+                        class="px-5 py-3 rounded-2xl border border-rose-500/50 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-sm active:scale-95">
                     동의하지 않음 (프로그램 삭제 및 종료)
                 </button>
                 <button type="button" id="acceptAgreementBtn" disabled
-                        class="flex-1 py-2.5 px-5 rounded-xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed">
+                        class="flex-1 py-3 px-6 rounded-2xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed">
                     서약하고 시작하기 →
                 </button>
             </div>
@@ -3393,10 +3409,10 @@ function renderAgreementModal(onAcceptCallback) {
     checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
             acceptBtn.disabled = false;
-            acceptBtn.className = 'flex-1 py-2.5 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-primary text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer opacity-100';
+            acceptBtn.className = 'flex-1 py-3 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-primary text-white font-bold text-xs sm:text-sm shadow-xl shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer opacity-100';
         } else {
             acceptBtn.disabled = true;
-            acceptBtn.className = 'flex-1 py-2.5 px-5 rounded-xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed';
+            acceptBtn.className = 'flex-1 py-3 px-6 rounded-2xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed';
         }
     });
 
@@ -3421,10 +3437,10 @@ function renderAgreementModal(onAcceptCallback) {
         const confirmed = await showModalConfirm({
             title: '🚨 프로그램 및 데이터 영구 파기 경고',
             message: `
-                <div class="space-y-3 text-xs leading-relaxed text-left">
-                    <div class="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                <div class="space-y-3 text-xs leading-relaxed text-left break-keep-all">
+                    <div class="p-3.5 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
                         <p class="font-bold text-sm text-rose-100 mb-1">⚠️ 정말 동의하지 않으시겠습니까?</p>
-                        <p>학생 개인정보 보호 규정에 따라 비동의 시 <strong>프로그램 실행 파일(.exe)과 모든 저장 데이터가 즉시 영구 삭제(파기)</strong>되며 프로그램이 종료됩니다.</p>
+                        <p>학생 개인정보 보호 규정에 따라 비동의 시 <strong>프로그램 실행 파일(.exe)과 모든 저장 데이터가 즉시 영구 삭제(파기)</strong>되며 프로그램이 완전히 종료됩니다.</p>
                     </div>
                     <p class="text-slate-300">삭제된 프로그램 및 데이터는 복구할 수 없습니다. 계속 진행하시겠습니까?</p>
                 </div>
@@ -3445,6 +3461,201 @@ function renderAgreementModal(onAcceptCallback) {
         }
     });
 }
+
+// ===== 프로그램 사용 설명서(가이드) 모달 및 A4 인쇄 =====
+function renderGuideModal(role = 'homeroom') {
+    document.getElementById('programGuideModal')?.remove();
+
+    const isMaster = (role === 'master' || window.currentUser?.Role === 'master');
+
+    const modal = document.createElement('div');
+    modal.id = 'programGuideModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[60000] flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200';
+
+    modal.innerHTML = `
+        <div class="glass-card max-w-4xl w-full p-6 sm:p-8 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] break-keep-all">
+            <!-- 모달 상단 헤더 & 인쇄/닫기 버튼 (화면 전용) -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-700/60 no-print flex-wrap gap-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl sm:text-3xl">📖</span>
+                    <div>
+                        <h2 class="text-xl sm:text-2xl font-black text-white">
+                            『그래서? 넌 어디갈래?』 프로그램 사용 설명서
+                        </h2>
+                        <p class="text-xs text-text-muted mt-0.5">안전하고 효율적인 중3 고입 진학 지도를 위한 단계별 업무 매뉴얼</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="printGuideBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 shadow-sm hover:scale-105 transition-all">
+                        <span>🖨️</span> 설명서 인쇄 (A4)
+                    </button>
+                    <button id="closeGuideBtn" class="text-2xl text-slate-400 hover:text-white px-2 cursor-pointer transition-colors">&times;</button>
+                </div>
+            </div>
+
+            <!-- 역할별 탭 (학년부장에게는 2개 탭 모두 노출, 담임에게는 담임용만 노출) -->
+            <div class="flex gap-2 pt-4 pb-3 border-b border-slate-700/50 no-print">
+                ${isMaster ? `
+                <button id="tabMasterGuide" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white transition-colors cursor-pointer">
+                    👔 학년부장(마스터) 운영 매뉴얼
+                </button>
+                <button id="tabTeacherGuide" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer">
+                    📘 담임·진로교사 진학지도 매뉴얼
+                </button>
+                ` : `
+                <div class="px-4 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white">
+                    📘 담임·진로교사 진학지도 매뉴얼
+                </div>
+                `}
+            </div>
+
+            <!-- 설명서 본문 스크롤 영역 -->
+            <div class="my-4 overflow-y-auto max-h-[60vh] custom-scrollbar pr-2 space-y-6 text-slate-200 text-xs sm:text-sm leading-relaxed" id="guideContentArea">
+                ${isMaster ? getMasterGuideHTML() : getTeacherGuideHTML()}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeBtn = modal.querySelector('#closeGuideBtn');
+    const printBtn = modal.querySelector('#printGuideBtn');
+    const tabMaster = modal.querySelector('#tabMasterGuide');
+    const tabTeacher = modal.querySelector('#tabTeacherGuide');
+    const contentArea = modal.querySelector('#guideContentArea');
+
+    closeBtn.onclick = () => modal.remove();
+
+    printBtn.onclick = () => {
+        printOnly('guide', 'portrait');
+    };
+
+    if (isMaster && tabMaster && tabTeacher) {
+        tabMaster.onclick = () => {
+            tabMaster.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white transition-colors cursor-pointer';
+            tabTeacher.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer';
+            contentArea.innerHTML = getMasterGuideHTML();
+        };
+        tabTeacher.onclick = () => {
+            tabTeacher.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 text-white transition-colors cursor-pointer';
+            tabMaster.className = 'px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 text-slate-300 hover:text-white transition-colors cursor-pointer';
+            contentArea.innerHTML = getTeacherGuideHTML();
+        };
+    }
+}
+window.renderGuideModal = renderGuideModal;
+
+// 담임교사용 가이드 HTML
+function getTeacherGuideHTML() {
+    return `
+        <div class="space-y-4">
+            <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
+                <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
+                    <span>1️⃣</span> 1단계: 배포 자료(.phgcpkg) 적용 및 로그인
+                </h3>
+                <p class="text-slate-300">
+                    • 학년부장 선생님께 전달받은 파일(<strong>.phgcpkg</strong>)을 첫 화면 또는 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
+                    • 본인 학급(예: 3학년 1반)을 선택하고, 학년부장이 부여한 초기 비밀번호로 로그인합니다. (최초 로그인 시 비밀번호 변경 가능)
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
+                    <span>2️⃣</span> 2단계: 우리 반 진학 상담 대시보드 열람
+                </h3>
+                <p class="text-slate-300">
+                    • <strong>일반고 합격 예측:</strong> 학생별 전교 석차백분율 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 한눈에 확인합니다.<br>
+                    • <strong>마이스터고 및 특성화고 지원 가능:</strong> 과거 커트라인(공식자료/학교입력) 대비 합격 가능 학교가 뱃지로 자동 표시됩니다.<br>
+                    • <strong>신호등 매트릭스:</strong> 상단의 [📊 신호등 매트릭스]를 누르면 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 표 하나로 비교할 수 있습니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
+                    <span>3️⃣</span> 3단계: 1:1 심층 상담 및 희망학교 등록
+                </h3>
+                <p class="text-slate-300">
+                    • 학생 성명 또는 <strong>[🎯 진학 상담]</strong> 버튼을 클릭하여 개인별 심층 상담창을 엽니다.<br>
+                    • <strong>희망학교 등록:</strong> 학생·학부모 상담을 통해 1~3지망 지원학교 및 전형을 선택하고 [저장]합니다.<br>
+                    • <strong>상담표 인쇄:</strong> 상담창 우측 상단의 [📄 진학 상담 결과표] 버튼을 누르면 학부모 상담용 공식 A4 결과표가 즉시 출력됩니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
+                    <span>4️⃣</span> 4단계: 출결·봉사 변동사항 반영 및 학년부장 제출
+                </h3>
+                <p class="text-slate-300">
+                    • 2학기 출결(미인정 결석/지각)이나 추가 봉사활동이 발생한 경우 상담창에서 바로 수정합니다.<br>
+                    • 상담이 완료되면 대시보드 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 제출용 패치 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 메신저/USB로 전달합니다.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+// 학년부장(마스터) 가이드 HTML
+function getMasterGuideHTML() {
+    return `
+        <div class="space-y-4">
+            <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
+                <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
+                    <span>1️⃣</span> 1단계: 학교 기초 설정 및 공용 암호 관리
+                </h3>
+                <p class="text-slate-300">
+                    • 최초 실행 시 학교명, 3학년 전체 학급 수, 입시 학년도를 설정합니다.<br>
+                    • 담임교사 PC와 안전하게 암호화 통신을 하기 위한 <strong>[공용 데이터 잠금 암호]</strong>를 지정합니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
+                    <span>2️⃣</span> 2단계: 나이스(NEIS) 엑셀 3종 데이터 연동
+                </h3>
+                <p class="text-slate-300">
+                    • 관리자 대시보드에서 나이스 출력 엑셀을 순서대로 업로드합니다:<br>
+                    &nbsp;&nbsp;① <strong>교과 성적 엑셀:</strong> 전체 학생 명단 및 성취도 자동 추출<br>
+                    &nbsp;&nbsp;② <strong>출결 엑셀:</strong> 학년별 미인정 결석/지각/조퇴 자동 연동<br>
+                    &nbsp;&nbsp;③ <strong>봉사활동 엑셀:</strong> 3개년 누적 봉사시간 자동 연동
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
+                    <span>3️⃣</span> 3단계: 담임교사용 배포 패키지(.phgcpkg) 생성 및 배포
+                </h3>
+                <p class="text-slate-300">
+                    • <strong>[사용자 및 권한 관리]</strong> 메뉴로 이동합니다.<br>
+                    • 각 반 담임선생님의 초기 비밀번호를 설정하거나 확인합니다.<br>
+                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 각 반별 패키지(<strong>.phgcpkg</strong>)를 생성하여 담임선생님께 전달합니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
+                    <span>4️⃣</span> 4단계: 담임교사 취합 자료 선택 병합 (Merge)
+                </h3>
+                <p class="text-slate-300">
+                    • 담임선생님들이 상담 후 제출한 패치 파일(<strong>.phgcpatch</strong>)을 수신합니다.<br>
+                    • 관리자 대시보드의 <strong>[📥 취합자료병합(학년부장)]</strong> 버튼을 클릭합니다.<br>
+                    • 학생별 변경 항목(출결, 봉사, 가산점, 지원현황)을 확인하고 선택적으로 체크하여 학년부 데이터에 안전하게 병합합니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-purple-300 text-base mb-2 flex items-center gap-2">
+                    <span>5️⃣</span> 5단계: 관내 커트라인 연동 및 원서대장 일괄 출력
+                </h3>
+                <p class="text-slate-300">
+                    • <strong>[커트라인 관리]</strong>에서 중앙 서버의 관내 공식 합격선과 참고자료를 내려받거나 자체 수정합니다.<br>
+                    • <strong>[🏫 학교 통계]</strong>에서 3학년 전체의 고교별/전형별 지망 인원을 실시간으로 종합 분석합니다.<br>
+                    • 원서 접수 시기에는 <strong>[🖨️ 원서대장]</strong> 버튼을 눌러 교육청 제출용 공식 원서대장을 A4로 즉시 일괄 출력합니다.
+                </p>
+            </div>
+        </div>
+    `;
+}
+
 
 // 앱 정상 시작 진행 함수
 async function proceedAppInit() {

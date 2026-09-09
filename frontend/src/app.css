@@ -302,14 +302,16 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing #studentTranscriptModal,
     body.printing #matrixModal,
     body.printing #classApplicationSummaryModal,
-    body.printing #applicationRegisterModal {
+    body.printing #applicationRegisterModal,
+    body.printing #programGuideModal {
         display: none !important;
     }
     body.printing[data-print-kind="report"] #studentDetailModal,
     body.printing[data-print-kind="transcript"] #studentTranscriptModal,
     body.printing[data-print-kind="matrix"] #matrixModal,
     body.printing[data-print-kind="summary"] #classApplicationSummaryModal,
-    body.printing[data-print-kind="register"] #applicationRegisterModal {
+    body.printing[data-print-kind="register"] #applicationRegisterModal,
+    body.printing[data-print-kind="guide"] #programGuideModal {
         display: block !important;
         position: static !important;
         inset: auto !important;
