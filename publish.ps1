@@ -79,7 +79,7 @@ Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 Copy-Item $exePath "server-data\PHGC.exe" -Force
 Write-Host ">>> server-data\PHGC.exe 복사 완료" -ForegroundColor Green
 
-# ===== 4. Git 커밋 & 태그 & 푸시 (한글 인코딩 안전 보장: -F 파일 사용) =====
+# ===== 4. Git 커밋 & 태그 & 푸시 (한글 인코딩 안전 보장) =====
 Write-Host ">>> Git 커밋 및 양방향 푸시 (Gitea 메인 & GitHub 백업)..." -ForegroundColor Cyan
 
 $commitMsgFile = Join-Path $PWD ".git\temp_commit_msg.txt"
@@ -91,8 +91,10 @@ release: v$newVer - $Notes
 [System.IO.File]::WriteAllText($commitMsgFile, $commitText, (New-Object System.Text.UTF8Encoding($false)))
 
 git add -A
-git commit -F "$commitMsgFile"
-git tag -d "v$newVer" 2>$null
+git commit -F "$commitMsgFile" -q 2>$null
+if (git tag -l "v$newVer") {
+    git tag -d "v$newVer" > $null 2>&1
+}
 git tag -a "v$newVer" -F "$commitMsgFile" -f
 Remove-Item $commitMsgFile -Force -ErrorAction SilentlyContinue
 
