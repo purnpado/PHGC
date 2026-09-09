@@ -14,7 +14,7 @@ import (
 
 const (
 	// 현재 앱 버전
-	AppVersion = "1.0.0"
+	AppVersion = "1.0.1"
 
 	// Gitea 서버 정보
 	GiteaBaseURL = "https://gitea.gguk.link"
@@ -307,5 +307,6 @@ func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error
 	_ = sm.saveToFile(filename, data)
 	return &result, nil
 }
+
 
 

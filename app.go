@@ -1203,7 +1203,6 @@ func (a *App) SendCutoffsToBridge(year int) error {
 		SourceMiddleSchoolName string  `json:"sourceMiddleSchoolName"`
 		TargetHighSchoolName   string  `json:"targetHighSchoolName"`
 		Department             string  `json:"department"`
-		Track                  string  `json:"track,omitempty"`
 		CutoffScore            float64 `json:"cutoffScore"`
 	}
 	items := make([]publicCutoff, 0, len(yearData))
@@ -1226,7 +1225,6 @@ func (a *App) SendCutoffsToBridge(year int) error {
 			SourceMiddleSchoolName: config.SchoolName,
 			TargetHighSchoolName:   cutoff.SchoolName,
 			Department:             deptStr,
-			Track:                  cutoff.Track,
 			CutoffScore:            cutoff.MinValue,
 		})
 	}
