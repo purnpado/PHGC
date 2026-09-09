@@ -291,15 +291,14 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 	user, err := a.db.VerifyUserLogin(username, password)
 	if err != nil {
 		// 공용 데이터 암호 인증을 성공한 상태에서 개인 비밀번호 검증이 실패한 경우:
-		// 1) 담임 계정의 password_hash가 비어있거나(초기 상태)
-		// 2) 담임이 학년부장의 공용 암호와 동일하게 입력했거나
-		// 3) 계정이 must_change_password(초기 상태)인 경우
-		// 공용 암호를 올바르게 입력한 인가된 교사이므로, 입력한 비밀번호로 즉시 계정 비밀번호를 자동 설정·동기화하여 온보딩을 통과시킨다.
+		// 1) 담임 계정의 password_hash가 비어있거나(초기 미설정)
+		// 2) 담임이 학년부장의 공용 암호와 동일하게 입력한 경우 (password == sharedPassword)에만
+		// 인가된 교사로 인정하여 해당 비밀번호로 동기화 설정함 (임의의 비밀번호는 통과 차단)
 		users, getErr := a.db.GetUsers()
 		if getErr == nil {
 			for _, u := range users {
 				if u.Username == username {
-					if u.PasswordHash == "" || password == sharedPassword || u.MustChangePassword {
+					if u.PasswordHash == "" || password == sharedPassword {
 						if changeErr := a.db.ChangeUserPassword(username, password); changeErr == nil {
 							user = &u
 							user.MustChangePassword = true
@@ -1544,6 +1543,10 @@ func (a *App) SaveCurrentClassPatch(password string) (string, error) {
 	}
 	if len(changes) == 0 {
 		return "", fmt.Errorf("제출할 학생 데이터가 없습니다")
+	}
+	// 입력된 암호가 학년부장의 공용 데이터 암호와 일치하는지 엄격히 검증
+	if _, err := openSharedKeyEnvelope(a.db.dataDir, password); err != nil {
+		return "", fmt.Errorf("공용 데이터 암호가 올바르지 않습니다. 학년부장에게 확인 후 정확한 암호를 입력해 주세요")
 	}
 	return a.SaveTeacherPatch(password, a.user.Username, a.user.ClassNum, changes)
 }
