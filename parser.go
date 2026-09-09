@@ -63,10 +63,13 @@ func ParseExcel(filePath string) (map[int][]StudentExcelData, error) {
 			val := strings.ReplaceAll(strings.TrimSpace(cell), " ", "")
 			if strings.Contains(val, "학년") && strings.Contains(val, "반") {
 				parts := strings.Split(val, "학년")
-				if len(parts) == 2 {
-					classStr := strings.ReplaceAll(parts[1], "반", "")
-					if num, err := strconv.Atoi(classStr); err == nil {
-						currentClassNum = num
+				if len(parts) >= 2 {
+					afterGrade := parts[1]
+					if idx := strings.Index(afterGrade, "반"); idx != -1 {
+						classStr := afterGrade[:idx]
+						if num, err := strconv.Atoi(classStr); err == nil {
+							currentClassNum = num
+						}
 					}
 				}
 			}
