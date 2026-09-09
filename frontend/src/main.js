@@ -3343,8 +3343,8 @@ function renderAgreementModal(onAcceptCallback) {
                 <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight leading-snug">
                     프로그램 이용 및 학생 개인정보 보호 서약서
                 </h2>
-                <p class="text-xs sm:text-sm text-slate-300 mt-2.5 leading-relaxed max-w-2xl mx-auto opacity-90">
-                    본 프로그램은 중학교 3학년 고입 진학 상담 및 내신 산출을 돕기 위해 제작된 <strong>교원 전용 오프라인 업무 지원 도구</strong>입니다.<br class="hidden sm:inline">
+                <p class="text-xs sm:text-sm text-slate-300 mt-2.5 leading-relaxed max-w-3xl mx-auto opacity-90 break-keep-all text-balance">
+                    본 프로그램은 중학교 3학년 고입 진학 상담 및 내신 산출을 돕는 <strong>교원 전용 오프라인 업무 지원 도구</strong>입니다.<br>
                     안전한 학생 정보 보호와 책임 있는 진학 지도를 위해 아래 사항을 숙지하고 서약해 주시기 바랍니다.
                 </p>
             </div>
@@ -4467,7 +4467,7 @@ export async function renderUserManagementScreen(schoolName) {
         try {
             const path = await window.go.main.App.SaveDistributionPackage(username);
             if (!path) return;
-            alert(`배포 자료를 만들었습니다.\n\n프로그램 실행 파일과 다음 배포 자료를 함께 전달하세요.\n${path}\n\n받는 교사는 로그인 화면에서 ‘배포 자료 가져오기’를 누른 뒤, 공용 데이터 암호와 초기 비밀번호로 처음 로그인합니다.`);
+            alert(`'${username}' 계정용 배포 자료 생성이 완료되었습니다!\n\n📂 저장 위치:\n${path}\n\n💡 [안내 사항]\n• 담임 선생님께 프로그램 실행 파일과 위 배포 자료(.phgcpkg), 그리고 학년부장의 [공용 데이터 암호]를 함께 전달해 주세요.\n• 담임 선생님은 로그인 화면에서 ‘배포 자료 가져오기’를 누른 후, 공용 데이터 암호를 입력하여 안전하게 최초 로그인하실 수 있습니다.`);
         } catch (err) {
             alert('배포 자료 생성 실패: ' + err);
         }

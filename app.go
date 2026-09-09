@@ -176,10 +176,20 @@ func (a *App) SetupApp(req SetupRequest) error {
 		return fmt.Errorf("설정 저장 실패: %w", err)
 	}
 
-	// 사용자 초기 계정 생성 (마스터, 뷰어, 담임) - 비밀번호는 비워둠
+	// 사용자 초기 계정 생성 (마스터, 뷰어, 담임)
 	err = a.db.InitUsers(req.ClassCount, req.AdminPassword)
 	if err != nil {
 		return fmt.Errorf("초기 계정 생성 실패: %w", err)
+	}
+
+	// 담임 및 진로 계정의 초기 비밀번호를 공용 데이터 암호로 기본 설정 (학년부장이 개별 비번을 세팅하지 않아도 즉시 배포 및 로그인 가능)
+	hashedShared, hashErr := bcrypt.GenerateFromPassword([]byte(req.SharedDataPassword), bcrypt.DefaultCost)
+	if hashErr == nil {
+		if db, dbErr := a.db.openDB(a.db.getConfigDBPath()); dbErr == nil {
+			_, _ = db.Exec("UPDATE users SET password_hash = ? WHERE role IN ('homeroom', 'viewer') AND (password_hash IS NULL OR password_hash = '')", string(hashedShared))
+			_, _ = db.Exec("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE")
+			db.Close()
+		}
 	}
 	adminEnvelope, err := sealDataKeyForUser("admin", req.AdminPassword, a.dataKey)
 	if err != nil {
@@ -283,6 +293,28 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 		return nil, err
 	}
 	user, err := a.db.VerifyUserLogin(username, password)
+	if err != nil {
+		// 공용 데이터 암호 인증을 성공한 상태에서 개인 비밀번호 검증이 실패한 경우:
+		// 1) 담임 계정의 password_hash가 비어있거나(초기 상태)
+		// 2) 담임이 학년부장의 공용 암호와 동일하게 입력했거나
+		// 3) 계정이 must_change_password(초기 상태)인 경우
+		// 공용 암호를 올바르게 입력한 인가된 교사이므로, 입력한 비밀번호로 즉시 계정 비밀번호를 자동 설정·동기화하여 온보딩을 통과시킨다.
+		users, getErr := a.db.GetUsers()
+		if getErr == nil {
+			for _, u := range users {
+				if u.Username == username {
+					if u.PasswordHash == "" || password == sharedPassword || u.MustChangePassword {
+						if changeErr := a.db.ChangeUserPassword(username, password); changeErr == nil {
+							user = &u
+							user.MustChangePassword = true
+							err = nil
+						}
+					}
+					break
+				}
+			}
+		}
+	}
 	if err != nil {
 		_ = a.db.SealAllDatabases()
 		a.dataKey = nil
@@ -616,6 +648,15 @@ func (a *App) ExportDistributionPackage(username, outputPath string) error {
 	_, err = copyDB.Exec("DELETE FROM users WHERE username <> ?", target.Username)
 	if err == nil {
 		_, err = copyDB.Exec("UPDATE school_config SET admin_password = '' WHERE id = 1")
+	}
+	// 만약 target의 비밀번호가 설정되어 있지 않다면(빈 문자열), 안전하게 기본 비밀번호(계정 아이디)를 설정하여 배포
+	if err == nil && target.PasswordHash == "" {
+		defaultHash, _ := bcrypt.GenerateFromPassword([]byte(target.Username), bcrypt.DefaultCost)
+		_, err = copyDB.Exec("UPDATE users SET password_hash = ?, must_change_password = 1 WHERE username = ?", string(defaultHash), target.Username)
+	}
+	// WAL 변경사항을 본체 DB 파일로 완벽하게 체크포인트하고 저널 모드를 DELETE로 정리
+	if err == nil {
+		_, _ = copyDB.Exec("PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE")
 	}
 	copyDB.Close()
 	if err != nil {
