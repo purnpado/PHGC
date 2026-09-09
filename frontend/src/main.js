@@ -858,7 +858,7 @@ async function renderAdminScreen(schoolName) {
             </div>
 
             <!-- 데이터 연동 현황 바 -->
-            <div class="mb-6 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="mb-4 p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div class="font-bold text-slate-300">📊 데이터 연동 현황:</div>
                 <div class="flex items-center gap-4 flex-wrap">
                     <span class="inline-flex items-center gap-1.5 ${totalStd > 0 ? 'text-success' : 'text-slate-400'}">
@@ -870,6 +870,17 @@ async function renderAdminScreen(schoolName) {
                     <span class="inline-flex items-center gap-1.5 ${volCount > 0 ? 'text-success' : 'text-slate-400'}">
                         ${volCount > 0 ? '✅' : '⚪'} 봉사: <strong>${volCount}명</strong>
                     </span>
+                </div>
+            </div>
+
+            <!-- 필수 사전 검증 권장 안내 배너 -->
+            <div class="mb-6 p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-start gap-3.5 shadow-sm break-keep-all select-none">
+                <span class="text-2xl mt-0.5">💡</span>
+                <div class="text-xs sm:text-sm leading-relaxed text-amber-200">
+                    <strong class="text-amber-100 font-bold block mb-1 text-sm sm:text-base flex items-center gap-1.5">
+                        <span>[필수 사전 검증 권장]</span> 본격적인 진학 상담 전, 고교 공식 산출 프로그램과 계산값을 꼭 대조해 보세요!
+                    </strong>
+                    고등학교별 전형 요강 및 가산점 세부 산출식은 매년 미세한 차이가 있을 수 있습니다. 나이스 엑셀 연동 후, 표본 학생 1~2명의 성적을 <strong>지원 희망 고등학교의 공식 산출 프로그램(또는 산출표)</strong>에 직접 입력하여 <strong>본 프로그램의 계산값과 100% 일치하는지 반드시 사전 대조·검증</strong>하신 후 상담에 활용하시기 바랍니다.
                 </div>
             </div>
 
@@ -1416,6 +1427,17 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
+                </div>
+            </div>
+
+            <!-- 필수 사전 검증 권장 안내 배너 -->
+            <div class="mb-6 p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 flex items-start gap-3.5 shadow-sm break-keep-all select-none">
+                <span class="text-2xl mt-0.5">💡</span>
+                <div class="text-xs sm:text-sm leading-relaxed text-amber-200">
+                    <strong class="text-amber-100 font-bold block mb-1 text-sm sm:text-base flex items-center gap-1.5">
+                        <span>[필수 사전 검증 권장]</span> 학생·학부모 상담 전, 지원 희망 고교 공식 산출식과 계산값을 대조해 보세요!
+                    </strong>
+                    고교별 전형 요강(교과/출결/봉사 반영 비율 및 가산점)은 학교별로 상이할 수 있습니다. 1:1 진학 상담 전, 표본 학생의 성적을 <strong>지원 희망 고등학교의 공식 산출 프로그램</strong>에 입력하여 <strong>본 프로그램의 산출값과 일치하는지 반드시 사전 확인</strong> 후 상담에 임해 주시기 바랍니다.
                 </div>
             </div>
 
@@ -3341,27 +3363,32 @@ function renderAgreementModal(onAcceptCallback) {
 
                 <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/25 shadow-xs">
                     <h3 class="font-bold text-emerald-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>☁️</span> 2. [『그래서? 넌 어디갈래?』 서버 연동 범위 (개인정보 원천 차단)]
+                        <span>☁️</span> 2. [『그래서? 넌 어디갈래?』 서버 연동 범위 및 상호 공유 원칙]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li>프로그램 서버와의 온라인 데이터 연동은 다음의 <strong class="text-emerald-300">"익명 통계 자료"</strong>로 엄격히 제한됩니다:
+                        <li><strong>서버 연동 데이터 범위 (개인정보 원천 배제):</strong>
                             <div class="pl-4 py-1 text-slate-200 font-medium">
-                                • 각 고등학교별 입학 커트라인 기준선 (합격자 최저·평균 점수 및 불합격자 최고점)<br>
+                                • 소속 중학교명 및 각 고등학교별 입학 커트라인 기준선 (합격자 최저·평균 점수 및 불합격자 최고점)<br>
                                 • 학교 단위의 고교별 단순 지원 희망 인원 통계 수치
                             </div>
                         </li>
-                        <li><strong class="text-white">학생 개인 식별 정보(이름, 학번, 개별 성적 등)와 교사 개인정보는 서버로 일절 전송되지 않습니다.</strong></li>
-                        <li class="text-emerald-300 font-semibold">※ 고교별 커트라인 및 지원 통계 공유는 학교의 "자율적 선택사항"이며, 공유하지 않더라도 프로그램의 모든 기능(내신 산출, 합격 예측, 상담 출력 등)은 100% 정상 작동합니다.</li>
+                        <li><strong class="text-white">학생 개인 식별 정보(성명, 주민번호, 학번, 개별 점수 등)와 교사 개인정보는 일절 수집·전송되지 않습니다.</strong></li>
+                        <li class="text-emerald-300 font-semibold">
+                            ※ [관내 지원현황 열람 조건 (상호 호혜 원칙)]: 관내 진학 통계는 참여 학교 간 상호 신뢰와 데이터 공유를 바탕으로 운영됩니다. 소속 학교에서 각 고교별 커트라인 기준선 자료를 서버에 제공(공유)해 주셔야 『울산 관내 전체 지원현황 및 예측 통계』를 조회·열람하실 수 있으며, 커트라인을 제공하지 않는 학교는 전체 지원현황 열람이 제한됩니다. (단, 학교 자체적인 학생 내신 산출, 상담표 출력 등 교내 로컬 기능은 서버 공유 여부와 무관하게 100% 정상 작동합니다.)
+                        </li>
                     </ul>
                 </div>
 
                 <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/25 shadow-xs">
                     <h3 class="font-bold text-amber-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>⚖️</span> 3. [진학 지도 참고용 고지 및 면책 안내]
+                        <span>⚖️</span> 3. [진학 지도 참고용 고지 및 필수 사전 계산값 검증 안내]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 고교별 합격 예측선은 과거 입결과 공식 요강에 기반한 <strong class="text-white">'진학 상담 보조 참고 자료'</strong>입니다.</li>
-                        <li>실제 고교 입학전형 합격 여부는 각 고등학교 입학전형위원회의 최종 사정에 따르며, 프로그램의 예측 결과가 법적 합격을 보증하는 것은 아닙니다.</li>
+                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 합격 예측선은 울산광역시교육청 기본계획과 각 고교 전형 요강에 기반한 <strong class="text-white">'진학 지도 보조 참고 자료'</strong>입니다.</li>
+                        <li class="text-amber-200 font-semibold">
+                            ⚠️ [필수 사전 검증 권장]: 고교별 전형 요강의 세부 감점/가산점 기준은 매년 미세하게 달라질 수 있으므로, <strong>설치(초기 설정) 후 반드시 지원 희망 고등학교의 공식 산출 프로그램(또는 산출표)에 표본 학생 성적을 넣어보고, 본 프로그램의 계산값과 정확히 일치하는지 사전 대조·검증 후 진학 상담에 활용</strong>해 주시기 바랍니다.
+                        </li>
+                        <li>최종 합격 여부는 각 고등학교 입학전형위원회의 최종 사정에 따르며, 프로그램의 예측 결과가 법적 합격을 보증하는 것은 아닙니다.</li>
                     </ul>
                 </div>
 
@@ -3549,6 +3576,16 @@ window.renderGuideModal = renderGuideModal;
 function getTeacherGuideHTML() {
     return `
         <div class="space-y-4">
+            <!-- 사전 검증 권장 주의 카드 -->
+            <div class="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 shadow-xs">
+                <h4 class="font-bold text-amber-100 text-sm sm:text-base mb-1.5 flex items-center gap-2">
+                    <span>⚠️</span> [필수 점검] 상담 전 고교 공식 산출 프로그램과 계산값 대조
+                </h4>
+                <p class="text-xs sm:text-[13px] leading-relaxed">
+                    본격적인 1:1 진학 상담 전, 표본 학생 성적을 <strong>지원 희망 고등학교의 공식 산출 프로그램(또는 산출표)</strong>에 직접 대입하여 <strong>본 프로그램의 계산값과 100% 일치하는지 사전 확인</strong> 후 상담에 활용해 주시기 바랍니다.
+                </p>
+            </div>
+
             <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
                     <span>1️⃣</span> 1단계: 배포 자료(.phgcpkg) 적용 및 로그인
@@ -3598,6 +3635,16 @@ function getTeacherGuideHTML() {
 function getMasterGuideHTML() {
     return `
         <div class="space-y-4">
+            <!-- 사전 검증 권장 주의 카드 -->
+            <div class="p-4 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-200 shadow-xs">
+                <h4 class="font-bold text-amber-100 text-sm sm:text-base mb-1.5 flex items-center gap-2">
+                    <span>⚠️</span> [필수 점검] 나이스 연동 후 고교 공식 산출 프로그램과 계산값 사전 대조
+                </h4>
+                <p class="text-xs sm:text-[13px] leading-relaxed">
+                    나이스 성적/출결/봉사 엑셀 3종 업로드 완료 후, 담임교사 배포 전 표본 학생 1~2명의 성적을 <strong>지원 희망 고등학교의 공식 산출 프로그램(또는 공식 산출표)</strong>에 직접 입력하여 <strong>본 프로그램의 산출 점수와 100% 일치하는지 반드시 사전 대조·검증</strong>해 주시기 바랍니다.
+                </p>
+            </div>
+
             <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
                     <span>1️⃣</span> 1단계: 학교 기초 설정 및 공용 암호 관리
