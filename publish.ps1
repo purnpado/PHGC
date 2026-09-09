@@ -20,7 +20,7 @@ git config i18n.logOutputEncoding utf-8
 # ===== 저장소 설정 =====
 $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
-$giteaRepo = "PHGC"
+$giteaRepo = "PHGC-OFFLINE"
 $giteaToken = $env:GITEA_TOKEN
 
 $newVer = $Version.TrimStart('v').Trim()
