@@ -1,20 +1,21 @@
-# PHGC 기준 데이터
+# 그래서? 넌 어디 갈래? (PHGC) 기준 데이터
 
-`server-data`는 PHGC 비공개 저장소에 보관하며 EduBridge-Server가 읽어 클라이언트에 제공하는 **비실행 기준 데이터**입니다.
+`server-data` 디렉터리는 프로그램에서 참조하는 고교 마스터 목록 및 초기 커트라인 등 **비실행 기준 데이터**를 보관하는 공간입니다.
 
 ```text
 server-data/
-├── version.json        # 최신 버전·릴리즈 노트·다운로드 URL
-├── highschools.json    # 고교·학과 마스터 목록
-└── cutoffs/            # 학교가 입력한 연도별 고교 커트라인 원자료
+├── version.json        # 최신 버전 정보 및 공식 배포자료실 안내 URL
+├── highschools.json    # 관내 고등학교·학과 마스터 목록 (일반고, 특성화고, 마이스터고, 특목고 등)
+└── cutoffs/            # 연도별(최근 5개년) 고교 커트라인 기준 데이터
 ```
 
-## 파일별 역할
+## 파일별 세부 역할
 
-- `version.json`: `publish.ps1`이 갱신합니다. 앱은 EduBridge의 `/api/sync/server-data/version.json`을 통해 버전을 확인합니다.
-- `highschools.json`: 커트라인 입력 화면의 고교·학과 목록 기준입니다.
-- `cutoffs/`: 중앙 취합에 필요한 최소 공개 항목만 저장합니다. 학생·학급·교사 정보는 포함하면 안 됩니다.
+- **`version.json`**: 프로그램의 최신 버전, 업데이트 공지 및 공식 배포자료실(`https://gguk.link/boards/phgc?category=%EB%B0%B0%ED%8F%AC%EC%9E%90%EB%A3%8C`) 링크를 정의합니다.
+- **`highschools.json`**: 희망학교 선택 및 커트라인 관리 화면에서 기준이 되는 학교명, 계열, 학과 목록입니다.
+- **`cutoffs/`**: 최근 5개년 고교별 합격선 원자료입니다. 학생 식별 정보나 개인정보는 일체 포함되지 않으며 오직 학교/학과/전형별 합격선 점수 데이터만 관리합니다.
 
-`PHGC.exe`는 이 폴더에 Git으로 저장하지 않습니다. 자동업데이트용 실행 파일은 **Gitea Release Asset**으로만 업로드하며, EduBridge의 `/api/download/PHGC.exe`가 최신 릴리즈 자산을 스트리밍합니다.
+## 주의 사항
 
-모든 JSON은 BOM 없는 UTF-8로 저장합니다.
+- 모든 JSON 파일은 **BOM 없는 UTF-8** 인코딩으로 저장해야 합니다.
+- 실행 파일(`PHGC.exe`)은 이 폴더에 보관하지 않으며, `build/bin/` 또는 공식 배포자료실을 통해 배포합니다.

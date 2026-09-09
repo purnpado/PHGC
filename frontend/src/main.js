@@ -3601,52 +3601,52 @@ function renderAgreementModal(onAcceptCallback) {
             <div class="my-5 p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 text-xs sm:text-[13px] text-slate-300 leading-relaxed overflow-y-auto max-h-[48vh] space-y-4 font-sans select-text custom-scrollbar">
                 <div class="p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/25 shadow-xs">
                     <h3 class="font-bold text-indigo-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>🔒</span> 1. [학생 개인정보의 로컬 보관 및 보안 의무]
+                        <span>🔒</span> 1. [100% 오프라인 구동 및 외부 전송 원천 차단]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li>나이스(NEIS) 엑셀에서 불러온 학생 성명, 학번, 교과·비교과 성적, 지원 현황 등 <strong class="text-white">모든 개인정보는 사용자 PC(프로그램 내부 DB)에만 암호화되어 안전하게 보관</strong>됩니다.</li>
-                        <li>사용자는 「개인정보 보호법」에 따라 취득한 학생 정보를 외부로 무단 유출하거나 진학 상담 외 목적으로 활용할 수 없으며, 자리 이석 시 화면 잠금(Win+L) 등 보안 수칙을 철저히 준수해야 합니다.</li>
+                        <li>본 프로그램은 교육청 보안 지침을 준수하여 <strong>외부 인터넷 서버와의 자동 통신을 일절 수행하지 않는 100% 오프라인 독립형 소프트웨어</strong>입니다.</li>
+                        <li>나이스(NEIS) 엑셀에서 연동된 학생 성명, 학번, 교과·비교과 성적, 지원 현황 등 <strong class="text-white">모든 학생 개인정보는 교내 로컬 PC에만 군사등급 AES-256-GCM 알고리즘으로 강력 암호화되어 안전하게 보관</strong>되며, 외부로 전송되지 않습니다.</li>
                     </ul>
                 </div>
 
                 <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/25 shadow-xs">
                     <h3 class="font-bold text-emerald-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>☁️</span> 2. [『그래서? 넌 어디갈래?』 서버 연동 범위 및 상호 공유 원칙]
+                        <span>📂</span> 2. [교내 안전 배포 및 파일 기반 오프라인 취합 체계]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li><strong>서버 연동 데이터 범위 (개인정보 원천 배제):</strong>
-                            <div class="pl-4 py-1 text-slate-200 font-medium">
-                                • 소속 중학교명 및 각 고등학교별 입학 커트라인 기준선 (합격자 최저·평균 점수 및 불합격자 최고점)<br>
-                                • 학교 단위의 고교별 단순 지원 희망 인원 통계 수치
-                            </div>
-                        </li>
-                        <li><strong class="text-white">학생 개인 식별 정보(성명, 주민번호, 학번, 개별 점수 등)와 교사 개인정보는 일절 수집·전송되지 않습니다.</strong></li>
-                        <li class="text-emerald-300 font-semibold">
-                            ※ [관내 지원현황 열람 조건 (상호 호혜 원칙)]: 관내 진학 통계는 참여 학교 간 상호 신뢰와 데이터 공유를 바탕으로 운영됩니다. 소속 학교에서 각 고교별 커트라인 기준선 자료를 서버에 제공(공유)해 주셔야 『울산 관내 전체 지원현황 및 예측 통계』를 조회·열람하실 수 있으며, 커트라인을 제공하지 않는 학교는 전체 지원현황 열람이 제한됩니다. (단, 학교 자체적인 학생 내신 산출, 상담표 출력 등 교내 로컬 기능은 서버 공유 여부와 무관하게 100% 정상 작동합니다.)
-                        </li>
+                        <li>학년부장과 담임교사 간의 데이터 전달은 암호화된 학급별 배포 패키지(<strong>.phgcpkg</strong>)와 변경분 취합 파일(<strong>.phgcpatch</strong>)을 통해서만 안전하게 오프라인으로 교환됩니다.</li>
+                        <li>관내 타 학교와의 커트라인 공유 파일(<strong>.phgcdata</strong>) 내보내기 시 <strong class="text-white">학생 개인 식별 정보(성명, 학번, 개별 성적 등)는 100% 원천 배제</strong>되며, 고교별 합격선 및 학교 단위 단순 통계 수치만 안전하게 포함됩니다.</li>
+                    </ul>
+                </div>
+
+                <div class="p-4 rounded-xl bg-purple-950/40 border border-purple-500/25 shadow-xs">
+                    <h3 class="font-bold text-purple-200 text-sm sm:text-base mb-2 flex items-center gap-2">
+                        <span>🛡️</span> 3. [학생 개인정보 보호 및 교원 보안 의무 준수]
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
+                        <li>사용자는 「개인정보 보호법」 및 교육청 정보보안 기본지침에 따라 직무상 취득한 학생 정보를 진학 상담 목적 외로 이용하거나 외부에 무단 유출할 수 없습니다.</li>
+                        <li>상담 완료 후 또는 교실·교무실 이석 시에는 화면 잠금(Win+L) 및 프로그램 로그아웃을 반드시 실천하여 제3자의 무단 열람을 방지해야 합니다.</li>
                     </ul>
                 </div>
 
                 <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/25 shadow-xs">
                     <h3 class="font-bold text-amber-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>⚖️</span> 3. [진학 지도 참고용 고지 및 필수 사전 계산값 검증 안내]
+                        <span>⚖️</span> 4. [진학 지도 참고용 고지 및 필수 사전 계산값 검증 안내]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 합격 예측선은 울산광역시교육청 기본계획과 각 고교 전형 요강에 기반한 <strong class="text-white">'진학 지도 보조 참고 자료'</strong>입니다.</li>
+                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 합격 예측선은 각 고교 입학전형요강에 기반한 <strong class="text-white">'진학 지도 보조 참고 자료'</strong>이며 법적 최종 합격을 보증하는 것은 아닙니다.</li>
                         <li class="text-amber-200 font-semibold">
-                            ⚠️ [필수 사전 검증 권장]: 고교별 전형 요강의 세부 감점/가산점 기준은 매년 미세하게 달라질 수 있으므로, <strong>설치(초기 설정) 후 반드시 지원 희망 고등학교의 공식 산출 프로그램(또는 산출표)에 표본 학생 성적을 넣어보고, 본 프로그램의 계산값과 정확히 일치하는지 사전 대조·검증 후 진학 상담에 활용</strong>해 주시기 바랍니다.
+                            ⚠️ [필수 사전 검증 권장]: 고교별 전형 요강의 세부 감점/가산점 기준은 매년 미세하게 달라질 수 있으므로, <strong>설치 및 나이스 연동 후 반드시 지원 희망 고등학교의 공식 산출 프로그램(또는 산출표)에 표본 학생 성적을 입력하여 본 프로그램의 계산값과 100% 일치하는지 사전 대조·검증 후 진학 상담에 활용</strong>해 주시기 바랍니다.
                         </li>
-                        <li>최종 합격 여부는 각 고등학교 입학전형위원회의 최종 사정에 따르며, 프로그램의 예측 결과가 법적 합격을 보증하는 것은 아닙니다.</li>
                     </ul>
                 </div>
 
                 <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/25 shadow-xs">
                     <h3 class="font-bold text-rose-200 text-sm sm:text-base mb-2 flex items-center gap-2">
-                        <span>⚠️</span> 4. [동의 거부 권리 및 프로그램 자가 파기]
+                        <span>⚠️</span> 5. [동의 거부 권리 및 프로그램 사용 제한]
                     </h3>
                     <ul class="list-disc list-inside space-y-1.5 text-slate-300 leading-relaxed">
-                        <li>귀하는 본 서약 및 동의를 거부할 권리가 있습니다.</li>
-                        <li>단, 민감한 학생 정보 취급에 따른 보안 규정상 동의하지 않을 경우 프로그램 사용이 원천 차단되며, <strong class="text-rose-200">보안을 위해 프로그램 실행 파일 및 관련 데이터는 즉시 자가 삭제(폐기)</strong> 처리됩니다.</li>
+                        <li>귀하는 본 서약 및 동의를 거부할 권리가 있습니다. 단, 학생 개인정보 취급에 따른 보안 규정상 동의하지 않을 경우 프로그램의 모든 기능 사용이 원천 차단되며 즉시 프로그램이 종료됩니다.</li>
                     </ul>
                 </div>
             </div>
@@ -3836,43 +3836,44 @@ function getTeacherGuideHTML() {
 
             <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
-                    <span>1️⃣</span> 1단계: 배포 자료(.phgcpkg) 적용 및 로그인
+                    <span>1️⃣</span> 1단계: 배포 자료(.phgcpkg) 적용 및 안전 로그인
                 </h3>
                 <p class="text-slate-300">
-                    • 학년부장 선생님께 전달받은 파일(<strong>.phgcpkg</strong>)을 첫 화면 또는 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
-                    • 본인 학급(예: 3학년 1반)을 선택하고, 학년부장이 부여한 초기 비밀번호로 로그인합니다. (최초 로그인 시 비밀번호 변경 가능)
+                    • 학년부장 선생님께 전달받은 학급 패키지 파일(<strong>.phgcpkg</strong>)을 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
+                    • 본인 학급(예: 3반 담임)을 선택하고, 학년부장이 안내한 공용 데이터 암호와 초기 비밀번호를 입력하여 접속합니다. (접속 후 개인 비밀번호 변경 가능)
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 우리 반 진학 상담 대시보드 열람
+                    <span>2️⃣</span> 2단계: 학급 진학 현황 및 신호등 매트릭스 분석
                 </h3>
                 <p class="text-slate-300">
-                    • <strong>일반고 합격 예측:</strong> 학생별 전교 석차백분율 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 한눈에 확인합니다.<br>
-                    • <strong>마이스터고 및 특성화고 지원 가능:</strong> 과거 커트라인(공식자료/학교입력) 대비 합격 가능 학교가 뱃지로 자동 표시됩니다.<br>
-                    • <strong>신호등 매트릭스:</strong> 상단의 [📊 신호등 매트릭스]를 누르면 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 표 하나로 비교할 수 있습니다.
+                    • <strong>일반계고 합격 예측:</strong> 전교 석차백분율(%) 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 한눈에 확인합니다.<br>
+                    • <strong>전기 고교 지원가능 신호등:</strong> 마이스터고 및 특성화고의 합격선 대비 지원 가능 여부가 카드별로 자동 표시됩니다.<br>
+                    • <strong>📊 신호등 매트릭스:</strong> 상단의 [📊 신호등 매트릭스] 버튼을 클릭하면 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 한 장의 종합 표로 비교·출력할 수 있습니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
-                    <span>3️⃣</span> 3단계: 1:1 심층 상담 및 희망학교 등록
+                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (1년/3년평균/5년평균 탭 비교)
                 </h3>
                 <p class="text-slate-300">
                     • 학생 성명 또는 <strong>[🎯 진학 상담]</strong> 버튼을 클릭하여 개인별 심층 상담창을 엽니다.<br>
-                    • <strong>희망학교 등록:</strong> 학생·학부모 상담을 통해 1~3지망 지원학교 및 전형을 선택하고 [저장]합니다.<br>
-                    • <strong>상담표 인쇄:</strong> 상담창 우측 상단의 [📄 진학 상담 결과표] 버튼을 누르면 학부모 상담용 공식 A4 결과표가 즉시 출력됩니다.
+                    • <strong>다각도 합격선 비교 탭:</strong> 상단의 <strong>[🎯 직전 1개년]</strong>, <strong>[📊 최근 3년 평균]</strong>, <strong>[📈 최근 5년 평균]</strong> 탭을 클릭하여 고교별 판정 변화와 점수차(±점)를 입체적으로 분석하며 상담합니다.<br>
+                    • <strong>희망학교 및 학과 지망 등록:</strong> 상담을 통해 1~5지망 학과를 선택하고 저장합니다. 합격 및 최종 배정 시 데이터 잠금으로 오입력을 방지합니다.<br>
+                    • <strong>상담표 인쇄:</strong> 상담창 상단의 [📄 진학 상담 결과표] 버튼으로 학부모 상담용 A4 상담표를 즉시 인쇄/PDF 저장할 수 있습니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
-                    <span>4️⃣</span> 4단계: 출결·봉사 변동사항 반영 및 학년부장 제출
+                    <span>4️⃣</span> 4단계: 변경분 취합자료(.phgcpatch) 학년부장 제출
                 </h3>
                 <p class="text-slate-300">
-                    • 2학기 출결(미인정 결석/지각)이나 추가 봉사활동이 발생한 경우 상담창에서 바로 수정합니다.<br>
-                    • 상담이 완료되면 대시보드 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 제출용 패치 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 메신저/USB로 전달합니다.
+                    • 2학기 출결(미인정 결석/지각)이나 추가 봉사시간, 리더십 가산점을 상담창에서 수기 반영합니다.<br>
+                    • 학급 상담이 마무리되면 화면 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 공용 암호로 암호화된 변경분 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 USB 또는 교내 메신저로 전달합니다.
                 </p>
             </div>
         </div>
@@ -3898,14 +3899,14 @@ function getMasterGuideHTML() {
                     <span>1️⃣</span> 1단계: 학교 기초 설정 및 공용 암호 관리
                 </h3>
                 <p class="text-slate-300">
-                    • 최초 실행 시 학교명, 3학년 전체 학급 수, 입시 학년도를 설정합니다.<br>
-                    • 담임교사 PC와 안전하게 암호화 통신을 하기 위한 <strong>[공용 데이터 잠금 암호]</strong>를 지정합니다.
+                    • 최초 실행 시 학교명, 3학년 전체 학급 수, 고교 입학년도를 설정합니다.<br>
+                    • 담임교사 PC와 안전하게 오프라인 암호화 통신을 수행하기 위한 <strong>[공용 데이터 잠금 암호]</strong>를 지정합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 나이스(NEIS) 엑셀 3종 데이터 연동
+                    <span>2️⃣</span> 2단계: 나이스(NEIS) 엑셀 3종 데이터 교내 연동
                 </h3>
                 <p class="text-slate-300">
                     • 관리자 대시보드에서 나이스 출력 엑셀을 순서대로 업로드합니다:<br>
@@ -3922,7 +3923,7 @@ function getMasterGuideHTML() {
                 <p class="text-slate-300">
                     • <strong>[사용자 및 권한 관리]</strong> 메뉴로 이동합니다.<br>
                     • 각 반 담임선생님의 초기 비밀번호를 설정하거나 확인합니다.<br>
-                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 각 반별 패키지(<strong>.phgcpkg</strong>)를 생성하여 담임선생님께 전달합니다.
+                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 각 반별 패키지(<strong>.phgcpkg</strong>)를 생성하여 공용 암호와 함께 담임선생님께 전달합니다.
                 </p>
             </div>
 
@@ -3932,19 +3933,20 @@ function getMasterGuideHTML() {
                 </h3>
                 <p class="text-slate-300">
                     • 담임선생님들이 상담 후 제출한 패치 파일(<strong>.phgcpatch</strong>)을 수신합니다.<br>
-                    • 관리자 대시보드의 <strong>[📥 취합자료병합(학년부장)]</strong> 버튼을 클릭합니다.<br>
-                    • 학생별 변경 항목(출결, 봉사, 가산점, 지원현황)을 확인하고 선택적으로 체크하여 학년부 데이터에 안전하게 병합합니다.
+                    • 관리자 도구 바의 <strong>[📥 취합자료병합]</strong> 버튼을 클릭하고 공용 암호를 확인합니다.<br>
+                    • 학생별 변경 항목(출결, 봉사, 가산점, 지원희망)을 확인하고 체크하여 학년부 전체 데이터에 안전하게 병합합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-purple-300 text-base mb-2 flex items-center gap-2">
-                    <span>5️⃣</span> 5단계: 관내 커트라인 연동 및 원서대장 일괄 출력
+                    <span>5️⃣</span> 5단계: 전교 학교 통계 분석 및 원서대장 일괄 출력
                 </h3>
                 <p class="text-slate-300">
-                    • <strong>[커트라인 관리]</strong>에서 중앙 서버의 관내 공식 합격선과 참고자료를 내려받거나 자체 수정합니다.<br>
-                    • <strong>[🏫 학교 통계]</strong>에서 3학년 전체의 고교별/전형별 지망 인원을 실시간으로 종합 분석합니다.<br>
-                    • 원서 접수 시기에는 <strong>[🖨️ 원서대장]</strong> 버튼을 눌러 교육청 제출용 공식 원서대장을 A4로 즉시 일괄 출력합니다.
+                    • <strong>[🏫 전교 학교 통계]:</strong> 3학년 전체의 고교별/전형별 지망 인원 및 전교생 진학 통계를 한눈에 종합 분석합니다.<br>
+                    • <strong>[🖨️ 원서대장]:</strong> 교육청 제출용 교내 원서대장을 정렬/검토하고 A4로 즉시 일괄 출력합니다.<br>
+                    • <strong>[커트라인 관리 & 관내 자료 내보내기/병합]:</strong> 최근 5개년 커트라인을 관리하며, 타 학교와 개인정보 없는 순수 통계 파일(<strong>.phgcdata</strong>)을 상호 교환하여 입결 정확도를 극대화합니다.<br>
+                    • <strong>[🗄️ 최종 보관본 / 📅 입시년도 전환]:</strong> 입시 종료 후 암호화 최종 보관본을 생성하고, 새 학년도 전환으로 학생 데이터를 안전하게 정리합니다.
                 </p>
             </div>
         </div>

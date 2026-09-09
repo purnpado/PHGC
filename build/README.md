@@ -1,34 +1,45 @@
-# 빌드 디렉터리 (Build Directory)
+# 빌드 및 패키징 — 그래서? 넌 어디 갈래? (PHGC)
 
-이 디렉터리는 PHGC 애플리케이션의 빌드 자산과 패키징 관련 설정을 관리하는 공간입니다.
+이 디렉터리는 **"그래서? 넌 어디 갈래?"** 애플리케이션의 Windows 실행 파일 빌드 자산, 프로그램 아이콘 및 패키징 설정을 관리합니다.
 
-## 디렉터리 구조
+## 디렉터리 구성
 
-* `bin/` - Wails 빌드 결과물(`PHGC.exe`)이 생성되는 출력 폴더
-* `windows/` - Windows 실행 파일 빌드 및 메타데이터 관련 파일
-* `darwin/` - macOS 빌드 지원용 파일 (필요 시 활용)
-* `appicon.png` - 애플리케이션 기본 아이콘 이미지
+- `bin/`: 빌드된 최종 단일 실행 파일(`PHGC.exe`)이 출력되는 폴더입니다.
+- `windows/`: Windows 실행 파일 메타데이터 및 리소스 파일
+  - `icon.ico`: **Windows 실행 파일(`.exe`) 및 작업 표시줄에 표시되는 아이콘**
+  - `info.json`: 실행 파일 버전, 프로그램명, 제작자 정보
+  - `wails.exe.manifest`: 관리자 권한 및 고해상도(DPI) 지원 매니페스트
+- `appicon.png`: **애플리케이션 대표 PNG 아이콘** (Wails 크로스플랫폼 기본 아이콘)
+- `frontend/src/assets/images/logo-universal.png`: 프론트엔드 로그인 및 대시보드 로고 이미지
 
-## Windows 빌드 설정
+---
 
-`windows/` 디렉터리는 Windows 환경에서 실행 파일(`PHGC.exe`) 생성 시 주입되는 아이콘, 버전 정보, 매니페스트를 정의합니다.
+## 🎨 프로그램 아이콘 변경 방법
 
-- `icon.ico`: 프로그램의 작업 표시줄, 바탕화면, 실행 파일에 표시되는 아이콘 파일입니다. (아이콘 변경 시 이 파일을 교체합니다.)
-- `info.json`: 실행 파일 속성(자세히 탭)에 표기되는 프로그램 설명, 버전, 저작권자(`purnpadosori`) 정보입니다.
-- `wails.exe.manifest`: Windows 관리자 권한 및 DPI 인식, 시각적 스타일 등을 정의하는 매니페스트 파일입니다.
-- `installer/`: NSIS 기반 Windows 설치 프로그램(Installer) 패키징을 위한 템플릿 파일이 포함되어 있습니다.
+프로그램의 아이콘을 새로운 이미지로 변경하려면 다음 순서대로 진행합니다.
 
-## 빌드 방법
+1. **아이콘 파일 준비**:
+   - 정사각 비율의 새 로고 이미지(PNG 형식, 최소 512x512 권장)를 준비합니다.
+2. **아이콘 파일 덮어쓰기**:
+   - `build/appicon.png`: 새 PNG 파일로 교체합니다.
+   - `build/windows/icon.ico`: 다중 해상도(256, 128, 64, 48, 32, 16)가 포함된 `.ico` 파일로 변환하여 교체합니다.
+   - `frontend/src/assets/images/logo-universal.png`: 프로그램 UI 내부 로고도 함께 변경하려면 이 파일을 교체합니다.
+3. **프로그램 재빌드**:
+   - 프로젝트 루트에서 `wails build`를 실행하면 새 아이콘이 적용된 `build/bin/PHGC.exe`가 생성됩니다.
 
-Wails CLI가 설치된 환경에서 다음 명령어를 실행합니다:
+---
 
-```bash
-# 개발 모드 (Vite 프론트엔드 HMR 핫 리로드 지원)
+## 🚀 빌드 명령어
+
+Wails CLI가 설치된 터미널에서 실행합니다:
+
+```powershell
+# 개발 모드 (Vite 실시간 핫리로드 지원)
 wails dev
 
 # 배포용 단일 실행 파일(.exe) 빌드
 wails build
-```
 
-빌드가 성공하면 `build/bin/PHGC.exe`가 생성됩니다.  
-원클릭 자동 버전업 및 Gitea 배포를 진행할 경우 루트 디렉터리의 `publish.ps1` 스크립트를 사용합니다.
+# 버전 증가, 빌드, 한국어 커밋 및 저장소 동기화
+.\publish.ps1 -Notes "아이콘 변경 및 최신 기능 업데이트"
+```
