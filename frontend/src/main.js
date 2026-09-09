@@ -3329,10 +3329,10 @@ async function openMatrixModal(classNum) {
 
     const modalEl = document.createElement('div');
     modalEl.id = 'matrixModal';
-    modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
+    modalEl.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200';
     modalEl.innerHTML = `
         <div class="glass-card p-8 w-full max-w-[1680px] text-center">
-            <span class="spinner"></span> <span class="text-white ml-2">${classNum}반 학생들의 신호등 매트릭스를 구성하는 중...</span>
+            <span class="spinner"></span> <span class="text-white ml-2">${classNum}반 학생들의 5개년 신호등 매트릭스를 구성하는 중...</span>
         </div>
     `;
     document.body.appendChild(modalEl);
@@ -3341,122 +3341,244 @@ async function openMatrixModal(classNum) {
         const fullGrades = await window.go.main.App.GetClassFullGrades(classNum);
         const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
 
-        let matrixRows = '';
-        fullGrades.forEach(s => {
-            // 고교별 배지 생성 헬퍼 함수
-            const getBadge = (schoolSubstr, track = '일반') => {
-                const r = s.schoolResults.find(x => x.schoolName.includes(schoolSubstr) && x.trackName.includes(track));
-                if (!r) return '<span class="text-slate-500">-</span>';
+        // 학교별 연도별 커트라인 히스토리 맵 구축 (연도 내림차순 정렬)
+        const schoolKeywords = [
+            { key: '마이스터', label: '울산마이스터고', max: 300 },
+            { key: '에너지', label: '울산에너지고', max: 230 },
+            { key: '현대', label: '현대공업고', max: 200 },
+            { key: '상업고', label: '울산상고', max: 100 },
+            { key: '여자상업고', label: '울산여상', max: 100 },
+            { key: '생활과학', label: '울산생과고', max: 100 },
+            { key: '공업고', label: '울산공고', max: 100 },
+            { key: '산업고', label: '울산산업고', max: 100 },
+            { key: '미용예술', label: '미용예술고', max: 100 },
+            { key: '기술공업', label: '기술공고', max: 100 }
+        ];
 
-                let foundCutoff = null;
-                if (cutoffs) {
-                    foundCutoff = cutoffs.find(c => c.schoolName.includes(schoolSubstr) && (c.track.includes(track) || c.department === '공통'));
-                }
-
-                if (foundCutoff && foundCutoff.minValue > 0) {
-                    if (r.totalScore >= foundCutoff.minValue + 5) {
-                        return `<span class="text-success font-bold" title="최저선: ${foundCutoff.minValue}점 (안정)">🟢 ${r.totalScore.toFixed(2)}</span>`;
-                    } else if (r.totalScore >= foundCutoff.minValue) {
-                        return `<span class="text-warning font-bold" title="최저선: ${foundCutoff.minValue}점 (경계)">🟡 ${r.totalScore.toFixed(2)}</span>`;
-                    } else {
-                        return `<span class="text-danger font-bold" title="최저선: ${foundCutoff.minValue}점 (주의)">🔴 ${r.totalScore.toFixed(2)}</span>`;
+        const cutoffHistoryMap = new Map();
+        schoolKeywords.forEach(s => {
+            const historyByYear = new Map();
+            (cutoffs || []).filter(c => c.schoolName.includes(s.key) && Number(c.minValue) > 0)
+                .sort((a, b) => b.year - a.year)
+                .forEach(c => {
+                    if (!historyByYear.has(c.year)) {
+                        historyByYear.set(c.year, c.minValue);
                     }
-                }
-                return `<span class="text-slate-300 font-medium">${r.totalScore.toFixed(2)}점</span>`;
-            };
-
-            const meister = getBadge('마이스터');
-            const energy = getBadge('에너지');
-            const hyundai = getBadge('현대');
-            const sangop = getBadge('상업고');
-            const yeosang = getBadge('여자상업고');
-            const saenggwa = getBadge('생활과학');
-            const gongop = getBadge('공업고');
-            const sanup = getBadge('산업고');
-            const miyong = getBadge('미용예술');
-            const gisul = getBadge('기술공업');
-            const general = s.generalHSPercentile <= 80 ? '🟢 안정' : (s.generalHSPercentile <= 90 ? '🟡 경계' : '🔴 주의');
-
-            matrixRows += `
-                <tr class="hover:bg-slate-800/60 border-b border-slate-700/50 text-center">
-                    <td class="p-2.5 text-slate-400 font-mono">${s.studentNum}</td>
-                    <td class="p-2.5 font-bold text-white cursor-pointer hover:underline matrix-student-name"
-                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${s.name}">
-                        ${s.name}
-                    </td>
-                    <td class="p-2.5 text-primary font-bold">${s.allAverage.toFixed(2)}</td>
-                    <td class="p-2.5">${meister}</td>
-                    <td class="p-2.5">${energy}</td>
-                    <td class="p-2.5">${hyundai}</td>
-                    <td class="p-2.5">${sangop}</td>
-                    <td class="p-2.5">${yeosang}</td>
-                    <td class="p-2.5">${saenggwa}</td>
-                    <td class="p-2.5">${gongop}</td>
-                    <td class="p-2.5">${sanup}</td>
-                    <td class="p-2.5">${miyong}</td>
-                    <td class="p-2.5">${gisul}</td>
-                    <td class="p-2.5 font-bold whitespace-nowrap">${general} <span class="text-[11px] text-slate-400">(${s.generalHSPercentile.toFixed(2)}%)</span></td>
-                </tr>
-            `;
+                });
+            const sortedHistory = [...historyByYear.entries()].sort((a, b) => b[0] - a[0]).map(x => x[1]);
+            cutoffHistoryMap.set(s.key, sortedHistory);
         });
+
+        // 특정 모드에서의 학교별 기준선 계산 함수
+        const getSchoolCutoffVal = (schoolKey, mode) => {
+            const history = cutoffHistoryMap.get(schoolKey) || [];
+            if (!history.length) return 0;
+            if (mode === 'last') {
+                return history[0] || 0;
+            } else if (mode === 'avg3') {
+                const slice3 = history.slice(0, 3);
+                return slice3.length ? slice3.reduce((a, b) => a + b, 0) / slice3.length : 0;
+            } else if (mode === 'avg5') {
+                const slice5 = history.slice(0, 5);
+                return slice5.length ? slice5.reduce((a, b) => a + b, 0) / slice5.length : 0;
+            }
+            return history[0] || 0;
+        };
+
+        let currentMatrixMode = 'last'; // 'last', 'avg3', 'avg5'
+
+        // 테이블 본문(tbody) 생성 함수
+        const generateTableRows = (mode) => {
+            let rowsHTML = '';
+            fullGrades.forEach(s => {
+                const getBadge = (schoolKey, track = '일반') => {
+                    const r = s.schoolResults.find(x => x.schoolName.includes(schoolKey) && x.trackName.includes(track));
+                    if (!r) return '<span class="text-slate-600">-</span>';
+
+                    const cutoffVal = getSchoolCutoffVal(schoolKey, mode);
+                    if (cutoffVal && cutoffVal > 0) {
+                        if (r.totalScore >= cutoffVal + 5) {
+                            return `<span class="inline-flex items-center gap-1 font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (안정)">🟢 ${r.totalScore.toFixed(1)}</span>`;
+                        } else if (r.totalScore >= cutoffVal) {
+                            return `<span class="inline-flex items-center gap-1 font-bold text-amber-300 bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (적정/경계)">🟡 ${r.totalScore.toFixed(1)}</span>`;
+                        } else {
+                            return `<span class="inline-flex items-center gap-1 font-semibold text-rose-400 bg-rose-950/30 border border-rose-500/30 px-2 py-0.5 rounded-full text-xs shadow-xs" title="기준선: ${cutoffVal.toFixed(1)}점 (소신/주의)">🔴 ${r.totalScore.toFixed(1)}</span>`;
+                        }
+                    }
+                    return `<span class="text-slate-300 font-medium text-xs">${r.totalScore.toFixed(1)}</span>`;
+                };
+
+                const meister = getBadge('마이스터');
+                const energy = getBadge('에너지');
+                const hyundai = getBadge('현대');
+                const sangop = getBadge('상업고');
+                const yeosang = getBadge('여자상업고');
+                const saenggwa = getBadge('생활과학');
+                const gongop = getBadge('공업고');
+                const sanup = getBadge('산업고');
+                const miyong = getBadge('미용예술');
+                const gisul = getBadge('기술공업');
+                const generalBadge = getGeneralGuideBadge(s.generalHSPercentile);
+
+                rowsHTML += `
+                    <tr class="hover:bg-slate-800/70 border-b border-slate-700/50 text-center transition-colors">
+                        <td class="p-2.5 text-slate-400 font-mono font-bold">${s.studentNum}</td>
+                        <td class="p-2.5 font-bold text-white cursor-pointer hover:text-indigo-300 hover:underline matrix-student-name transition-colors whitespace-nowrap"
+                            data-class="${classNum}" data-num="${s.studentNum}" data-name="${s.name}" title="클릭하여 1:1 진학 상담 열기">
+                            ${s.name}
+                        </td>
+                        <td class="p-2.5 text-indigo-300 font-bold font-mono text-xs">${s.allAverage.toFixed(1)}</td>
+                        <td class="p-2.5">${meister}</td>
+                        <td class="p-2.5">${energy}</td>
+                        <td class="p-2.5">${hyundai}</td>
+                        <td class="p-2.5">${sangop}</td>
+                        <td class="p-2.5">${yeosang}</td>
+                        <td class="p-2.5">${saenggwa}</td>
+                        <td class="p-2.5">${gongop}</td>
+                        <td class="p-2.5">${sanup}</td>
+                        <td class="p-2.5">${miyong}</td>
+                        <td class="p-2.5">${gisul}</td>
+                        <td class="p-2.5 font-bold whitespace-nowrap">${generalBadge}</td>
+                    </tr>
+                `;
+            });
+            return rowsHTML;
+        };
+
+        const getModeDescription = (mode) => {
+            if (mode === 'last') {
+                return '🎯 <strong>직전 1개년(작년)</strong> 최종 합격선을 기준으로 반 전체 합격 가능성을 판정합니다.';
+            } else if (mode === 'avg3') {
+                return '📊 <strong>최근 3개년 누적 평균선</strong>을 기준으로 판정합니다 (단년도 커트라인 요동 완화).';
+            } else if (mode === 'avg5') {
+                return '📈 <strong>최근 5개년 장기 추세 평균선</strong>을 기준으로 중장기 합격 안정성을 판정합니다.';
+            }
+            return '';
+        };
 
         modalEl.innerHTML = `
             <div class="glass-card print-document p-6 md:p-8 w-full max-w-[1760px] max-h-[92vh] overflow-y-auto space-y-5">
-                <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                <!-- 모달 헤더 -->
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-4 flex-wrap gap-3">
                     <div>
-                        <h2 class="text-2xl font-black text-white flex items-center gap-2">
-                            📊 ${classNum}반 전체 관내 고교별 진학 신호등 매트릭스
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-xs font-bold">🏫 3학년 ${classNum}반</span>
+                            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-xs font-bold">총 ${fullGrades.length}명</span>
+                        </div>
+                        <h2 class="text-2xl font-black text-white flex items-center gap-2 mt-1.5">
+                            📊 관내 고교별 진학 신호등 종합 매트릭스
                         </h2>
-                        <p class="text-xs text-text-muted mt-1">학생 이름을 클릭하면 해당 학생의 세부 상담창으로 즉시 이동합니다. (초록: 안정 / 노랑: 경계 / 빨강: 주의 ※ 실기고사를 치르는 학교는 제외)</p>
                     </div>
-                    <button id="closeMatrixBtn" class="no-print text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">✕</button>
+                    <button id="closeMatrixBtn" class="no-print text-slate-400 hover:text-white p-2 text-2xl font-bold bg-transparent border-none cursor-pointer leading-none">✕</button>
                 </div>
 
+                <!-- 판정 기준 탭 바 & 실시간 설명 바 -->
+                <div class="flex items-center justify-between gap-3 flex-wrap bg-slate-900/70 p-3 rounded-2xl border border-slate-700/60 shadow-inner">
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1">
+                            <span>⚙️</span> 판정 기준:
+                        </span>
+                        <div class="inline-flex rounded-xl bg-slate-800 p-1 border border-slate-700/80 shadow-xs">
+                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'last' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="last">
+                                🎯 직전 1개년 (작년)
+                            </button>
+                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'avg3' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="avg3">
+                                📊 최근 3개년 평균
+                            </button>
+                            <button class="matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentMatrixMode === 'avg5' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-white'}" data-mode="avg5">
+                                📈 최근 5개년 장기추세
+                            </button>
+                        </div>
+                    </div>
+                    <div id="matrixModeDesc" class="text-xs text-indigo-200 font-medium">
+                        ${getModeDescription(currentMatrixMode)}
+                    </div>
+                </div>
+
+                <!-- 매트릭스 테이블 -->
                 <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr class="bg-slate-800/80 text-text-muted border-b border-slate-700/70 text-center whitespace-nowrap">
-                                <th class="p-2.5 w-10">번호</th>
-                                <th class="p-2.5 w-16">성명</th>
-                                <th class="p-2.5 w-14">평균</th>
-                                <th class="p-2.5 text-amber-400">🎓 마이스터고</th>
-                                <th class="p-2.5 text-amber-400">🎓 에너지고</th>
-                                <th class="p-2.5 text-amber-400">🎓 현대공고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 울산상고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 울산여상</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 울산생과고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 울산공고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 울산산업고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 미용예술고</th>
-                                <th class="p-2.5 text-indigo-400">🛠️ 기술공고</th>
-                                <th class="p-2.5 text-emerald-400">🏫 후기 일반계고</th>
+                            <tr class="bg-slate-800/90 text-text-muted border-b border-slate-700/70 text-center whitespace-nowrap">
+                                <th class="p-3 w-12 font-bold">번호</th>
+                                <th class="p-3 w-20 font-bold">성명</th>
+                                <th class="p-3 w-16 font-bold text-indigo-300">내신평균</th>
+                                <th class="p-3 text-amber-300 font-bold">🎓 울산마이스터</th>
+                                <th class="p-3 text-amber-300 font-bold">🎓 에너지고</th>
+                                <th class="p-3 text-amber-300 font-bold">🎓 현대공고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 울산상고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 울산여상</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 울산생과고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 울산공고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 울산산업고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 미용예술고</th>
+                                <th class="p-3 text-cyan-300 font-bold">🏭 기술공고</th>
+                                <th class="p-3 text-emerald-300 font-bold">🏫 후기 일반계고</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${matrixRows}
+                        <tbody id="matrixTableBody">
+                            ${generateTableRows(currentMatrixMode)}
                         </tbody>
                     </table>
                 </div>
-                <div class="flex justify-between items-center text-xs text-text-muted">
-                    <div>* 점수 뒤 신호등은 등록된 커트라인 대비 5점 이상 초과 시 안정(🟢), 기준점 이상 시 경계(🟡), 미만 시 주의(🔴)로 표시됩니다.</div>
-                    <button id="matrixPrintBtn" class="no-print btn-secondary text-xs px-3 py-1.5 font-bold">🖨️ 매트릭스 인쇄</button>
+
+                <!-- 하단 범례 및 인쇄 버튼 -->
+                <div class="flex justify-between items-center text-xs text-text-muted flex-wrap gap-3 pt-2">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span><strong>신호등 범례:</strong></span>
+                        <span class="inline-flex items-center gap-1 text-emerald-400 font-bold">🟢 안정 (기준선 +5점 이상)</span>
+                        <span class="inline-flex items-center gap-1 text-amber-300 font-bold">🟡 적정/경계 (기준선 이상)</span>
+                        <span class="inline-flex items-center gap-1 text-rose-400 font-bold">🔴 소신/주의 (기준선 미만)</span>
+                        <span class="text-slate-500">※ 학생 이름을 클릭하면 해당 학생의 1:1 세부 상담 화면으로 즉시 이동합니다.</span>
+                    </div>
+                    <button id="matrixPrintBtn" class="no-print btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl cursor-pointer">
+                        <span>🖨️</span> 매트릭스 인쇄
+                    </button>
                 </div>
             </div>
         `;
 
-        document.getElementById('closeMatrixBtn').addEventListener('click', () => modalEl.remove());
-        document.getElementById('matrixPrintBtn').addEventListener('click', () => printOnly('matrix', 'landscape'));
+        // 탭 전환 이벤트 바인딩
+        modalEl.querySelectorAll('.matrix-mode-tab').forEach(tabBtn => {
+            tabBtn.addEventListener('click', () => {
+                const mode = tabBtn.dataset.mode;
+                if (currentMatrixMode === mode) return;
+                currentMatrixMode = mode;
 
-        // 학생 이름 클릭 시 해당 학생의 상담창으로 이동
-        modalEl.querySelectorAll('.matrix-student-name').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const cNum = parseInt(e.target.dataset.class);
-                const sNum = e.target.dataset.num;
-                const sName = e.target.dataset.name;
-                modalEl.remove();
-                openStudentModal(cNum, sNum, sName);
+                modalEl.querySelectorAll('.matrix-mode-tab').forEach(b => {
+                    if (b.dataset.mode === mode) {
+                        b.className = 'matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer bg-primary text-white shadow-md';
+                    } else {
+                        b.className = 'matrix-mode-tab px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-slate-400 hover:text-white';
+                    }
+                });
+
+                const descEl = modalEl.querySelector('#matrixModeDesc');
+                if (descEl) descEl.innerHTML = getModeDescription(currentMatrixMode);
+
+                const tbodyEl = modalEl.querySelector('#matrixTableBody');
+                if (tbodyEl) {
+                    tbodyEl.innerHTML = generateTableRows(currentMatrixMode);
+                    bindStudentNameClick();
+                }
             });
         });
+
+        const bindStudentNameClick = () => {
+            modalEl.querySelectorAll('.matrix-student-name').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    const cNum = parseInt(e.currentTarget.dataset.class);
+                    const sNum = e.currentTarget.dataset.num;
+                    const sName = e.currentTarget.dataset.name;
+                    modalEl.remove();
+                    openStudentModal(cNum, sNum, sName);
+                });
+            });
+        };
+
+        bindStudentNameClick();
+        document.getElementById('closeMatrixBtn').addEventListener('click', () => modalEl.remove());
+        document.getElementById('matrixPrintBtn').addEventListener('click', () => printOnly('matrix', 'landscape'));
 
     } catch (err) {
         modalEl.innerHTML = `<div class="glass-card p-8 text-center text-danger font-bold">매트릭스 생성 실패: ${err}</div>`;
