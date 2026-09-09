@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	// 애플리케이션 버전 (v1.2.0 오프라인 전용 에디션)
-	AppVersion = "1.2.0"
+	// 애플리케이션 버전 (v1.2.1 오프라인 전용 에디션)
+	AppVersion = "1.2.1"
 
 	// 기본 로컬 데이터 폴더
 	ServerDataPath = "server-data"
@@ -224,3 +224,4 @@ func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
 	}
 	return []NoticeItem{}, nil
 }
+

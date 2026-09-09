@@ -3,8 +3,8 @@
 # - GitHub (github.com): 커밋, 푸시, 태그만 수행 (순수 원본 소스 보관용, 바이너리 업로드 금지)
 # - 배포자료실 (gguk.link 게시판): 사용자가 수동 업로드
 param (
-    [string]$Notes = "100% 오프라인 전용 모드 전환 (정보보안 지침 준수, 외부 통신 차단, 기존 데이터 100% 호환)",
-    [string]$Version = "1.2.0",
+    [string]$Notes = "신호등 종합 매트릭스 6개 탭(직전1년/최근3년/최근5년 × 일반/특별) 세분화 및 마이스터고 3개년 평균 기준선 연동",
+    [string]$Version = "1.2.1",
     [switch]$SkipBindings,
     [switch]$UploadGiteaRelease # 사용자가 명시적으로 업로드 지시할 때만 활성화
 )
