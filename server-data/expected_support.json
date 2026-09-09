@@ -1,0 +1,166 @@
+[
+  {
+    "admissionYear": 2027,
+    "sourceMiddleSchoolName": "두광중학교",
+    "participantToken": "60c80908d32313cf4cf33814996b966eb6437cbddce40704",
+    "updatedAt": "2026-09-09T13:46:20+09:00",
+    "items": [
+      {
+        "category": "general",
+        "targetSchool": "울산 후기 일반계고",
+        "department": "",
+        "track": "후기 일반계고",
+        "preferenceRank": 0,
+        "plannedCount": 6,
+        "submittedCount": 0,
+        "maxScore": 176.55,
+        "minScore": 96,
+        "avgScore": 140.75833333333335
+      },
+      {
+        "category": "meister",
+        "targetSchool": "울산마이스터고등학교",
+        "department": "자동화시스템과",
+        "track": "특별",
+        "preferenceRank": 2,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 253.1,
+        "minScore": 253.1,
+        "avgScore": 253.1
+      },
+      {
+        "category": "meister",
+        "targetSchool": "울산마이스터고등학교",
+        "department": "전기시스템제어과",
+        "track": "특별",
+        "preferenceRank": 1,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 253.1,
+        "minScore": 253.1,
+        "avgScore": 253.1
+      },
+      {
+        "category": "meister",
+        "targetSchool": "울산마이스터고등학교",
+        "department": "정밀기계과",
+        "track": "특별",
+        "preferenceRank": 3,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 253.1,
+        "minScore": 253.1,
+        "avgScore": 253.1
+      },
+      {
+        "category": "self_foreign",
+        "targetSchool": "울산외국어고등학교",
+        "department": "",
+        "track": "자사고·외고 전형",
+        "preferenceRank": 0,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 0,
+        "minScore": 0,
+        "avgScore": 0
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산산업고등학교",
+        "department": "그린스마트팜과",
+        "track": "취업희망자",
+        "preferenceRank": 2,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 14.58,
+        "minScore": 14.58,
+        "avgScore": 14.58
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산산업고등학교",
+        "department": "반려동물과",
+        "track": "취업희망자",
+        "preferenceRank": 1,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 14.58,
+        "minScore": 14.58,
+        "avgScore": 14.58
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산산업고등학교",
+        "department": "보건간호과",
+        "track": "취업희망자",
+        "preferenceRank": 5,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 14.58,
+        "minScore": 14.58,
+        "avgScore": 14.58
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산산업고등학교",
+        "department": "식품가공과",
+        "track": "취업희망자",
+        "preferenceRank": 4,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 14.58,
+        "minScore": 14.58,
+        "avgScore": 14.58
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산산업고등학교",
+        "department": "원예디자인과",
+        "track": "취업희망자",
+        "preferenceRank": 3,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 14.58,
+        "minScore": 14.58,
+        "avgScore": 14.58
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산상업고등학교",
+        "department": "IT콘텐츠과",
+        "track": "취업희망자",
+        "preferenceRank": 2,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 48.88,
+        "minScore": 48.88,
+        "avgScore": 48.88
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산상업고등학교",
+        "department": "군사경영과",
+        "track": "취업희망자",
+        "preferenceRank": 1,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 48.88,
+        "minScore": 48.88,
+        "avgScore": 48.88
+      },
+      {
+        "category": "special",
+        "targetSchool": "울산상업고등학교",
+        "department": "물류경영과",
+        "track": "취업희망자",
+        "preferenceRank": 3,
+        "plannedCount": 1,
+        "submittedCount": 0,
+        "maxScore": 48.88,
+        "minScore": 48.88,
+        "avgScore": 48.88
+      }
+    ]
+  }
+]
