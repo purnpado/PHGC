@@ -1636,7 +1636,12 @@ function renderApplicationSummary(applications) {
 
     const items = completed.map(a => {
         const theme = getStatusTheme(a.status);
-        const school = a.schoolName || '후기 일반고';
+        let school = a.schoolName || (a.category === 'general' ? '후기 일반고' : '기타');
+        if (a.category === 'general' && a.assignedSchool) {
+            school = `일반고 [${a.assignedSchool}]`;
+        } else if (a.assignedDepartment) {
+            school = `${school} (${a.assignedDepartment})`;
+        }
         return `
             <div class="inline-flex items-center justify-between w-full max-w-[210px] px-2.5 py-1 rounded-md text-[11px] border ${theme} shadow-xs">
                 <span class="truncate max-w-[130px] font-medium" title="${school}">${school}</span>
@@ -1711,6 +1716,29 @@ async function renderStudentList(students, classNum) {
         const specialBadges = renderPredictionBadges(full?.schoolResults, cutoffs, 'special');
         const applications = applicationsByStudent.get(`${s.StudentNum}|${s.Name}`) || [];
         const applicationSummary = renderApplicationSummary(applications);
+        const isPassed = (st) => ['합격', '최종 진학', '최종진학'].includes((st || '').trim());
+        const isFinalizedStudent = applications.some(a => {
+            if (!isPassed(a.status)) return false;
+            if (['meister', 'special'].includes(a.category)) {
+                return !!(a.assignedDepartment && a.assignedDepartment.trim());
+            }
+            if (a.category === 'general') {
+                return !!(a.assignedSchool && a.assignedSchool.trim());
+            }
+            return true;
+        });
+
+        const appButtonHTML = isFinalizedStudent ? `
+            <button class="text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all shadow-sm bg-emerald-950/60 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60 hover:scale-105"
+                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" data-finalized="true" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
+                <span>🔒</span> 합격 확정
+            </button>
+        ` : `
+            <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
+                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
+                <span>📝</span> 희망학교
+            </button>
+        `;
 
         tbody += `
             <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
@@ -1739,10 +1767,7 @@ async function renderStudentList(students, classNum) {
                 <td class="p-3.5 text-center min-w-52">${applicationSummary}</td>
                 <td class="p-3.5 text-center">
                     <div class="flex items-center justify-center gap-2">
-                        <button class="btn-secondary text-xs px-3 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-application transition-all hover:scale-105 shadow-sm"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                            <span>📝</span> 희망학교
-                        </button>
+                        ${appButtonHTML}
                         <button class="btn-primary text-xs px-3.5 py-2 font-bold flex items-center justify-center gap-1 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20"
                                 data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
                             <span>🎯</span> 진학 상담
@@ -1851,9 +1876,21 @@ async function renderStudentList(students, classNum) {
 async function openApplicationRegisterModal() {
     document.getElementById('applicationRegisterModal')?.remove();
     const records = await window.go.main.App.GetSchoolApplicationRecords();
-    const rows = records.map((r,i)=>`<tr><td>${i+1}</td><td>${r.classNum}반</td><td>${r.studentNum}</td><td><b>${r.studentName}</b></td><td>${r.admissionYear}</td><td>${r.schoolName||(r.category==='general'?'후기 일반고':(r.category==='none'?'미진학':'-'))}</td><td>${r.track||'-'}</td><td>${(r.assignedDepartment||r.preferences?.join(' → ')||'-')}</td><td>${r.score ? r.score.toFixed(2):'-'}</td><td>${r.status}</td></tr>`).join('') || '<tr><td colspan="10">기록된 지원현황이 없습니다.</td></tr>';
+    const rows = records.map((r, i) => {
+        let schoolDisplay = r.schoolName || (r.category === 'general' ? '후기 일반고' : (r.category === 'none' ? '미진학' : '-'));
+        if (r.category === 'general' && r.assignedSchool) {
+            schoolDisplay = `후기 일반고 <span class="text-xs text-indigo-300 font-semibold">[배정: ${r.assignedSchool}]</span>`;
+        }
+        let deptDisplay = '-';
+        if (r.category === 'general') {
+            deptDisplay = r.assignedSchool ? `[배정고] ${r.assignedSchool}` : '-';
+        } else {
+            deptDisplay = r.assignedDepartment ? `[배정] ${r.assignedDepartment}` : (r.preferences?.join(' → ') || '-');
+        }
+        return `<tr><td>${i+1}</td><td>${r.classNum}반</td><td>${r.studentNum}</td><td><b>${r.studentName}</b></td><td>${r.admissionYear}</td><td>${schoolDisplay}</td><td>${r.track||'-'}</td><td>${deptDisplay}</td><td>${r.score ? r.score.toFixed(2):'-'}</td><td>${r.status}</td></tr>`;
+    }).join('') || '<tr><td colspan="10">기록된 지원현황이 없습니다.</td></tr>';
     const modal=document.createElement('div'); modal.id='applicationRegisterModal'; modal.className='fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto';
-    modal.innerHTML=`<div class="glass-card print-document p-7 w-full max-w-7xl"><div class="flex justify-between mb-4"><div><h2 class="text-2xl font-bold">🗂️ 학교 내부 원서대장</h2><p class="text-xs text-text-muted">학교 내부 관리용이며 공식 원서 서식을 대체하지 않습니다.</p></div><div class="no-print"><button id="printRegister" class="btn-secondary px-3 py-2">🖨️ 인쇄 / PDF</button><button id="closeRegister" class="ml-2 text-xl">×</button></div></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>번호</th><th>반</th><th>번</th><th>성명</th><th>입학년도</th><th>지원학교</th><th>전형</th><th>학과/지망</th><th>점수</th><th>결과</th></tr></thead><tbody>${rows}</tbody></table></div></div>`; document.body.appendChild(modal); document.getElementById('closeRegister').onclick=()=>modal.remove(); document.getElementById('printRegister').onclick=()=>printOnly('register');
+    modal.innerHTML=`<div class="glass-card print-document p-7 w-full max-w-7xl"><div class="flex justify-between mb-4"><div><h2 class="text-2xl font-bold">🗂️ 학교 내부 원서대장</h2><p class="text-xs text-text-muted">학교 내부 관리용이며 공식 원서 서식을 대체하지 않습니다.</p></div><div class="no-print"><button id="printRegister" class="btn-secondary px-3 py-2">🖨️ 인쇄 / PDF</button><button id="closeRegister" class="ml-2 text-xl">×</button></div></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>번호</th><th>반</th><th>번</th><th>성명</th><th>입학년도</th><th>지원학교</th><th>전형</th><th>학과/지망(배정)</th><th>점수</th><th>결과</th></tr></thead><tbody>${rows}</tbody></table></div></div>`; document.body.appendChild(modal); document.getElementById('closeRegister').onclick=()=>modal.remove(); document.getElementById('printRegister').onclick=()=>printOnly('register');
 }
 
 async function openClassApplicationSummaryModal(classNum) {
@@ -2199,47 +2236,112 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         const displayedBasis = record.scoreBasis || autoScore?.basis || '';
         const isAutoBasis = displayedBasis === (autoScore?.basis || '') || !record.scoreBasis;
         const formatTrack = (track) => track ? `(${track.includes('특별') ? '특별' : (track.includes('일반') ? '일반' : track)})` : '';
+
+        // [요구사항 1] 합격 처리 및 최종학과/배정고 입력 완료 시 비활성화 판별
+        const isPassedStatus = ['합격', '최종 진학', '최종진학'].includes((record.status || '').trim());
+        const isRecordFinalized = isPassedStatus && (
+            (['meister', 'special'].includes(record.category) && !!record.assignedDepartment) ||
+            (record.category === 'general' && !!record.assignedSchool) ||
+            (!['meister', 'special', 'general'].includes(record.category))
+        );
+        let isLocked = isRecordFinalized;
+
         const list = records.length ? records.map((r, i) => {
             const isRecNone = r.category === 'none';
-            const nameLabel = isRecNone ? '미진학' : (r.schoolName || (r.category === 'general' ? '후기 일반고' : '기타'));
+            const nameLabel = isRecNone ? '미진학' : (r.schoolName || (r.category === 'general' ? (r.assignedSchool ? `일반고[${r.assignedSchool}]` : '후기 일반고') : '기타'));
             const trackPart = ['meister', 'special'].includes(r.category) ? formatTrack(r.track) : '';
             const statusPart = isRecNone ? '미진학' : r.status;
-            return `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${nameLabel}${trackPart} · ${statusPart}</button>`;
+            const isRecPassed = ['합격', '최종 진학', '최종진학'].includes((r.status || '').trim());
+            const isRecFin = isRecPassed && ((['meister', 'special'].includes(r.category) && !!r.assignedDepartment) || (r.category === 'general' && !!r.assignedSchool) || (!['meister', 'special', 'general'].includes(r.category)));
+            const lockIcon = isRecFin ? '🔒 ' : '';
+            return `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${lockIcon}${nameLabel}${trackPart} · ${statusPart}</button>`;
         }).join('') : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
         
         const statusSelectHTML = isNone
             ? '<option value="미진학" selected>미진학</option>'
             : statusOptions.map(v => `<option ${record.status?.replace(/\s/g, '') === v.replace(/\s/g, '') ? 'selected' : ''}>${v}</option>`).join('');
 
+        const lockedBannerHTML = isRecordFinalized ? `
+            <div id="applicationLockBanner" class="md:col-span-2 p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/60 text-emerald-200 text-xs flex items-center justify-between shadow-lg">
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">🔒</span>
+                    <div>
+                        <strong class="font-bold text-emerald-300">[희망학교 비활성화 잠금]</strong>
+                        <span>합격 및 최종 학과(배정고) 입력이 완료되어 희망학교 수정이 비활성화되었습니다.</span>
+                    </div>
+                </div>
+                ${canEdit ? `<button type="button" id="unlockApplicationBtn" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/50 transition-all flex items-center gap-1 shadow-sm">🔓 잠금 해제하여 수정</button>` : ''}
+            </div>
+        ` : '';
+
         modal.innerHTML = `
           <div class="glass-card p-7 w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📝 ${name} 지원·합격 현황</h2><p class="text-sm text-text-muted mt-1">이 자료는 학급 암호화 DB와 취합자료 파일에만 저장됩니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationModal" class="text-3xl text-text-muted">×</button></div>
           <div class="flex flex-wrap gap-2 mb-5">${list}</div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-700 p-5 bg-slate-900/40">
-            <label class="text-sm font-bold">입학년도<input id="appYear" type="text" inputmode="numeric" value="${record.admissionYear || ''}" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
-            <label class="text-sm font-bold">전형 구분<select id="appCategory" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}>${categoryOptions.map(([v,t]) => `<option value="${v}" ${record.category === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-            <label class="text-sm font-bold">지원 학교<select id="appSchool" class="input-field mt-1 w-full" ${(!needsSchool && record.category !== 'other') || isNone || !canEdit ? 'disabled' : ''}>${schoolOptions(record.category, record.schoolName)}</select></label>
-            <label class="text-sm font-bold">전형 / 지원 유형<select id="appTrack" class="input-field mt-1 w-full" ${canEdit && !isOther ? '' : 'disabled'}>${trackOptions(record.category, record.schoolName, record.track)}</select></label>
-            <label class="text-sm font-bold">지원 상태<select id="appStatus" class="input-field mt-1 w-full" ${canEdit && !isNone ? '' : 'disabled'}>${statusSelectHTML}</select></label>
-            <label class="text-sm font-bold">점수 스냅샷 <span class="text-[11px] text-cyan-300">자동</span><input id="appScore" type="text" inputmode="decimal" value="${displayedScore || ''}" placeholder="학교·전형 선택 시 자동 산출" class="input-field mt-1 w-full" ${autoScore ? 'readonly' : (canEdit && !isNone ? '' : 'disabled')}></label>
-            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${displayedBasis}" data-auto="${isAutoBasis}" placeholder="${isNone ? '예: 진학포기 사유, 기타 진로 등' : (isOther ? '예: 실기 점수, 학과, 메모 등' : '예: 3-1 누적 예상, 1차 서류점수 등')}" class="input-field mt-1 w-full" ${canEdit ? '' : 'disabled'}></label>
+            ${lockedBannerHTML}
+            <label class="text-sm font-bold">입학년도<input id="appYear" type="text" inputmode="numeric" value="${record.admissionYear || ''}" class="input-field mt-1 w-full" ${canEdit && !isLocked ? '' : 'disabled'}></label>
+            <label class="text-sm font-bold">전형 구분<select id="appCategory" class="input-field mt-1 w-full" ${canEdit && !isLocked ? '' : 'disabled'}>${categoryOptions.map(([v,t]) => `<option value="${v}" ${record.category === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+            <label class="text-sm font-bold">지원 학교<select id="appSchool" class="input-field mt-1 w-full" ${(!needsSchool && record.category !== 'other') || isNone || !canEdit || isLocked ? 'disabled' : ''}>${schoolOptions(record.category, record.schoolName)}</select></label>
+            <label class="text-sm font-bold">전형 / 지원 유형<select id="appTrack" class="input-field mt-1 w-full" ${canEdit && !isOther && !isLocked ? '' : 'disabled'}>${trackOptions(record.category, record.schoolName, record.track)}</select></label>
+            <label class="text-sm font-bold">지원 상태<select id="appStatus" class="input-field mt-1 w-full" ${canEdit && !isNone && !isLocked ? '' : 'disabled'}>${statusSelectHTML}</select></label>
+            <label class="text-sm font-bold">점수 스냅샷 <span class="text-[11px] text-cyan-300">자동</span><input id="appScore" type="text" inputmode="decimal" value="${displayedScore || ''}" placeholder="학교·전형 선택 시 자동 산출" class="input-field mt-1 w-full" ${autoScore || isLocked ? 'readonly' : (canEdit && !isNone ? '' : 'disabled')}></label>
+            <label class="text-sm font-bold md:col-span-2">점수 기준 / 메모<input id="appBasis" value="${displayedBasis}" data-auto="${isAutoBasis}" placeholder="${isNone ? '예: 진학포기 사유, 기타 진로 등' : (isOther ? '예: 실기 점수, 학과, 메모 등' : '예: 3-1 누적 예상, 1차 서류점수 등')}" class="input-field mt-1 w-full" ${canEdit && !isLocked ? '' : 'disabled'}></label>
             <div id="appPreferenceArea" class="md:col-span-2 ${needsDepartment ? '' : 'hidden'}">${departmentControls(record.schoolName, record.preferences || [], record.assignedDepartment || '')}</div>
-            <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 학교·학과를 기록하지 않습니다. 지원 점수와 결과 상태만 기록합니다.</p>
+            <div id="appGeneralAssignedArea" class="md:col-span-2 ${isGeneral ? '' : 'hidden'}">
+                <label class="text-sm font-bold block">배정 고등학교 (수기 입력)
+                    <span class="text-text-muted font-normal text-xs ml-1">- 후기 일반고 합격 후 배정받은 학교명을 입력하세요 (원서대장에 출력됩니다)</span>
+                    <input id="appAssignedSchool" type="text" value="${record.assignedSchool || ''}" placeholder="예: 학성고등학교, 울산여자고등학교, 신정고등학교 등" class="input-field mt-1 w-full text-sm" ${canEdit && !isLocked ? '' : 'disabled'}>
+                </label>
+            </div>
+            <p id="generalApplicationGuide" class="md:col-span-2 text-xs text-cyan-300 ${isGeneral ? '' : 'hidden'}">후기 일반고는 합격 발표 후 최종 배정받은 고등학교명을 수기로 입력할 수 있으며, 원서대장에 자동 출력됩니다.</p>
             <p id="noneApplicationGuide" class="md:col-span-2 text-xs text-amber-300 ${isNone ? '' : 'hidden'}">미진학(진학포기) 학생은 학교와 점수를 입력하지 않으며, 지원 상태가 자동으로 ‘미진학’으로 처리됩니다.</p>
           </div>
           <div class="flex justify-center gap-3 mt-5 w-full">
-            ${canEdit && record.id ? '<button id="deleteApplication" class="flex-1 btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">🗑️ 기록 삭제</button>' : ''}
-            ${canEdit ? '<button id="saveApplication" class="flex-1 btn-primary px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">💾 희망학교 저장</button>' : '<span class="text-sm text-text-muted w-full text-center">진로부장 계정은 조회 전용입니다.</span>'}
+            ${canEdit && record.id && !isLocked ? '<button id="deleteApplication" class="flex-1 btn-secondary border-rose-500/30 text-rose-400 hover:bg-rose-500/10 px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all">🗑️ 기록 삭제</button>' : ''}
+            ${canEdit ? `<button id="saveApplication" class="flex-1 btn-primary px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}" ${isLocked ? 'disabled' : ''}>💾 희망학교 저장</button>` : '<span class="text-sm text-text-muted w-full text-center">진로부장 계정은 조회 전용입니다.</span>'}
           </div></div>`;
         document.getElementById('closeApplicationModal').onclick = closeModal;
-        if (!canEdit) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
+        if (!canEdit || isLocked) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
+
+        // 잠금 해제 이벤트 리스너
+        document.getElementById('unlockApplicationBtn')?.addEventListener('click', () => {
+            isLocked = false;
+            const banner = document.getElementById('applicationLockBanner');
+            if (banner) {
+                banner.className = 'md:col-span-2 p-3 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-200 text-xs flex items-center justify-between shadow-sm';
+                banner.innerHTML = `<div class="flex items-center gap-2"><span>⚠️</span><div><strong class="font-bold text-amber-300">[잠금 해제됨]</strong> <span>희망학교 수정이 가능합니다. 저장 시 다시 잠깁니다.</span></div></div>`;
+            }
+            document.getElementById('appYear').disabled = false;
+            document.getElementById('appCategory').disabled = false;
+            const curCat = document.getElementById('appCategory').value;
+            const reqSchool = ['meister', 'special', 'self_foreign'].includes(curCat);
+            document.getElementById('appSchool').disabled = (!reqSchool && curCat !== 'other') || curCat === 'none';
+            document.getElementById('appTrack').disabled = curCat === 'other';
+            document.getElementById('appStatus').disabled = curCat === 'none';
+            if (!autoScore && curCat !== 'none') {
+                document.getElementById('appScore').readOnly = false;
+            }
+            document.getElementById('appBasis').disabled = false;
+            const assignedInput = document.getElementById('appAssignedSchool');
+            if (assignedInput) assignedInput.disabled = false;
+            modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = false; });
+            const saveBtn = document.getElementById('saveApplication');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            const delBtn = document.getElementById('deleteApplication');
+            if (delBtn) delBtn.disabled = false;
+        });
+
         const refreshDepartmentControls = () => {
             const schoolName = document.getElementById('appSchool').value;
             const preferences = [...modal.querySelectorAll('.app-pref')].map(el => el.value);
             const assigned = document.getElementById('appAssigned')?.value || '';
             const area = document.getElementById('appPreferenceArea');
             area.innerHTML = departmentControls(schoolName, preferences, assigned);
-            if (!canEdit) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
+            if (!canEdit || isLocked) area.querySelectorAll('select').forEach(el => { el.disabled = true; });
             area.querySelectorAll('.app-pref').forEach(select => {
                 select.onchange = () => refreshDepartmentControls();
             });
@@ -2307,7 +2409,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             const schoolRequired = ['meister', 'special', 'self_foreign'].includes(category);
             const departmentRequired = ['meister', 'special'].includes(category);
             const schoolSelect = document.getElementById('appSchool');
-            schoolSelect.disabled = (!schoolRequired && !other) || none || !canEdit;
+            schoolSelect.disabled = (!schoolRequired && !other) || none || !canEdit || isLocked;
             schoolSelect.innerHTML = schoolOptions(category);
             
             const statusSelect = document.getElementById('appStatus');
@@ -2316,13 +2418,14 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 statusSelect.disabled = true;
             } else {
                 statusSelect.innerHTML = statusOptions.map(v => `<option>${v}</option>`).join('');
-                statusSelect.disabled = !canEdit;
+                statusSelect.disabled = !canEdit || isLocked;
             }
 
             const trackSelect = document.getElementById('appTrack');
-            trackSelect.disabled = other || !canEdit;
+            trackSelect.disabled = other || !canEdit || isLocked;
 
             document.getElementById('appPreferenceArea').classList.toggle('hidden', !departmentRequired);
+            document.getElementById('appGeneralAssignedArea')?.classList.toggle('hidden', !general);
             document.getElementById('generalApplicationGuide').classList.toggle('hidden', !general);
             document.getElementById('noneApplicationGuide')?.classList.toggle('hidden', !none);
             const scoreInput = document.getElementById('appScore');
@@ -2337,14 +2440,14 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 basisInput.placeholder = '예: 진학포기 사유, 기타 진로 등';
             } else if (other) {
                 scoreInput.value = '';
-                scoreInput.disabled = !canEdit;
+                scoreInput.disabled = !canEdit || isLocked;
                 if (basisInput.dataset.auto === 'true') {
                     basisInput.value = '';
                     basisInput.dataset.auto = 'false';
                 }
                 basisInput.placeholder = '예: 실기 점수, 학과, 메모 등';
             } else {
-                scoreInput.disabled = !canEdit;
+                scoreInput.disabled = !canEdit || isLocked;
                 basisInput.placeholder = '예: 3-1 누적 예상, 1차 서류점수 등';
             }
             refreshDepartmentControls();
@@ -2365,6 +2468,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             const trackVal = category === 'other' ? '해당 없음' : document.getElementById('appTrack').value.trim();
             const statusVal = category === 'none' ? '미진학' : document.getElementById('appStatus').value;
             const scoreVal = category === 'none' ? 0 : (parseFloat(document.getElementById('appScore').value) || 0);
+            const assignedSchoolVal = category === 'general' ? (document.getElementById('appAssignedSchool')?.value.trim() || '') : '';
             const payload = {
                 classNum,
                 studentNum,
@@ -2377,7 +2481,8 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
                 score: scoreVal,
                 scoreBasis: document.getElementById('appBasis').value.trim(),
                 preferences: hasDepartment ? preferences : [],
-                assignedDepartment: hasDepartment ? document.getElementById('appAssigned').value.trim() : ''
+                assignedDepartment: hasDepartment ? document.getElementById('appAssigned').value.trim() : '',
+                assignedSchool: assignedSchoolVal
             };
             const sameYear = records.filter(r => r.admissionYear === payload.admissionYear && r.schoolName !== payload.schoolName);
             const active = r => ['지원예정', '지원완료', '지원 예정', '지원 완료', '합격', '최종 진학'].includes(r.status);

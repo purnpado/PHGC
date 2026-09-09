@@ -60,6 +60,7 @@ export namespace main {
 	    scoreBasis: string;
 	    preferences: string[];
 	    assignedDepartment: string;
+	    assignedSchool: string;
 	    updatedAt: string;
 	
 	    static createFrom(source: any = {}) {
@@ -81,6 +82,7 @@ export namespace main {
 	        this.scoreBasis = source["scoreBasis"];
 	        this.preferences = source["preferences"];
 	        this.assignedDepartment = source["assignedDepartment"];
+	        this.assignedSchool = source["assignedSchool"];
 	        this.updatedAt = source["updatedAt"];
 	    }
 	}

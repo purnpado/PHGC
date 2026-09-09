@@ -138,6 +138,7 @@ type ApplicationRecord struct {
 	ScoreBasis         string   `json:"scoreBasis"`
 	Preferences        []string `json:"preferences"`
 	AssignedDepartment string   `json:"assignedDepartment"`
+	AssignedSchool     string   `json:"assignedSchool"`
 	UpdatedAt          string   `json:"updatedAt"`
 }
 
@@ -624,6 +625,7 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 			score_basis TEXT DEFAULT '',
 			preferences_json TEXT DEFAULT '[]',
 			assigned_department TEXT DEFAULT '',
+			assigned_school TEXT DEFAULT '',
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(student_num, student_name, admission_year, category, school_name, track)
 		);
@@ -643,6 +645,7 @@ func (dm *DBManager) InitClassDB(classNum int) error {
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN attendance_json TEXT DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN volunteer_json TEXT DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE students ADD COLUMN extra_json TEXT DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE student_applications ADD COLUMN assigned_school TEXT DEFAULT ''`)
 
 	if err != nil {
 		return fmt.Errorf("학급 DB 초기화 실패: %w", err)
@@ -946,8 +949,8 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	if record.Category == "none" && record.SchoolName == "" {
 		record.SchoolName = "미진학"
 	}
-	if record.Category == "general" && (record.SchoolName != "" || len(record.Preferences) != 0 || record.AssignedDepartment != "") {
-		return fmt.Errorf("후기 일반고는 학교·학과 대신 지원 점수와 상태만 기록합니다")
+	if record.Category == "general" && (len(record.Preferences) != 0 || record.AssignedDepartment != "") {
+		return fmt.Errorf("후기 일반고는 학과 지망을 기록하지 않습니다")
 	}
 	if (record.Category == "self_foreign" || record.Category == "none") && (len(record.Preferences) != 0 || record.AssignedDepartment != "") {
 		return fmt.Errorf("자사고·외고 및 미진학은 학과 지망을 기록하지 않습니다")
@@ -961,9 +964,9 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 		return err
 	}
 	defer db.Close()
-	_, err = db.Exec(`INSERT INTO student_applications (student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at)
-	VALUES (?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
-	ON CONFLICT(student_num,student_name,admission_year,category,school_name,track) DO UPDATE SET status=excluded.status,score=excluded.score,score_basis=excluded.score_basis,preferences_json=excluded.preferences_json,assigned_department=excluded.assigned_department,updated_at=CURRENT_TIMESTAMP`, record.StudentNum, record.StudentName, record.AdmissionYear, record.Category, record.SchoolName, record.Track, record.Status, record.Score, record.ScoreBasis, string(prefs), record.AssignedDepartment)
+	_, err = db.Exec(`INSERT INTO student_applications (student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,assigned_school,updated_at)
+	VALUES (?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+	ON CONFLICT(student_num,student_name,admission_year,category,school_name,track) DO UPDATE SET status=excluded.status,score=excluded.score,score_basis=excluded.score_basis,preferences_json=excluded.preferences_json,assigned_department=excluded.assigned_department,assigned_school=excluded.assigned_school,updated_at=CURRENT_TIMESTAMP`, record.StudentNum, record.StudentName, record.AdmissionYear, record.Category, record.SchoolName, record.Track, record.Status, record.Score, record.ScoreBasis, string(prefs), record.AssignedDepartment, record.AssignedSchool)
 	return err
 }
 
@@ -1136,7 +1139,7 @@ func (dm *DBManager) GetStudentApplications(classNum int, studentNum, name strin
 		return nil, err
 	}
 	defer db.Close()
-	rows, err := db.Query(`SELECT id,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications WHERE student_num=? AND student_name=? ORDER BY updated_at DESC`, studentNum, name)
+	rows, err := db.Query(`SELECT id,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,COALESCE(assigned_school, ''),updated_at FROM student_applications WHERE student_num=? AND student_name=? ORDER BY updated_at DESC`, studentNum, name)
 	if err != nil {
 		return nil, err
 	}
@@ -1145,7 +1148,7 @@ func (dm *DBManager) GetStudentApplications(classNum int, studentNum, name strin
 	for rows.Next() {
 		var r ApplicationRecord
 		var prefs string
-		if err := rows.Scan(&r.ID, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.AssignedSchool, &r.UpdatedAt); err != nil {
 			return nil, err
 		}
 		r.ClassNum = classNum
@@ -1171,7 +1174,7 @@ func (dm *DBManager) GetSchoolApplicationRecords() ([]ApplicationRecord, error) 
 			}
 			return nil, err
 		}
-		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications ORDER BY student_num,updated_at`)
+		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,COALESCE(assigned_school, ''),updated_at FROM student_applications ORDER BY student_num,updated_at`)
 		if err != nil {
 			db.Close()
 			continue
@@ -1179,7 +1182,7 @@ func (dm *DBManager) GetSchoolApplicationRecords() ([]ApplicationRecord, error) 
 		for rows.Next() {
 			var r ApplicationRecord
 			var prefs string
-			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err == nil {
+			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.AssignedSchool, &r.UpdatedAt); err == nil {
 				r.ClassNum = classNum
 				_ = json.Unmarshal([]byte(prefs), &r.Preferences)
 				all = append(all, r)
@@ -1296,7 +1299,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 			}
 			return nil, err
 		}
-		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,updated_at FROM student_applications`)
+		rows, err := db.Query(`SELECT student_num,student_name,admission_year,category,school_name,track,status,score,score_basis,preferences_json,assigned_department,COALESCE(assigned_school, ''),updated_at FROM student_applications`)
 		if err != nil {
 			db.Close()
 			continue
@@ -1304,7 +1307,7 @@ func (dm *DBManager) getApplicationSummaries(classNums []int) ([]ApplicationSumm
 		for rows.Next() {
 			var r ApplicationRecord
 			var prefs string
-			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.UpdatedAt); err == nil {
+			if err := rows.Scan(&r.StudentNum, &r.StudentName, &r.AdmissionYear, &r.Category, &r.SchoolName, &r.Track, &r.Status, &r.Score, &r.ScoreBasis, &prefs, &r.AssignedDepartment, &r.AssignedSchool, &r.UpdatedAt); err == nil {
 				_ = json.Unmarshal([]byte(prefs), &r.Preferences)
 				if r.Category == "meister" || r.Category == "special" {
 					// 예정·지원 단계에서만 여러 지망을 각각 집계한다. 합격·불합격
