@@ -1,6 +1,7 @@
 # PHGC 자동 버전업 & 빌드 & 푸시 & 릴리즈 스크립트
 param (
-    [string]$Notes = "기능 개선 및 안정화 업데이트",
+    [string]$Notes = "정식 릴리즈 v1.0.0 (개인정보보호 서약서, 역할별 사용설명서 및 완전삭제 기능 도입)",
+    [string]$Version = "",
     [switch]$SkipBindings
 )
 
@@ -25,18 +26,21 @@ if (-not $giteaToken) {
     Write-Host ">>> GITEA_TOKEN 로드 성공! (자동 릴리즈 생성 활성화)" -ForegroundColor Green
 }
 
-# ===== 1. 현재 버전 읽기 =====
+# ===== 1. 현재 버전 읽기 및 새 버전 결정 =====
 $versionFile = "server-data/version.json"
 $json = Get-Content $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
 $currentVer = $json.latestVersion
 
-# ===== 2. 버전 번호 자동 증가 =====
-$parts = $currentVer.Split('.')
-if ($parts.Length -eq 3) {
-    $patch = [int]$parts[2] + 1
-    $newVer = "$($parts[0]).$($parts[1]).$patch"
+if ($Version -ne "") {
+    $newVer = $Version.TrimStart('v').Trim()
 } else {
-    $newVer = "0.5.1"
+    $parts = $currentVer.Split('.')
+    if ($parts.Length -eq 3) {
+        $patch = [int]$parts[2] + 1
+        $newVer = "$($parts[0]).$($parts[1]).$patch"
+    } else {
+        $newVer = "1.0.0"
+    }
 }
 
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -97,6 +101,14 @@ if ($giteaToken) {
 } else {
     git push
     git push origin "v$newVer" -f
+}
+
+try {
+    Write-Host ">>> dukwang 원격 저장소 푸시 중..." -ForegroundColor Cyan
+    git push dukwang main
+    git push dukwang "v$newVer" -f
+} catch {
+    Write-Host ">>> dukwang 푸시 건너뜀 또는 오류: $_" -ForegroundColor Yellow
 }
 
 # ===== 8. Gitea Release 생성 & exe Asset 업로드 =====
