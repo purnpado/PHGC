@@ -3289,22 +3289,196 @@ function showStartupUpdateModal(result) {
     });
 }
 
-// ===== 앱 시작 =====
-async function init() {
-    // 프로그램 시작 시 조용히 업데이트 버전 확인 (있으면 모달 팝업)
-    checkUpdateOnStartup();
+// ===== 프로그램 이용 및 학생 개인정보 보호 서약 모달창 =====
+function renderAgreementModal(onAcceptCallback) {
+    document.getElementById('securityAgreementModal')?.remove();
 
+    const modal = document.createElement('div');
+    modal.id = 'securityAgreementModal';
+    modal.className = 'fixed inset-0 bg-black/90 backdrop-blur-md z-[99999] flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-300';
+    
+    modal.innerHTML = `
+        <div class="glass-card max-w-2xl w-full p-6 sm:p-8 border border-indigo-500/40 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            <!-- 모달 헤더 -->
+            <div class="text-center pb-4 border-b border-slate-700/60">
+                <div class="text-4xl mb-2">📋</div>
+                <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    [그래서? 넌 어디갈래?] 프로그램 이용 및 학생 개인정보 보호 서약서
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                    본 프로그램은 중학교 3학년 고입 진학 상담 및 내신 산출을 돕기 위해 제작된 교원 전용 오프라인 업무 지원 프로그램입니다.<br>
+                    안전한 학생 정보 보호와 책임 있는 진학 지도를 위해 아래 사항을 숙지하고 서약해 주시기 바랍니다.
+                </p>
+            </div>
+
+            <!-- 서약서 전문 스크롤 영역 -->
+            <div class="my-4 p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs sm:text-[13px] text-slate-300 leading-relaxed overflow-y-auto max-h-[46vh] space-y-4 font-sans select-text">
+                <div class="p-3 rounded-lg bg-indigo-950/40 border border-indigo-500/20">
+                    <h3 class="font-bold text-indigo-300 text-sm mb-1.5 flex items-center gap-1.5">
+                        <span>🔒</span> 1. [학생 개인정보의 로컬 보관 및 보안 의무]
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li>나이스(NEIS) 엑셀에서 불러온 학생 성명, 학번, 교과·비교과 성적, 지원 현황 등 <strong>모든 개인정보는 사용자 PC(프로그램 내부 DB)에만 암호화되어 안전하게 보관</strong>됩니다.</li>
+                        <li>사용자는 「개인정보 보호법」에 따라 취득한 학생 정보를 외부로 무단 유출하거나 진학 상담 외 목적으로 활용할 수 없으며, 자리 이석 시 화면 잠금(Win+L) 등 보안 수칙을 철저히 준수해야 합니다.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20">
+                    <h3 class="font-bold text-emerald-300 text-sm mb-1.5 flex items-center gap-1.5">
+                        <span>☁️</span> 2. [『그래서? 넌 어디갈래?』 서버 연동 범위 (개인정보 원천 차단)]
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li>프로그램 서버와의 온라인 데이터 연동은 다음의 <strong>"익명 통계 자료"</strong>로 엄격히 제한됩니다:
+                            <div class="pl-4 py-1 text-slate-300 font-medium">
+                                • 각 고등학교별 입학 커트라인 기준선 (합격자 최저·평균 점수 및 불합격자 최고점)<br>
+                                • 학교 단위의 고교별 단순 지원 희망 인원 통계 수치
+                            </div>
+                        </li>
+                        <li><strong>학생 개인 식별 정보(이름, 학번, 개별 성적 등)와 교사 개인정보는 서버로 일절 전송되지 않습니다.</strong></li>
+                        <li class="text-emerald-300 font-semibold">※ 고교별 커트라인 및 지원 통계 공유는 학교의 "자율적 선택사항"이며, 공유하지 않더라도 프로그램의 모든 기능(내신 산출, 합격 예측, 상담 출력 등)은 100% 정상 작동합니다.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 rounded-lg bg-amber-950/40 border border-amber-500/20">
+                    <h3 class="font-bold text-amber-300 text-sm mb-1.5 flex items-center gap-1.5">
+                        <span>⚖️</span> 3. [진학 지도 참고용 고지 및 면책 안내]
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li>본 프로그램에서 제공하는 내신 환산 점수 및 고교별 합격 예측선은 과거 입결과 공식 요강에 기반한 <strong>'진학 상담 보조 참고 자료'</strong>입니다.</li>
+                        <li>실제 고교 입학전형 합격 여부는 각 고등학교 입학전형위원회의 최종 사정에 따르며, 프로그램의 예측 결과가 법적 합격을 보증하는 것은 아닙니다.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 rounded-lg bg-rose-950/40 border border-rose-500/20">
+                    <h3 class="font-bold text-rose-300 text-sm mb-1.5 flex items-center gap-1.5">
+                        <span>⚠️</span> 4. [동의 거부 권리 및 프로그램 자가 파기]
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-slate-300">
+                        <li>귀하는 본 서약 및 동의를 거부할 권리가 있습니다.</li>
+                        <li>단, 민감한 학생 정보 취급에 따른 보안 규정상 동의하지 않을 경우 프로그램 사용이 원천 차단되며, <strong>보안을 위해 프로그램 실행 파일 및 관련 데이터는 즉시 자가 삭제(폐기)</strong> 처리됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 동의 체크박스 -->
+            <div class="pt-2 pb-4">
+                <label class="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 cursor-pointer hover:bg-slate-800 transition-colors select-none">
+                    <input type="checkbox" id="agreementCheckbox" class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-600 cursor-pointer">
+                    <span class="text-xs sm:text-sm font-bold text-white">
+                        위 서약 내용을 모두 충분히 확인하였으며, 학생 개인정보 보호 의무를 성실히 준수할 것에 동의합니다.
+                    </span>
+                </label>
+            </div>
+
+            <!-- 하단 버튼 영역 -->
+            <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-700/60">
+                <button type="button" id="rejectAgreementBtn" 
+                        class="px-4 py-2.5 rounded-xl border border-rose-500/40 bg-rose-950/30 hover:bg-rose-900/50 text-rose-300 font-bold text-xs sm:text-sm transition-all cursor-pointer">
+                    동의하지 않음 (프로그램 삭제 및 종료)
+                </button>
+                <button type="button" id="acceptAgreementBtn" disabled
+                        class="flex-1 py-2.5 px-5 rounded-xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed">
+                    서약하고 시작하기 →
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const checkbox = modal.querySelector('#agreementCheckbox');
+    const acceptBtn = modal.querySelector('#acceptAgreementBtn');
+    const rejectBtn = modal.querySelector('#rejectAgreementBtn');
+
+    checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+            acceptBtn.disabled = false;
+            acceptBtn.className = 'flex-1 py-2.5 px-5 rounded-xl bg-gradient-to-r from-indigo-600 to-primary text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer opacity-100';
+        } else {
+            acceptBtn.disabled = true;
+            acceptBtn.className = 'flex-1 py-2.5 px-5 rounded-xl bg-indigo-600 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 transition-all opacity-40 cursor-not-allowed';
+        }
+    });
+
+    acceptBtn.addEventListener('click', async () => {
+        if (!checkbox.checked) return;
+        acceptBtn.disabled = true;
+        acceptBtn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> 처리 중...';
+        try {
+            await window.go.main.App.AcceptAgreement();
+            modal.remove();
+            if (typeof onAcceptCallback === 'function') {
+                onAcceptCallback();
+            }
+        } catch (err) {
+            alert('동의 정보 저장 실패: ' + err);
+            acceptBtn.disabled = false;
+            acceptBtn.textContent = '서약하고 시작하기 →';
+        }
+    });
+
+    rejectBtn.addEventListener('click', async () => {
+        const confirmed = await showModalConfirm({
+            title: '🚨 프로그램 및 데이터 영구 파기 경고',
+            message: `
+                <div class="space-y-3 text-xs leading-relaxed text-left">
+                    <div class="p-3 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200">
+                        <p class="font-bold text-sm text-rose-100 mb-1">⚠️ 정말 동의하지 않으시겠습니까?</p>
+                        <p>학생 개인정보 보호 규정에 따라 비동의 시 <strong>프로그램 실행 파일(.exe)과 모든 저장 데이터가 즉시 영구 삭제(파기)</strong>되며 프로그램이 종료됩니다.</p>
+                    </div>
+                    <p class="text-slate-300">삭제된 프로그램 및 데이터는 복구할 수 없습니다. 계속 진행하시겠습니까?</p>
+                </div>
+            `,
+            type: 'error',
+            confirmText: '네, 삭제하고 종료합니다',
+            cancelText: '다시 생각하기'
+        });
+
+        if (!confirmed) return;
+
+        rejectBtn.disabled = true;
+        rejectBtn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> 프로그램 파기 중...';
+        try {
+            await window.go.main.App.SelfDestruct();
+        } catch (err) {
+            alert('자가 삭제 처리 중 오류: ' + err);
+        }
+    });
+}
+
+// 앱 정상 시작 진행 함수
+async function proceedAppInit() {
     try {
         const isSetup = await CheckSetupComplete();
         if (isSetup) {
-            // 암호화된 data 폴더는 로그인 전에는 열지 않는다. 학교명과
-            // 역할 목록은 로그인 후에만 DB에서 읽는다.
             renderLoginScreen(await window.go.main.App.GetLoginIndex());
         } else {
             renderFirstRunScreen();
         }
     } catch (err) {
         app.innerHTML = `<div class="p-10 text-center text-danger font-bold">계정 정보를 불러올 수 없습니다.<br>${err}</div>`;
+    }
+}
+
+// ===== 앱 시작 =====
+async function init() {
+    // 프로그램 시작 시 조용히 업데이트 버전 확인 (있으면 모달 팝업)
+    checkUpdateOnStartup();
+
+    try {
+        // 최초 실행 시 개인정보 보호 서약 동의 여부 검사
+        const isAgreed = await window.go.main.App.IsAgreementAccepted?.();
+        if (!isAgreed) {
+            renderAgreementModal(() => {
+                proceedAppInit();
+            });
+            return;
+        }
+
+        proceedAppInit();
+    } catch (err) {
+        console.warn('동의 여부 확인 실패:', err);
+        proceedAppInit();
     }
 }
 

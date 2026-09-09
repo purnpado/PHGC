@@ -12,10 +12,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -2154,4 +2156,115 @@ func (a *App) SetWindowTitle(title string) {
 		runtime.WindowSetTitle(a.ctx, title)
 	}
 }
+
+// AgreementRecord 사용 서약 동의 기록 구조체
+type AgreementRecord struct {
+	Accepted   bool   `json:"accepted"`
+	AcceptedAt string `json:"acceptedAt"`
+	Version    string `json:"version"`
+}
+
+func getAgreementPath() string {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "data/agreement.json"
+	}
+	exePath, _ = filepath.EvalSymlinks(exePath)
+	return filepath.Join(filepath.Dir(exePath), "data", "agreement.json")
+}
+
+// IsAgreementAccepted 프로그램 이용 및 개인정보 보호 서약 동의 여부 확인
+func (a *App) IsAgreementAccepted() bool {
+	p := getAgreementPath()
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return false
+	}
+	var rec AgreementRecord
+	if err := json.Unmarshal(data, &rec); err != nil {
+		return false
+	}
+	return rec.Accepted
+}
+
+// AcceptAgreement 프로그램 이용 및 개인정보 보호 서약 동의 처리
+func (a *App) AcceptAgreement() error {
+	p := getAgreementPath()
+	dir := filepath.Dir(p)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("동의 정보 저장 폴더 생성 실패: %w", err)
+	}
+
+	rec := AgreementRecord{
+		Accepted:   true,
+		AcceptedAt: time.Now().Format(time.RFC3339),
+		Version:    "1.0",
+	}
+	b, err := json.MarshalIndent(rec, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p, b, 0644)
+}
+
+// SelfDestruct 사용자가 서약에 비동의 시 프로그램 실행 파일 및 관련 데이터를 즉시 안전하게 파기하고 종료
+func (a *App) SelfDestruct() error {
+	currentExe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("실행 파일 경로를 확인할 수 없습니다: %w", err)
+	}
+	currentExe, _ = filepath.EvalSymlinks(currentExe)
+	exeDir := filepath.Dir(currentExe)
+	dataDir := filepath.Join(exeDir, "data")
+	currentPid := os.Getpid()
+
+	psScript := fmt.Sprintf(`
+$pidToWait = %d
+$exePath = '%s'
+$dataDirPath = '%s'
+
+try {
+    $proc = Get-Process -Id $pidToWait -ErrorAction SilentlyContinue
+    if ($proc) { $proc.WaitForExit(5000) }
+} catch {}
+Start-Sleep -Milliseconds 500
+
+# 1. data 폴더 삭제
+if (Test-Path -LiteralPath $dataDirPath) {
+    for ($i = 0; $i -lt 10; $i++) {
+        try {
+            Remove-Item -LiteralPath $dataDirPath -Recurse -Force -ErrorAction Stop
+            break
+        } catch { Start-Sleep -Milliseconds 300 }
+    }
+}
+
+# 2. 실행 파일(.exe) 삭제
+for ($i = 0; $i -lt 15; $i++) {
+    try {
+        Remove-Item -LiteralPath $exePath -Force -ErrorAction Stop
+        break
+    } catch { Start-Sleep -Milliseconds 400 }
+}
+`, currentPid, strings.ReplaceAll(currentExe, "'", "''"), strings.ReplaceAll(dataDir, "'", "''"))
+
+	encodedScript := encodePowerShell(psScript)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encodedScript)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("자가 삭제 스크립트 실행 실패: %w", err)
+	}
+
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		os.Exit(0)
+	}()
+
+	return nil
+}
+
 
