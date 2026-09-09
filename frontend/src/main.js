@@ -825,7 +825,7 @@ async function renderAdminScreen(schoolName) {
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <!-- 헤더 영역 -->
             <div class="flex items-center justify-between mb-5 pb-4 border-b border-slate-700/50 flex-wrap gap-4">
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     <h1 class="text-2xl font-bold text-white flex items-center gap-3 whitespace-nowrap">
                         👔 관리자 대시보드
                         <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
