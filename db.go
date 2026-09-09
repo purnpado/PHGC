@@ -542,12 +542,14 @@ func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	return cutoffs, nil
 }
 
-// PurgeOldCutoffs 기준 입학년도 대비 보관 연한(기본 5개년)이 지난 오래된 커트라인 데이터를 자동 정리
-func (dm *DBManager) PurgeOldCutoffs(baseAdmissionYear, keepYears int) (int64, error) {
+// PurgeOldCutoffs 현재 입학 학년도(currentAdmissionYear) 대비 올해를 제외한 작년(직전년도)부터 보관 연한(5개년)을 보존하고 초과분 정리
+func (dm *DBManager) PurgeOldCutoffs(currentAdmissionYear, keepYears int) (int64, error) {
 	if keepYears <= 0 {
 		keepYears = 5
 	}
-	cutoffYear := baseAdmissionYear - (keepYears - 1)
+	// 올해(현재 입시 학년도)를 제외하고 작년부터 5개년 보존 (예: 2027년 기준 2026, 2025, 2024, 2023, 2022 보존 -> 2022 미만 삭제)
+	lastYear := currentAdmissionYear - 1
+	cutoffYear := lastYear - (keepYears - 1)
 	db, err := dm.openDB(dm.getConfigDBPath())
 	if err != nil {
 		return 0, err
