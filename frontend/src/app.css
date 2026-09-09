@@ -1,0 +1,489 @@
+/* ===== 앱 공통 컴포넌트 스타일 ===== */
+
+/* 글래스모피즘 카드 */
+.glass-card {
+    background: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                0 0 40px rgba(99, 102, 241, 0.1);
+}
+
+/* 인풋 필드 */
+.input-field {
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1.5px solid rgba(99, 102, 241, 0.3);
+    border-radius: 0.75rem;
+    color: white;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.input-field:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    background: rgba(15, 23, 42, 0.8);
+}
+
+.input-field::placeholder {
+    color: #64748b;
+}
+
+/* 숫자값은 직접 입력만 사용한다. WebView의 증감 화살표는 좁은 입력칸에서
+   값과 안내문을 가리므로 숨긴다. */
+input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 기본 버튼 */
+.btn-primary {
+    width: 100%;
+    padding: 0.875rem 2rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #818cf8, #a78bfa);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 보조 동작도 텍스트 링크가 아닌 명확한 버튼으로 표시한다. */
+.btn-secondary {
+    background: rgba(30, 41, 59, 0.82);
+    color: #e2e8f0;
+    border: 1px solid rgba(100, 116, 139, 0.72);
+    border-radius: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(51, 65, 85, 0.95);
+    border-color: rgba(129, 140, 248, 0.85);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+/* 모드 선택 카드 */
+.mode-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1.5px solid rgba(99, 102, 241, 0.2);
+    border-radius: 1rem;
+    padding: 2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.mode-card:hover {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(99, 102, 241, 0.2);
+}
+
+.mode-card .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.mode-card .title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.mode-card .desc {
+    font-size: 0.875rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+/* 에러 메시지 */
+.error-msg {
+    color: #ef4444;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    display: none;
+}
+
+.error-msg.show {
+    display: block;
+    animation: shake 0.4s ease;
+}
+
+/* 로딩 스피너 */
+.spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2.5px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+}
+
+/* 페이드 인 애니메이션 */
+.fade-in {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+/* 배경 장식 (그라데이션 원) */
+.bg-glow {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* ===== 애니메이션 ===== */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25%      { transform: translateX(-6px); }
+    75%      { transform: translateX(6px); }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+}
+
+/* ===== 동기화 화면 커스텀 ===== */
+.sync-icon {
+    animation: spin 3s linear infinite;
+    display: inline-block;
+}
+
+.sync-step {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.sync-step-icon {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-right: 1rem;
+}
+
+.sync-step-icon.pending {
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+.sync-step-text {
+    flex: 1;
+    text-align: left;
+}
+
+.sync-step-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+}
+
+/* ===== 워터마크 ===== */
+.watermark {
+    position: fixed;
+    bottom: 1rem;
+    left: 1.5rem;
+    font-size: 0.75rem;
+    color: rgba(148, 163, 184, 0.5); /* text-text-muted with opacity */
+    pointer-events: none;
+    z-index: 9999;
+    user-select: none;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+/* ===== 인쇄 전용 스타일 ===== */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 10mm;
+    }
+
+    body, html {
+        background: white !important;
+        color: black !important;
+        width: auto !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* 인쇄 시 스크롤 및 높이 제한 해제 */
+    body.printing .overflow-auto,
+    body.printing .overflow-y-auto,
+    body.printing .overflow-x-auto,
+    body.printing .max-h-\[70vh\],
+    body.printing .max-h-\[55vh\] {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    body.printing .glass-card {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    body.printing table {
+        font-size: 0.85rem !important;
+        color: black !important;
+        border-collapse: collapse !important;
+    }
+    body.printing th, body.printing td {
+        padding: 6px !important;
+        border: 1px solid #94a3b8 !important;
+        color: black !important;
+    }
+    body.printing th {
+        background-color: #f1f5f9 !important;
+    }
+
+    /* 인쇄 버튼이 고른 문서 외의 대시보드·배경·다른 모달은 출력하지 않는다. */
+    body.printing #app,
+    body.printing .bg-glow,
+    body.printing .watermark,
+    body.printing #globalFeedbackBtn,
+    body.printing #studentDetailModal,
+    body.printing #studentTranscriptModal,
+    body.printing #matrixModal,
+    body.printing #classApplicationSummaryModal,
+    body.printing #applicationRegisterModal,
+    body.printing #programGuideModal {
+        display: none !important;
+    }
+    body.printing[data-print-kind="report"] #studentDetailModal,
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal,
+    body.printing[data-print-kind="matrix"] #matrixModal,
+    body.printing[data-print-kind="summary"] #classApplicationSummaryModal,
+    body.printing[data-print-kind="register"] #applicationRegisterModal,
+    body.printing[data-print-kind="guide"] #programGuideModal {
+        display: block !important;
+        position: static !important;
+        inset: auto !important;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: white !important;
+        backdrop-filter: none !important;
+    }
+
+    .watermark, .no-print, header, nav {
+        display: none !important;
+    }
+    .glass-card {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+    .print-document, .print-modal {
+        position: static !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: none !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        background: white !important;
+        color: black !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: 0 !important;
+    }
+    /* 본문은 문서 기본색을 상속한다. 모든 요소를 검정으로 덮어쓰면
+       신호등·배지의 글자가 배경과 섞여 보이지 않게 된다. */
+    .print-document *, .print-modal * {
+        color: inherit !important;
+        border-color: #ccc !important;
+    }
+    .print-document, .print-modal {
+        color: #111 !important;
+    }
+    /* 화면의 다크 테마(slate/indigo 계열)를 그대로 출력하면 글자 대비가
+       무너진다. 인쇄물은 흰 바탕과 옅은 구분선으로 재구성한다. */
+    .print-document [class*="bg-slate-"],
+    .print-modal [class*="bg-slate-"] {
+        background: #fff !important;
+    }
+    .print-document [class*="bg-indigo-"],
+    .print-modal [class*="bg-indigo-"] {
+        background: #f5f3ff !important;
+    }
+    .print-document [class*="bg-cyan-"],
+    .print-modal [class*="bg-cyan-"] {
+        background: #ecfeff !important;
+    }
+    .print-document [class*="bg-emerald-"],
+    .print-modal [class*="bg-emerald-"] {
+        background: #ecfdf5 !important;
+    }
+    .print-document [class*="bg-primary"],
+    .print-modal [class*="bg-primary"] {
+        background: #eef2ff !important;
+    }
+    .print-document input,
+    .print-modal input {
+        background: #fff !important;
+        color: #111 !important;
+        border-color: #94a3b8 !important;
+    }
+    .print-document table th,
+    .print-modal table th {
+        background: #e2e8f0 !important;
+        color: #111 !important;
+    }
+    .print-document table td,
+    .print-modal table td {
+        background: #fff !important;
+        color: #111 !important;
+    }
+    /* 상담 판단 색상은 프린터의 배경 그래픽 옵션 없이도 식별되도록
+       진한 글자 + 매우 옅은 배경으로 고정한다. */
+    .print-document .text-success, .print-modal .text-success {
+        color: #166534 !important;
+    }
+    .print-document .text-warning, .print-modal .text-warning {
+        color: #92400e !important;
+    }
+    .print-document .text-danger, .print-modal .text-danger {
+        color: #b91c1c !important;
+    }
+    .print-document .text-primary, .print-modal .text-primary {
+        color: #4338ca !important;
+    }
+    .print-document [class*="bg-success"], .print-modal [class*="bg-success"] {
+        background: #dcfce7 !important;
+        border-color: #86efac !important;
+    }
+    .print-document [class*="bg-warning"], .print-modal [class*="bg-warning"] {
+        background: #fef3c7 !important;
+        border-color: #fcd34d !important;
+    }
+    .print-document [class*="bg-danger"], .print-modal [class*="bg-danger"] {
+        background: #fee2e2 !important;
+        border-color: #fca5a5 !important;
+    }
+    .print-document .overflow-x-auto,
+    .print-document .overflow-y-auto,
+    .print-modal .overflow-x-auto,
+    .print-modal .overflow-y-auto {
+        overflow: visible !important;
+        max-height: none !important;
+    }
+    .print-document thead,
+    .print-modal thead {
+        display: table-header-group;
+    }
+    .print-document tr,
+    .print-document .print-keep-together,
+    .print-modal .print-keep-together {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    body.printing[data-print-kind="matrix"] .print-document {
+        font-size: 7px !important;
+    }
+    body.printing[data-print-kind="matrix"] .print-document table {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+    body.printing[data-print-kind="matrix"] .print-document th,
+    body.printing[data-print-kind="matrix"] .print-document td {
+        padding: 1.25mm 0.75mm !important;
+        white-space: normal !important;
+        word-break: keep-all;
+    }
+    .print-document,
+    .print-document *,
+    .print-modal,
+    .print-modal * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    /* 상담표는 화면에서 5:7로 나뉘지만 A4에서는 한 영역씩 배치해야
+       후기 일반고 입력 표와 학교별 결과 카드가 충분한 폭을 확보한다. */
+    body.printing[data-print-kind="report"] .print-modal .grid.grid-cols-1.lg\:grid-cols-12 {
+        display: block !important;
+    }
+    body.printing[data-print-kind="report"] .print-modal .grid.grid-cols-1.lg\:grid-cols-12 > section {
+        width: 100% !important;
+        margin: 0 0 4mm 0 !important;
+    }
+    body.printing[data-print-kind="report"] .print-modal input.input-field {
+        min-width: 0 !important;
+        padding: 1.5mm 1mm !important;
+        font-size: 9pt !important;
+    }
+    .print-modal .school-counsel-card {
+        background: white !important;
+        border: 1px solid #bbb !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .print-modal .gauge-bg {
+        background: #eee !important;
+        border: 1px solid #bbb !important;
+    }
+    .print-modal .gauge-fill {
+        background: #4f46e5 !important;
+        min-width: 3mm;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
