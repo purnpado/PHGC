@@ -3673,19 +3673,20 @@ async function proceedAppInit() {
 
 // ===== 앱 시작 =====
 async function init() {
-    // 프로그램 시작 시 조용히 업데이트 버전 확인 (있으면 모달 팝업)
-    checkUpdateOnStartup();
-
     try {
         // 최초 실행 시 개인정보 보호 서약 동의 여부 검사
         const isAgreed = await window.go.main.App.IsAgreementAccepted?.();
         if (!isAgreed) {
             renderAgreementModal(() => {
+                // 서약서 동의 완료 후에만 서버 업데이트 확인 및 초기화 진행
+                checkUpdateOnStartup();
                 proceedAppInit();
             });
             return;
         }
 
+        // 이미 서약에 동의한 경우 정상 초기화 진행
+        checkUpdateOnStartup();
         proceedAppInit();
     } catch (err) {
         console.warn('동의 여부 확인 실패:', err);

@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
@@ -197,38 +198,37 @@ func (dm *DBManager) setDataKey(key []byte) {
 	dm.dataKey = append(dm.dataKey[:0], key...)
 }
 
-// NewDBManager 데이터 디렉토리를 초기화하고 매니저를 반환
+// NewDBManager 데이터 디렉토리 경로를 설정하고 매니저를 반환 (폴더는 사전 생성하지 않고 지연 생성)
 func NewDBManager() *DBManager {
 	// 1차: 실행파일 위치 기준으로 data 폴더 시도
 	exePath, err := os.Executable()
 	if err != nil {
 		exePath = "."
 	}
-	dataDir := filepath.Join(filepath.Dir(exePath), "data")
+	baseDir := filepath.Dir(exePath)
+	dataDir := filepath.Join(baseDir, "data")
 
-	// 공유폴더(UNC 경로) 또는 쓰기 불가능한 경로인 경우
+	// 공유폴더(UNC 경로) 또는 부모 경로 쓰기 불가능한 경우
 	// 사용자 로컬 AppData 폴더에 데이터 저장
-	if strings.HasPrefix(dataDir, `\\`) || !isWritable(dataDir) {
+	if strings.HasPrefix(dataDir, `\\`) || !isDirWritable(baseDir) {
 		homeDir, err := os.UserHomeDir()
 		if err == nil {
 			dataDir = filepath.Join(homeDir, ".neoeodigallae", "data")
 		}
 	}
 
-	os.MkdirAll(dataDir, 0700)
 	return &DBManager{dataDir: dataDir}
 }
 
-// isWritable 디렉토리 쓰기 가능 여부 확인
-func isWritable(dir string) bool {
-	os.MkdirAll(dir, 0755)
-	testFile := filepath.Join(dir, ".write_test")
+// isDirWritable 디렉토리 쓰기 권한 여부 확인 (하위 폴더를 강제 생성하지 않고 임시 파일로만 테스트)
+func isDirWritable(dir string) bool {
+	testFile := filepath.Join(dir, fmt.Sprintf(".write_test_%d_%d", os.Getpid(), time.Now().UnixNano()))
 	f, err := os.Create(testFile)
 	if err != nil {
 		return false
 	}
 	f.Close()
-	os.Remove(testFile)
+	_ = os.Remove(testFile)
 	return true
 }
 
@@ -242,7 +242,7 @@ func (dm *DBManager) hasEncryptedConfigDB() bool {
 	return err == nil
 }
 
-// openDB SQLite 데이터베이스 연결
+// openDB SQLite 데이터베이스 연결 (필요 시 data 폴더 자동 생성)
 func (dm *DBManager) openDB(dbPath string) (*sql.DB, error) {
 	// Wails 바인딩은 화면 밖에서도 호출될 수 있다. 잠긴 암호화 패키지에
 	// 대해 SQLite가 빈 .db를 자동 생성하는 것을 막는다.
@@ -251,6 +251,12 @@ func (dm *DBManager) openDB(dbPath string) (*sql.DB, error) {
 			return nil, fmt.Errorf("데이터 잠금을 먼저 해제해주세요")
 		}
 	}
+
+	// 실제 DB 파일을 열 때 비로소 저장 디렉토리 생성
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0700); err != nil {
+		return nil, fmt.Errorf("데이터 저장 디렉토리 생성 실패: %w", err)
+	}
+
 	db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("DB 연결 실패: %w", err)

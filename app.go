@@ -103,16 +103,27 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// 이미 배포된 data 폴더는 config.db.phgc 상태로 시작한다. 로그인 전에는
-	// 절대 빈 config.db를 새로 만들지 않는다.
-	if !a.db.hasEncryptedConfigDB() {
-		if err := a.db.InitConfigDB(); err != nil {
-			fmt.Println("config DB 초기화 오류:", err)
+	// 서약서에 동의했거나, 이미 배포된 config.db.phgc가 있는 경우에만 DB 초기화
+	// 서약 전에는 빈 data 폴더나 config.db를 만들지 않는다.
+	if a.IsAgreementAccepted() || a.db.hasEncryptedConfigDB() {
+		if !a.db.hasEncryptedConfigDB() {
+			if err := a.db.InitConfigDB(); err != nil {
+				fmt.Println("config DB 초기화 오류:", err)
+			}
 		}
 	}
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	// 사용자가 서약서에 동의하지 않고 창을 닫은 경우 (미동의 종료)
+	if !a.IsAgreementAccepted() && !a.db.hasEncryptedConfigDB() {
+		// 서약 미동의 상태이므로 data 폴더가 존재하더라도 깨끗하게 파기
+		if a.db != nil && a.db.dataDir != "" {
+			_ = os.RemoveAll(a.db.dataDir)
+		}
+		return
+	}
+
 	if err := a.db.SealAllDatabases(); err != nil {
 		fmt.Println("DB 암호화 종료 처리 오류:", err)
 	}
@@ -2204,7 +2215,17 @@ func (a *App) AcceptAgreement() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, b, 0644)
+	if err := os.WriteFile(p, b, 0644); err != nil {
+		return err
+	}
+
+	// 서약 동의가 완료되었으므로 이제 기본 config DB 초기화 진행
+	if !a.db.hasEncryptedConfigDB() {
+		if err := a.db.InitConfigDB(); err != nil {
+			fmt.Println("서약 동의 후 config DB 초기화 오류:", err)
+		}
+	}
+	return nil
 }
 
 // SelfDestruct 사용자가 서약에 비동의 시 프로그램 실행 파일 및 관련 데이터를 즉시 안전하게 파기하고 종료

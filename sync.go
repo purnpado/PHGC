@@ -119,6 +119,9 @@ func (sm *SyncManager) downloadFile(remotePath string) ([]byte, error) {
 // saveToFile 로컬 파일로 저장
 func (sm *SyncManager) saveToFile(filename string, data []byte) error {
 	filePath := filepath.Join(sm.dataDir, filename)
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return fmt.Errorf("데이터 저장 디렉토리 생성 실패: %w", err)
+	}
 	return os.WriteFile(filePath, data, 0644)
 }
 
