@@ -109,9 +109,19 @@ wails build
 
 ### 버전 릴리즈 배포
 ```powershell
-# GitHub & Gitea 소스 동기화 및 릴리즈 빌드
-.\publish.ps1 -Notes "최신 기능 업데이트 및 버그 수정"
-
-# Gitea에만 선택적으로 릴리즈 실행파일 업로드 시
-.\publish.ps1 -Notes "정식 배포" -UploadGiteaRelease
+# GitHub 릴리즈 배포 파이프라인 (자동 빌드, Git 커밋, 태깅, GitHub Releases 바이너리 업로드)
+.\publish.ps1 -Notes "최신 기능 업데이트 및 버그 수정" -Version "1.2.1"
 ```
+
+---
+
+## 📜 라이선스 (License)
+
+본 소프트웨어는 **[Creative Commons 저작자표시-비영리-동일조건변경허락 4.0 국제(CC BY-NC-SA 4.0)](LICENSE)** 라이선스를 준수합니다.
+
+- **원작자(Author)**: **푸른파도소리** (`purnpado` / `purnpadosori`)
+- **이용 수칙**:
+  1. 🏷️ **출처 표기 (BY)**: 배포 및 인용 시 원작자(**푸른파도소리**) 및 [GitHub 공식 리포지토리](https://github.com/purnpado/PHGC) 출처를 반드시 명시해야 합니다.
+  2. 🚫 **상용 이용 금지 (NC)**: 교육 및 비영리 목적으로만 무료로 이용할 수 있으며, 일체의 유료 판매나 영리 활동을 엄격히 금지합니다.
+  3. 🔄 **수정 재배포 허용 (SA)**: 자유로운 소스 코드 수정 및 개선이 가능하며, 재배포 시 동일한 비영리 라이선스(CC BY-NC-SA)를 적용해야 합니다.
+
