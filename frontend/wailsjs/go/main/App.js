@@ -194,6 +194,10 @@ export function OpenExcelFile() {
   return window['go']['main']['App']['OpenExcelFile']();
 }
 
+export function OpenExternalURL(arg1) {
+  return window['go']['main']['App']['OpenExternalURL'](arg1);
+}
+
 export function OpenFinalArchive() {
   return window['go']['main']['App']['OpenFinalArchive']();
 }
@@ -224,6 +228,10 @@ export function ProcessExcel(arg1) {
 
 export function ProcessVolunteerExcel(arg1) {
   return window['go']['main']['App']['ProcessVolunteerExcel'](arg1);
+}
+
+export function PurgeOldCutoffs(arg1, arg2) {
+  return window['go']['main']['App']['PurgeOldCutoffs'](arg1, arg2);
 }
 
 export function ReopenAdmissionYear(arg1) {

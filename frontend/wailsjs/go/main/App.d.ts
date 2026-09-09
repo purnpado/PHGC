@@ -98,6 +98,8 @@ export function OpenDistributionPackage():Promise<string>;
 
 export function OpenExcelFile():Promise<string>;
 
+export function OpenExternalURL(arg1:string):Promise<void>;
+
 export function OpenFinalArchive():Promise<string>;
 
 export function OpenPasswordResetPackage():Promise<string>;
@@ -113,6 +115,8 @@ export function ProcessAttendanceExcel(arg1:string):Promise<Record<number, numbe
 export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number>>;
+
+export function PurgeOldCutoffs(arg1:number,arg2:number):Promise<number>;
 
 export function ReopenAdmissionYear(arg1:number):Promise<void>;
 

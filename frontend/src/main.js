@@ -3,6 +3,7 @@ import './app.css';
 
 import { CheckSetupComplete, GetSchoolConfig, VerifyAdminPassword, SyncWithServer, GetAppVersion, OpenExcelFile, ProcessExcel, GetClassStatus, GetClassGrades } from '../wailsjs/go/main/App';
 import middleSchools from './assets/middleschools.json';
+import logoUniversal from './assets/images/logo-universal.png';
 
 const app = document.querySelector('#app');
 
@@ -198,7 +199,7 @@ function renderFirstRunScreen() {
     app.innerHTML = `
         <div class="glass-card p-8 w-full max-w-xl fade-in" style="margin: 2rem;">
             <div class="text-center mb-8">
-                <img src="./src/assets/images/logo-universal.png" alt="로고" class="w-20 h-20 mx-auto mb-3 rounded-2xl shadow-xl border border-indigo-500/30 object-cover" style="animation: float 3s ease-in-out infinite;" />
+                <img src="${logoUniversal}" alt="로고" class="w-20 h-20 mx-auto mb-3 rounded-2xl shadow-xl border border-indigo-500/30 object-cover" style="animation: float 3s ease-in-out infinite;" />
                 <h1 class="text-2xl font-black text-white tracking-tight mb-2">그래서? 넌 어디 갈래?</h1>
                 <div class="flex items-center justify-center gap-1.5 flex-wrap">
                     <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold">🔒 100% 오프라인</span>
@@ -829,12 +830,15 @@ async function renderAdminScreen(schoolName) {
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <!-- 헤더 영역 -->
             <div class="flex items-center justify-between mb-5 pb-4 border-b border-slate-700/50 flex-wrap gap-4">
-                <div class="shrink-0">
-                    <h1 class="text-2xl font-bold text-white flex items-center gap-3 whitespace-nowrap">
-                        👔 관리자 대시보드
-                        <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
-                    </h1>
-                    <p class="text-text-muted text-xs mt-1 whitespace-nowrap">${schoolName} (총 ${classCount}학급)</p>
+                <div class="flex items-center gap-3 shrink-0">
+                    <img src="${logoUniversal}" alt="로고" class="w-10 h-10 rounded-xl shadow-md border border-indigo-400/40 object-cover shrink-0" />
+                    <div>
+                        <h1 class="text-2xl font-black text-white flex items-center gap-2.5 whitespace-nowrap">
+                            관리자 대시보드
+                            <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
+                        </h1>
+                        <p class="text-text-muted text-xs mt-0.5 whitespace-nowrap">${schoolName} (총 ${classCount}학급)</p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap">
                     ${window.currentUser && window.currentUser.Role === 'master' ? `
@@ -1432,12 +1436,15 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
     app.innerHTML = `
         <div class="glass-card p-6 md:p-8 w-full max-w-[1700px] mx-auto min-h-[85vh]">
             <div class="flex flex-wrap items-center justify-between mb-6 pb-4 border-b border-slate-700/50 gap-4">
-                <div>
-                    <h1 class="text-2xl font-bold text-white flex items-center gap-3">
-                        👨‍🏫 진학 상담 대시보드
-                        <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
-                    </h1>
-                    <p class="text-text-muted text-sm mt-1">${schoolName}</p>
+                <div class="flex items-center gap-3 shrink-0">
+                    <img src="${logoUniversal}" alt="로고" class="w-10 h-10 rounded-xl shadow-md border border-indigo-400/40 object-cover shrink-0" />
+                    <div>
+                        <h1 class="text-2xl font-black text-white flex items-center gap-2.5 whitespace-nowrap">
+                            진학 상담 대시보드
+                            <span class="text-xs bg-slate-800 text-indigo-300 px-2.5 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">v${localVer}</span>
+                        </h1>
+                        <p class="text-text-muted text-xs mt-0.5 whitespace-nowrap">${schoolName}</p>
+                    </div>
                 </div>
                 <div class="flex items-center gap-3 flex-wrap">
                     <!-- 일반고 지원가이드 판정 기준 커스텀 -->
@@ -4047,7 +4054,7 @@ export async function renderLoginScreen(schoolName) {
         app.innerHTML = `
             <div class="glass-card p-10 w-full max-w-md fade-in" style="margin: 2rem;">
                 <div class="text-center mb-6">
-                    <img src="./src/assets/images/logo-universal.png" alt="로고" class="w-20 h-20 mx-auto mb-3 rounded-2xl shadow-xl border border-indigo-500/30 object-cover" style="animation: float 3s ease-in-out infinite;" />
+                    <img src="${logoUniversal}" alt="로고" class="w-20 h-20 mx-auto mb-3 rounded-2xl shadow-xl border border-indigo-500/30 object-cover" style="animation: float 3s ease-in-out infinite;" />
                     <h1 class="text-2xl font-black text-white tracking-tight mb-1">그래서? 넌 어디 갈래?</h1>
                     <div class="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
                         <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[11px] font-bold">🏫 ${schoolName}</span>
