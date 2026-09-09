@@ -14,7 +14,7 @@ import (
 
 const (
 	// 현재 앱 버전
-	AppVersion = "1.0.1"
+	AppVersion = "1.0.2"
 
 	// Gitea 서버 정보
 	GiteaBaseURL = "https://gitea.gguk.link"
@@ -307,6 +307,38 @@ func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error
 	_ = sm.saveToFile(filename, data)
 	return &result, nil
 }
+// NoticeItem 운영센터 공지사항 항목
+type NoticeItem struct {
+	Title       string `json:"title"`
+	Content     string `json:"content"`
+	PublishedAt string `json:"publishedAt"`
+}
 
+// GetNotices 서버에서 공지사항 목록 다운로드 및 로컬 캐싱
+func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
+	const filename = "notice.json"
+	var items []NoticeItem
+
+	// 1. 서버에서 최신 공지 다운로드 시도
+	data, err := sm.downloadFile(filename)
+	if err == nil {
+		data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+		if err := json.Unmarshal(data, &items); err == nil {
+			_ = sm.saveToFile(filename, data)
+			return items, nil
+		}
+	}
+
+	// 2. 서버 연결 실패 시 로컬 캐시에서 시도
+	localPath := filepath.Join(sm.dataDir, filename)
+	if cachedData, err := os.ReadFile(localPath); err == nil {
+		cachedData = bytes.TrimPrefix(cachedData, []byte("\xef\xbb\xbf"))
+		if err := json.Unmarshal(cachedData, &items); err == nil {
+			return items, nil
+		}
+	}
+
+	return items, nil
+}
 
 

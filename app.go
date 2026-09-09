@@ -1061,6 +1061,11 @@ func (a *App) GetAppVersion() string {
 	return AppVersion
 }
 
+// GetServerNotices 운영센터 공지사항 목록 반환
+func (a *App) GetServerNotices() ([]NoticeItem, error) {
+	return a.sync.GetNotices()
+}
+
 // --- 엑셀 임포트 API ---
 
 // OpenExcelFile 파일 선택 다이얼로그 열기

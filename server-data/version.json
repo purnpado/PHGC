@@ -1,6 +1,6 @@
 {
-    "latestVersion":  "1.0.1",
+    "latestVersion":  "1.0.2",
     "minVersion":  "0.5.0",
-    "releaseNotes":  "v1.0.1 - 커트라인 서버 전송 데이터 규격 불일치 오류 수정",
+    "releaseNotes":  "v1.0.2 - 운영센터 공지사항 연동(스마트 자동 팝업 및 헤더 메뉴), 커트라인 동기화 고도화",
     "downloadUrl":  "https://go.gguk.link/api/download/PHGC.exe"
 }

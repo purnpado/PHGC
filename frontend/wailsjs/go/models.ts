@@ -324,6 +324,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class NoticeItem {
+	    title: string;
+	    content: string;
+	    publishedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new NoticeItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.title = source["title"];
+	        this.content = source["content"];
+	        this.publishedAt = source["publishedAt"];
+	    }
+	}
 	export class OfficialAdmissionData {
 	    items: any[];
 	

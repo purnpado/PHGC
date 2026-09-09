@@ -134,6 +134,10 @@ export function GetSchoolRuleList() {
   return window['go']['main']['App']['GetSchoolRuleList']();
 }
 
+export function GetServerNotices() {
+  return window['go']['main']['App']['GetServerNotices']();
+}
+
 export function GetStudentApplicationScoreSnapshot(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['GetStudentApplicationScoreSnapshot'](arg1, arg2, arg3, arg4, arg5, arg6);
 }

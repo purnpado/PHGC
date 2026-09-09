@@ -188,6 +188,147 @@ function showModalConfirm({ title = '확인', message = '', type = 'warning', co
 }
 window.showModalConfirm = showModalConfirm;
 
+// ===== 운영센터 공지사항 모달 및 자동 팝업 시스템 =====
+async function checkAndShowNoticePopup() {
+    try {
+        if (!window.go?.main?.App?.GetServerNotices) return;
+        const notices = await window.go.main.App.GetServerNotices();
+        if (!notices || notices.length === 0) return;
+
+        const latest = notices[0];
+        const noticeKey = `phgc_hide_notice_${latest.publishedAt}_${latest.title}`;
+        const hideUntil = localStorage.getItem(noticeKey);
+        
+        const today = new Date().toISOString().slice(0, 10);
+        if (hideUntil === today) {
+            return; // 오늘 하루 보지 않기 설정됨
+        }
+
+        showNoticePopupModal(latest, notices);
+    } catch (e) {
+        console.warn('공지사항 확인 실패:', e);
+    }
+}
+window.checkAndShowNoticePopup = checkAndShowNoticePopup;
+
+function showNoticePopupModal(notice, allNotices = []) {
+    document.getElementById('phgcNoticeModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'phgcNoticeModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+    modal.innerHTML = `
+        <div class="glass-card max-w-xl w-full p-6 md:p-8 border border-cyan-500/40 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-2xl">📢</span>
+                    <div>
+                        <span class="text-[11px] font-bold text-cyan-400 tracking-wider">EDUBRIDGE 운영센터 공지</span>
+                        <h2 class="text-lg font-bold text-white">${String(notice.title || '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c])}</h2>
+                    </div>
+                </div>
+                <span class="text-xs text-slate-400 font-mono">${String(notice.publishedAt || '')}</span>
+            </div>
+
+            <div class="text-sm text-slate-200 leading-relaxed max-h-[50vh] overflow-y-auto whitespace-pre-wrap p-4 rounded-xl bg-slate-900/60 border border-slate-700/40">
+                ${String(notice.content || '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c])}
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-slate-700/50">
+                <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none hover:text-slate-300">
+                    <input type="checkbox" id="noticeDoNotShowToday" class="rounded border-slate-600 text-cyan-600 focus:ring-cyan-500" />
+                    <span>오늘 하루 이 창을 열지 않음</span>
+                </label>
+                <div class="flex gap-2">
+                    ${allNotices.length > 1 ? `
+                    <button id="noticeViewAllBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold" style="width: auto;">
+                        이전 공지 (${allNotices.length}건)
+                    </button>` : ''}
+                    <button id="noticeCloseBtn" class="btn-primary text-xs px-5 py-2 font-bold" style="width: auto; background: #0891b2;">
+                        확인
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => {
+        const check = document.getElementById('noticeDoNotShowToday');
+        if (check && check.checked) {
+            const today = new Date().toISOString().slice(0, 10);
+            const noticeKey = `phgc_hide_notice_${notice.publishedAt}_${notice.title}`;
+            localStorage.setItem(noticeKey, today);
+        }
+        modal.remove();
+    };
+
+    document.getElementById('noticeCloseBtn').addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    document.getElementById('noticeViewAllBtn')?.addEventListener('click', () => {
+        modal.remove();
+        showAllNoticesModal(allNotices);
+    });
+}
+
+function showAllNoticesModal(notices) {
+    document.getElementById('phgcAllNoticesModal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'phgcAllNoticesModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+    const noticeCards = notices.map(n => `
+        <article class="p-4 rounded-xl bg-slate-900/70 border border-slate-700/60 mb-3 space-y-2">
+            <div class="flex justify-between items-center">
+                <strong class="text-white font-bold text-base">📢 ${String(n.title || '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c])}</strong>
+                <span class="text-xs text-cyan-400 font-mono">${String(n.publishedAt || '')}</span>
+            </div>
+            <p class="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">${String(n.content || '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c])}</p>
+        </article>
+    `).join('');
+
+    modal.innerHTML = `
+        <div class="glass-card max-w-2xl w-full p-6 md:p-8 border border-cyan-500/40 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span>📢</span> 전체 공지사항 (${notices.length}건)
+                </h2>
+                <button id="allNoticesCloseX" class="text-slate-400 hover:text-white text-xl font-bold p-1">✕</button>
+            </div>
+
+            <div class="max-h-[60vh] overflow-y-auto pr-1">
+                ${noticeCards || '<p class="text-slate-400 text-sm">등록된 공지사항이 없습니다.</p>'}
+            </div>
+
+            <div class="text-right pt-2 border-t border-slate-700/50">
+                <button id="allNoticesCloseBtn" class="btn-secondary text-xs px-5 py-2 font-bold" style="width: auto;">
+                    닫기
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    document.getElementById('allNoticesCloseX').onclick = close;
+    document.getElementById('allNoticesCloseBtn').onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+}
+window.openNoticeListModal = async () => {
+    try {
+        const notices = await window.go.main.App.GetServerNotices();
+        showAllNoticesModal(notices || []);
+    } catch (e) {
+        showModalAlert({ title: '공지사항 불러오기 실패', message: String(e), type: 'error' });
+    }
+};
+
 // ===== 화면 렌더링 함수들 =====
 
 // 새 프로그램 폴더의 첫 화면. 새 학교 설정과 학년부장 배포 자료 적용을
@@ -848,6 +989,9 @@ async function renderAdminScreen(schoolName) {
                         전체 초기화
                     </button>
                     ` : ''}
+                    <button id="openNoticeListBtn" class="btn-secondary text-xs px-3 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;" title="운영센터 공지사항 열기">
+                        <span>📢</span> 공지사항
+                    </button>
                     <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3 py-2 font-bold inline-flex items-center gap-1.5" style="width: auto;" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
@@ -1164,6 +1308,13 @@ async function renderAdminScreen(schoolName) {
             alert('취합자료 가져오기 실패: ' + err);
         }
     });
+
+    document.getElementById('openNoticeListBtn')?.addEventListener('click', window.openNoticeListModal);
+
+    // 화면 로드 후 공지사항 자동 팝업 확인
+    setTimeout(() => {
+        window.checkAndShowNoticePopup();
+    }, 400);
 }
 
 function openPatchMergeSelection(preview, password, schoolName) {
@@ -1421,6 +1572,9 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                         <span>🗂️</span> 학급 목록
                     </button>
                     ${window.currentUser && window.currentUser.Role === 'homeroom' ? `<button id="exportCurrentClassPatchBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5"><span>📤</span> 취합자료제출(담임)</button>` : ''}
+                    <button id="openNoticeListTeacherBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="운영센터 공지사항 열기">
+                        <span>📢</span> 공지사항
+                    </button>
                     <button id="openTeacherGuideBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
@@ -1446,6 +1600,12 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
             </div>
         </div>
     `;
+
+    // 공지사항 버튼 이벤트 및 자동 팝업 체크
+    document.getElementById('openNoticeListTeacherBtn')?.addEventListener('click', window.openNoticeListModal);
+    setTimeout(() => {
+        window.checkAndShowNoticePopup();
+    }, 400);
 
     // 일반고 기준 적용 버튼 이벤트
     document.getElementById('saveGuideCutoffBtn')?.addEventListener('click', () => {
