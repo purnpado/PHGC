@@ -2229,22 +2229,32 @@ try {
 } catch {}
 Start-Sleep -Milliseconds 500
 
-# 1. data 폴더 삭제
+# 1. data 폴더 영구 완전 삭제 (휴지통 우회)
 if (Test-Path -LiteralPath $dataDirPath) {
     for ($i = 0; $i -lt 10; $i++) {
         try {
-            Remove-Item -LiteralPath $dataDirPath -Recurse -Force -ErrorAction Stop
+            [System.IO.Directory]::Delete($dataDirPath, $true)
             break
-        } catch { Start-Sleep -Milliseconds 300 }
+        } catch {
+            try {
+                Remove-Item -LiteralPath $dataDirPath -Recurse -Force -ErrorAction Stop
+                break
+            } catch { Start-Sleep -Milliseconds 300 }
+        }
     }
 }
 
-# 2. 실행 파일(.exe) 삭제
+# 2. 실행 파일(.exe) 영구 완전 삭제 (휴지통 우회)
 for ($i = 0; $i -lt 15; $i++) {
     try {
-        Remove-Item -LiteralPath $exePath -Force -ErrorAction Stop
+        [System.IO.File]::Delete($exePath)
         break
-    } catch { Start-Sleep -Milliseconds 400 }
+    } catch {
+        try {
+            Remove-Item -LiteralPath $exePath -Force -ErrorAction Stop
+            break
+        } catch { Start-Sleep -Milliseconds 400 }
+    }
 }
 `, currentPid, strings.ReplaceAll(currentExe, "'", "''"), strings.ReplaceAll(dataDir, "'", "''"))
 
