@@ -1961,7 +1961,7 @@ async function renderStudentList(students, classNum) {
                     <span>신호등 매트릭스</span>
                 </button>
                 <button id="openClassApplicationSummaryBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 지원희망 통계">
-                    <svg class="w-3.5 h-3.5 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                    <svg class="w-3.5 h-3.5 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 00-2-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     <span>우리 반 통계</span>
                 </button>
             </div>
@@ -1989,7 +1989,6 @@ async function renderStudentList(students, classNum) {
         </div>
     `;
 
-    // 신호등 매트릭스 버튼
     document.getElementById('openMatrixBtn').addEventListener('click', () => {
         openMatrixModal(classNum);
     });
@@ -2009,7 +2008,6 @@ async function renderStudentList(students, classNum) {
         }
     });
 
-    // 1. 학생 고교별 진학 상담 버튼 클릭 이벤트 바인딩
     document.querySelectorAll('.btn-student-counsel').forEach(el => {
         el.addEventListener('click', (e) => {
             const target = e.currentTarget;
@@ -2027,7 +2025,6 @@ async function renderStudentList(students, classNum) {
         });
     });
 
-    // 2. 학생 이름 클릭 시: 전과목 전학년 교과/비교과 종합 성적표 모달 호출
     document.querySelectorAll('.text-student-name').forEach(el => {
         el.addEventListener('click', (e) => {
             const target = e.currentTarget;
@@ -2039,7 +2036,6 @@ async function renderStudentList(students, classNum) {
     });
 }
 
-// ===== 고입원서대장 (학교 공식 표준 양식 & 동적 결재라인 & 일반고 배정 수기입력 & 반별 자동 페이지분할 인쇄) =====
 async function openApplicationRegisterModal() {
     document.getElementById('applicationRegisterModal')?.remove();
 
@@ -2065,7 +2061,6 @@ async function openApplicationRegisterModal() {
     const isHomeroom = window.currentUser && window.currentUser.Role === 'homeroom';
     const homeroomClass = isHomeroom ? window.currentUser.ClassNum : null;
 
-    // 결재라인 기본 옵션 및 저장된 설정 로드 (소규모 학교: 담임/교무부장/교장, 일반: 담임/부장/교감/교장 등)
     const defaultApprovalCandidates = [
         { id: 'homeroom', label: '담임', defaultChecked: true },
         { id: 'gradeHead', label: '학년부장', defaultChecked: true },
@@ -2083,16 +2078,14 @@ async function openApplicationRegisterModal() {
 
     let activeApprovals = Array.isArray(savedApprovals) ? savedApprovals : ['담임', '학년부장', '교감', '교장'];
     
-    // 출력 모드: 'all_paged' (전교 반별 자동 페이지분할 인쇄), 'single_class' (특정 반 단독 인쇄)
     let printLayoutMode = isHomeroom ? 'single_class' : 'all_paged';
     let selectedClassFilter = isHomeroom ? String(homeroomClass) : 'all';
+    let pageScaleMode = 'auto'; // 'auto', 'standard', 'compact', 'ultra'
 
-    // 전체 학급 번호 추출
     const classSet = new Set();
     records.forEach(r => { if (r.classNum) classSet.add(r.classNum); });
     const classList = Array.from(classSet).sort((a, b) => a - b);
 
-    // 고교별 전형별 공식 만점 산출 헬퍼 함수
     const getSchoolTotalMaxString = (schName, cat) => {
         if (!schName) return '';
         const name = schName.trim();
@@ -2106,24 +2099,20 @@ async function openApplicationRegisterModal() {
         return '';
     };
 
-    // 모달 DOM 생성 및 즉시 body에 추가 (첫 진입 시 이벤트 바인딩 100% 보장)
     const modal = document.createElement('div');
     modal.id = 'applicationRegisterModal';
     modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col p-2 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200';
     document.body.appendChild(modal);
 
     const renderModalContent = () => {
-        // 결재란 헤더 HTML
         const approvalHeadersHTML = activeApprovals.length > 0
-            ? activeApprovals.map(role => `<th class="border border-black bg-slate-100 font-bold p-1 w-16 text-center text-xs tracking-tight">${role}</th>`).join('')
+            ? activeApprovals.map(role => `<th class="border border-black bg-slate-100 font-bold w-16 text-center tracking-tight" style="padding: 4px 2px;">${role}</th>`).join('')
             : '<th class="border border-black bg-slate-100 font-normal p-1 text-slate-400 text-[11px]">-</th>';
 
-        // 학급별로 레코드 그룹화 (전교 일괄 인쇄 시 반별 자동 분할 대응)
         const targetClasses = (printLayoutMode === 'single_class' && selectedClassFilter !== 'all')
             ? [parseInt(selectedClassFilter, 10)]
             : (classList.length > 0 ? classList : [1]);
 
-        // 문서 전체 HTML 생성 (반별로 페이지 생성)
         const documentPagesHTML = targetClasses.map((currentClass, pageIdx) => {
             const classRecords = records.filter(r => r.classNum === currentClass).sort((a, b) => {
                 const numA = parseInt(a.studentNum, 10) || 0;
@@ -2131,13 +2120,43 @@ async function openApplicationRegisterModal() {
                 return numA - numB;
             });
 
+            const studentCount = classRecords.length;
+
+            let cellPaddingStyle = 'padding: 5px 6px;';
+            let cellFontSizeStyle = 'font-size: 11.5px;';
+            let approvalCellHeight = 'height: 34px;';
+            let tableHeaderPadding = 'padding: 5px 3px;';
+            let tableHeaderFont = 'font-size: 11.5px;';
+
+            const effectiveScale = (pageScaleMode === 'auto')
+                ? (studentCount >= 26 ? 'ultra' : (studentCount >= 21 ? 'compact' : 'standard'))
+                : pageScaleMode;
+
+            if (effectiveScale === 'ultra') {
+                cellPaddingStyle = 'padding: 2.5px 4px;';
+                cellFontSizeStyle = 'font-size: 10px; line-height: 1.25;';
+                approvalCellHeight = 'height: 25px;';
+                tableHeaderPadding = 'padding: 3.5px 2px;';
+                tableHeaderFont = 'font-size: 10.5px;';
+            } else if (effectiveScale === 'compact') {
+                cellPaddingStyle = 'padding: 4px 5px;';
+                cellFontSizeStyle = 'font-size: 11px; line-height: 1.3;';
+                approvalCellHeight = 'height: 30px;';
+                tableHeaderPadding = 'padding: 4px 3px;';
+                tableHeaderFont = 'font-size: 11px;';
+            } else if (effectiveScale === 'standard') {
+                cellPaddingStyle = 'padding: 6px 8px;';
+                cellFontSizeStyle = 'font-size: 12px; line-height: 1.4;';
+                approvalCellHeight = 'height: 38px;';
+                tableHeaderPadding = 'padding: 6px 4px;';
+                tableHeaderFont = 'font-size: 12px;';
+            }
+
             const rowsHTML = classRecords.length > 0 ? classRecords.map((r, idx) => {
-                // 학번 포맷 (예: 3학년 1반 1번 -> 30101)
                 const paddedClass = String(r.classNum || 1);
                 const paddedNum = String(r.studentNum || 0).padStart(2, '0');
                 const studentId = `3${paddedClass.padStart(2, '0')}${paddedNum}`;
 
-                // 학교명 (타시도, 특목고, 예체고, 대안학교 등 포함)
                 let schoolDisplay = r.schoolName || '-';
                 if (r.category === 'general') {
                     schoolDisplay = '후기 일반고';
@@ -2145,15 +2164,13 @@ async function openApplicationRegisterModal() {
                     schoolDisplay = '미진학 (진학포기)';
                 }
 
-                // 지원학과 (전기, 1지망) OR 최종배정학교 (후기고)
                 let deptDisplayHTML = '';
                 if (r.category === 'general') {
-                    // 후기 일반고는 배정고 인라인 즉시 수정 input 지원!
                     deptDisplayHTML = `
                         <div class="flex items-center justify-center gap-1 w-full">
                             <input type="text" 
-                                   class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent px-1 py-0.5 text-xs text-left w-full outline-none print:border-none print:text-black print:p-0"
-                                   style="border-bottom-style: dashed;"
+                                   class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent text-left w-full outline-none print:border-none print:text-black print:p-0"
+                                   style="border-bottom-style: dashed; ${cellFontSizeStyle} padding: 1px 2px;"
                                    value="${r.assignedSchool || ''}" 
                                    placeholder="배정고 입력(수기)" 
                                    data-class="${r.classNum}" 
@@ -2165,23 +2182,21 @@ async function openApplicationRegisterModal() {
                     if (r.assignedDepartment) {
                         deptDisplayHTML = `<span class="font-semibold">${r.assignedDepartment}</span> <span class="text-[10px] text-slate-500 font-normal">(배정)</span>`;
                     } else if (r.preferences && r.preferences.length > 0) {
-                        deptDisplayHTML = `<span class="font-medium">${r.preferences[0]}</span>`; // 1지망 학과
+                        deptDisplayHTML = `<span class="font-medium">${r.preferences[0]}</span>`;
                     } else {
                         deptDisplayHTML = '-';
                     }
                 }
 
-                // 합격여부 (O, X)
                 let passDisplay = '';
                 if (r.status === '합격' || r.status === '최종 진학' || r.status === '최종진학') {
-                    passDisplay = '<span class="font-black text-sm text-black">O</span>';
+                    passDisplay = '<span class="font-black text-black">O</span>';
                 } else if (r.status === '불합격') {
-                    passDisplay = '<span class="font-black text-sm text-red-600">X</span>';
+                    passDisplay = '<span class="font-black text-red-600">X</span>';
                 } else if (r.status === '지원완료' || r.status === '지원희망') {
-                    passDisplay = '<span class="text-xs text-slate-500 font-normal">진행</span>';
+                    passDisplay = '<span class="text-[11px] text-slate-500 font-normal">진행</span>';
                 }
 
-                // 내신총점 (취득점/만점 형태 표기: 예: 219.12/300, 36.09/100, 15.05%)
                 let scoreDisplay = '-';
                 if (r.score && r.score > 0) {
                     const formattedScore = r.score.toFixed(2);
@@ -2195,34 +2210,31 @@ async function openApplicationRegisterModal() {
                     }
                 }
 
-                // 비고: 전형명 및 특성화고 '추가모집' 자동 감지 표기
                 let noteParts = [];
                 if (r.track && r.track !== '해당 없음' && r.track !== '해당없음') {
                     noteParts.push(r.track.includes('전형') ? r.track : `${r.track}전형`);
                 }
-                // 추가모집 감지 (학교명, 트랙, 상태 또는 메모에 추가가 들어간 경우)
                 const isExtraRecruit = (r.schoolName || '').includes('추가') || (r.track || '').includes('추가') || (r.status || '').includes('추가');
                 if (isExtraRecruit) {
                     noteParts.push('<span class="font-bold text-indigo-700">[추가모집]</span>');
                 }
                 const noteDisplay = noteParts.join(' ') || '';
 
-                // 결재란 빈칸 (도장/서명 날인 공간)
                 const approvalCellsHTML = activeApprovals.length > 0
-                    ? activeApprovals.map(() => `<td class="border border-black p-0 h-10 w-16 text-center"></td>`).join('')
-                    : '<td class="border border-black p-0 h-10 text-center text-slate-300">-</td>';
+                    ? activeApprovals.map(() => `<td class="border border-black p-0 w-16 text-center" style="${approvalCellHeight}"></td>`).join('')
+                    : `<td class="border border-black p-0 text-center text-slate-300" style="${approvalCellHeight}">-</td>`;
 
                 return `
-                    <tr class="text-center text-black text-xs font-sans hover:bg-slate-50 print:hover:bg-transparent">
-                        <td class="border border-black p-2 font-mono">${idx + 1}</td>
-                        <td class="border border-black p-2 font-mono font-medium">${studentId}</td>
-                        <td class="border border-black p-2 font-bold text-sm whitespace-nowrap">${r.studentName}</td>
-                        <td class="border border-black p-2 font-mono font-medium whitespace-nowrap">${scoreDisplay}</td>
-                        <td class="border border-black p-2 font-semibold text-left pl-3">${schoolDisplay}</td>
-                        <td class="border border-black p-2 text-left pl-3" style="min-width: 200px;">${deptDisplayHTML}</td>
-                        <td class="border border-black p-2">${passDisplay}</td>
+                    <tr class="text-center text-black font-sans hover:bg-slate-50 print:hover:bg-transparent" style="${cellFontSizeStyle}">
+                        <td class="border border-black font-mono" style="${cellPaddingStyle}">${idx + 1}</td>
+                        <td class="border border-black font-mono font-medium" style="${cellPaddingStyle}">${studentId}</td>
+                        <td class="border border-black font-bold whitespace-nowrap" style="${cellPaddingStyle}">${r.studentName}</td>
+                        <td class="border border-black font-mono font-medium whitespace-nowrap" style="${cellPaddingStyle}">${scoreDisplay}</td>
+                        <td class="border border-black font-semibold text-left pl-2.5" style="${cellPaddingStyle}">${schoolDisplay}</td>
+                        <td class="border border-black text-left pl-2.5" style="${cellPaddingStyle} min-width: 190px;">${deptDisplayHTML}</td>
+                        <td class="border border-black" style="${cellPaddingStyle}">${passDisplay}</td>
                         ${approvalCellsHTML}
-                        <td class="border border-black p-2 text-left pl-2.5 text-[11px] text-slate-700">${noteDisplay}</td>
+                        <td class="border border-black text-left pl-2 text-[10.5px] text-slate-700" style="${cellPaddingStyle}">${noteDisplay}</td>
                     </tr>
                 `;
             }).join('') : `
@@ -2233,21 +2245,18 @@ async function openApplicationRegisterModal() {
                 </tr>
             `;
 
-            // 반별 페이지 분할 스타일 (전교 일괄 인쇄 시 2번째 반부터 자동으로 새 A4 용지에서 시작)
             const pageBreakClass = (pageIdx > 0 && printLayoutMode === 'all_paged') ? 'print:break-before-page' : '';
 
             return `
-                <div class="print-document bg-white text-black p-8 sm:p-10 shadow-2xl rounded-sm w-full mb-8 last:mb-0 flex flex-col justify-between select-text ${pageBreakClass}" 
-                     style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif; max-width: 1300px; min-height: 850px; ${pageIdx > 0 && printLayoutMode === 'all_paged' ? 'page-break-before: always;' : ''}">
+                <div class="print-document bg-white text-black p-6 sm:p-8 md:p-10 shadow-2xl rounded-sm w-full flex flex-col justify-between select-text ${pageBreakClass}" 
+                     style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif; max-width: 1300px; min-height: 820px; margin-bottom: 2rem; ${pageIdx > 0 && printLayoutMode === 'all_paged' ? 'page-break-before: always;' : ''}">
                     <div>
-                        <!-- 문서 대제목 -->
-                        <div class="text-center my-5">
-                            <h1 class="text-3xl sm:text-4xl font-black tracking-[0.6em] inline-block pb-2" style="letter-spacing: 0.6em;">
+                        <div class="text-center my-3 sm:my-4">
+                            <h1 class="text-3xl sm:text-4xl font-black tracking-[0.6em] inline-block pb-1" style="letter-spacing: 0.6em;">
                                 고 입 원 서 대 장
                             </h1>
                         </div>
 
-                        <!-- 상단 학년도, 학급, 학교명 -->
                         <div class="flex items-end justify-between font-bold text-sm sm:text-base mb-2 px-1">
                             <div class="tracking-wider flex items-center gap-3">
                                 <span>${admissionYear}학년도</span>
@@ -2260,17 +2269,16 @@ async function openApplicationRegisterModal() {
                             </div>
                         </div>
 
-                        <!-- 공문서 메인 테이블 (성별 열 제외, 가로 폭 확장) -->
                         <div class="w-full overflow-x-auto">
                             <table class="w-full border-collapse border-2 border-black text-center" style="border: 2px solid black;">
                                 <thead>
-                                    <tr class="bg-slate-100 font-bold text-xs" style="background-color: #f1f5f9;">
-                                        <th rowspan="2" class="border border-black p-2 w-10">연번</th>
-                                        <th rowspan="2" class="border border-black p-2 w-16">학번</th>
-                                        <th rowspan="2" class="border border-black p-2 w-20">이름</th>
-                                        <th rowspan="2" class="border border-black p-2 w-28">내신총점<br><span class="text-[10px] font-normal">(취득점/만점)</span></th>
-                                        <th rowspan="2" class="border border-black p-2 w-48">지원고등학교</th>
-                                        <th rowspan="2" class="border border-black p-2 text-center" style="min-width: 210px;">
+                                    <tr class="bg-slate-100 font-bold" style="background-color: #f1f5f9; ${tableHeaderFont}">
+                                        <th rowspan="2" class="border border-black w-10" style="${tableHeaderPadding}">연번</th>
+                                        <th rowspan="2" class="border border-black w-16" style="${tableHeaderPadding}">학번</th>
+                                        <th rowspan="2" class="border border-black w-20" style="${tableHeaderPadding}">이름</th>
+                                        <th rowspan="2" class="border border-black w-28" style="${tableHeaderPadding}">내신총점<br><span class="text-[10px] font-normal">(취득점/만점)</span></th>
+                                        <th rowspan="2" class="border border-black w-48" style="${tableHeaderPadding}">지원고등학교</th>
+                                        <th rowspan="2" class="border border-black text-center" style="${tableHeaderPadding} min-width: 190px;">
                                             지원학과(전기, 1지망)<br>
                                             <span class="text-[10px] font-normal">OR 최종배정학교(후기고)</span>
                                         </th>
@@ -5206,40 +5214,53 @@ function getTeacherGuideHTML() {
                 </h3>
                 <p class="text-slate-300">
                     • 학년부장 선생님께 전달받은 학급 패키지 파일(<strong>.phgcpkg</strong>)을 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
-                    • 본인 학급(예: 3반 담임)을 선택하고, 학년부장이 안내한 공용 데이터 암호와 초기 비밀번호를 입력하여 접속합니다. (접속 후 개인 비밀번호 변경 가능)
+                    • 본인 학급(예: 3반 담임)을 선택하고, 학년부장이 안내한 공용 데이터 암호와 개인 비밀번호를 입력하여 안전하게 접속합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 학급 진학 현황 및 신호등 매트릭스 분석
+                    <span>2️⃣</span> 2단계: 학급 진학 현황, 신호등 매트릭스 및 스마트 통계
                 </h3>
                 <p class="text-slate-300">
                     • <strong>일반계고 합격 예측:</strong> 전교 석차백분율(%) 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 한눈에 확인합니다.<br>
-                    • <strong>전기 고교 지원가능 신호등:</strong> 마이스터고 및 특성화고의 합격선 대비 지원 가능 여부가 카드별로 자동 표시됩니다.<br>
-                    • <strong>📊 신호등 매트릭스:</strong> 상단의 [📊 신호등 매트릭스] 버튼을 클릭하면 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 한 장의 종합 표로 비교·출력할 수 있습니다.
+                    • <strong>전기 고교 지원가능 신호등:</strong> 마이스터고 및 특성화고의 합격선 대비 지원 가능 여부가 카드별로 자동 계산됩니다.<br>
+                    • <strong>📊 신호등 매트릭스:</strong> [📊 신호등 매트릭스] 버튼으로 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 한 장의 종합 표로 비교·출력할 수 있습니다.<br>
+                    • <strong>👥 스마트 우리 반 통계:</strong> [우리 반 통계] 버튼을 누르면 학교-전형-학과별로 통합된 <strong>1~5지망 가로 뱃지</strong>가 제공되며, 뱃지 클릭 시 <strong>해당 지원 학생 명단(번호, 이름, 지망, 점수, 상태)이 즉시 팝업</strong>됩니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
-                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (1년/3년평균/5년평균 탭 비교)
+                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (최신 1/3/5년 평균 입결 및 공식 공개자료 비교)
                 </h3>
                 <p class="text-slate-300">
                     • 학생 성명 또는 <strong>[🎯 진학 상담]</strong> 버튼을 클릭하여 개인별 심층 상담창을 엽니다.<br>
-                    • <strong>다각도 합격선 비교 탭:</strong> 상단의 <strong>[🎯 직전 1개년]</strong>, <strong>[📊 최근 3년 평균]</strong>, <strong>[📈 최근 5년 평균]</strong> 탭을 클릭하여 고교별 판정 변화와 점수차(±점)를 입체적으로 분석하며 상담합니다.<br>
-                    • <strong>희망학교 및 학과 지망 등록:</strong> 상담을 통해 1~5지망 학과를 선택하고 저장합니다. 합격 및 최종 배정 시 데이터 잠금으로 오입력을 방지합니다.<br>
+                    • <strong>다각도 합격선 비교 탭:</strong> [🎯 직전 1개년], [📊 최근 3년 평균], [📈 최근 5년 평균] 탭과 함께 교육청/고교가 발표한 <strong>공식 최고점·평균점·최저점 3대 합격선</strong>을 비교하며 합격 가능성을 정밀 진단합니다.<br>
+                    • <strong>희망학교 및 학과 지망 등록:</strong> 1~5지망 학과를 선택하고 저장합니다. 합격 발표 후에는 <strong>실제 최종 합격(배정)된 학과를 필수로 지정</strong>하여 원서대장에 정확히 반영되도록 합니다.<br>
                     • <strong>상담표 인쇄:</strong> 상담창 상단의 [📄 진학 상담 결과표] 버튼으로 학부모 상담용 A4 상담표를 즉시 인쇄/PDF 저장할 수 있습니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-cyan-300 text-base mb-2 flex items-center gap-2">
+                    <span>4️⃣</span> 4단계: 우리 반 고입원서대장 검토 & 배정고 입력 & 담임 결재
+                </h3>
+                <p class="text-slate-300">
+                    • <strong>공식 표준 원서대장 서식:</strong> 상단의 [🖨️ 원서대장] 버튼을 누르면 대한민국 학교 공식 한글(HWP) 양식의 정갈한 A4 대장이 열립니다.<br>
+                    • <strong>내신총점(취득점/만점):</strong> 울산마이스터고(/300), 울산에너지고(/230), 현대공업고(/200), 특성화고(/100), 일반고(%) 등 전형별 만점 대비 취득 점수가 정확히 표기됩니다.<br>
+                    • <strong>후기 일반고 배정고 인라인 즉시 입력:</strong> 1월 말 일반고 배정 발표 후, 대장 화면에서 배정학교 칸을 클릭하여 학교명(예: 울산고)을 타이핑하면 즉시 DB에 영구 저장됩니다.<br>
+                    • <strong>A4 1페이지 자동 맞춤:</strong> 학생 수에 맞춰 행 높이와 글자 크기가 한 페이지에 칼같이 맞춰져 출력됩니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
-                    <span>4️⃣</span> 4단계: 변경분 취합자료(.phgcpatch) 학년부장 제출
+                    <span>5️⃣</span> 5단계: 변경분 취합자료(.phgcpatch) 학년부장 제출
                 </h3>
                 <p class="text-slate-300">
                     • 2학기 출결(미인정 결석/지각)이나 추가 봉사시간, 리더십 가산점을 상담창에서 수기 반영합니다.<br>
-                    • 학급 상담이 마무리되면 화면 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 공용 암호로 암호화된 변경분 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 USB 또는 교내 메신저로 전달합니다.
+                    • 학급 상담이 마무리되면 화면 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 공용 암호로 암호화된 변경분 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 전달합니다.
                 </p>
             </div>
         </div>
@@ -5262,23 +5283,22 @@ function getMasterGuideHTML() {
 
             <div class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20">
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
-                    <span>1️⃣</span> 1단계: 학교 기초 설정 및 공용 암호 관리
+                    <span>1️⃣</span> 1단계: 학교 기초 설정, 입학년도 관리 & 공용 암호 관리
                 </h3>
                 <p class="text-slate-300">
-                    • 최초 실행 시 학교명, 3학년 전체 학급 수, 고교 입학년도를 설정합니다.<br>
+                    • 최초 실행 시 학교명, 3학년 전체 학급 수, 고교 입학년도(예: 2026학년도 입학)를 설정합니다.<br>
                     • 담임교사 PC와 안전하게 오프라인 암호화 통신을 수행하기 위한 <strong>[공용 데이터 잠금 암호]</strong>를 지정합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 나이스(NEIS) 엑셀 3종 데이터 교내 연동
+                    <span>2️⃣</span> 2단계: 나이스 엑셀 연동 및 공식 공개 입결자료 등록
                 </h3>
                 <p class="text-slate-300">
-                    • 관리자 대시보드에서 나이스 출력 엑셀을 순서대로 업로드합니다:<br>
-                    &nbsp;&nbsp;① <strong>교과 성적 엑셀:</strong> 전체 학생 명단 및 성취도 자동 추출<br>
-                    &nbsp;&nbsp;② <strong>출결 엑셀:</strong> 학년별 미인정 결석/지각/조퇴 자동 연동<br>
-                    &nbsp;&nbsp;③ <strong>봉사활동 엑셀:</strong> 3개년 누적 봉사시간 자동 연동
+                    • 관리자 대시보드에서 나이스 출력 엑셀(<strong>교과성적, 출결, 봉사활동</strong>) 3종을 업로드하여 전교생 데이터를 연동합니다.<br>
+                    • <strong>📊 공식 공개 입결자료 등록:</strong> [공식 공개자료 추가] 버튼으로 관내 고교별 <strong>최신 개편 학과명</strong>과 전형(일반/특별), <strong>최고점·평균점·최저점 3대 합격 지표</strong>를 등록하여 상담의 공신력을 극대화합니다.<br>
+                    • <strong>타교 커트라인 다중 파일 일괄 병합:</strong> [관내자료 병합] 시 여러 학교의 <strong>.phgcdata</strong> 파일을 한꺼번에 다중 선택하여 1초 만에 일괄 병합할 수 있습니다.
                 </p>
             </div>
 
@@ -5287,32 +5307,44 @@ function getMasterGuideHTML() {
                     <span>3️⃣</span> 3단계: 담임교사용 배포 패키지(.phgcpkg) 생성 및 배포
                 </h3>
                 <p class="text-slate-300">
-                    • <strong>[사용자 및 권한 관리]</strong> 메뉴로 이동합니다.<br>
-                    • 각 반 담임선생님의 초기 비밀번호를 설정하거나 확인합니다.<br>
-                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 각 반별 패키지(<strong>.phgcpkg</strong>)를 생성하여 공용 암호와 함께 담임선생님께 전달합니다.
+                    • <strong>[사용자 및 권한 관리]</strong> 메뉴에서 각 반 담임선생님의 초기 비밀번호를 설정합니다.<br>
+                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 학급별 패키지(<strong>.phgcpkg</strong>)를 생성하여 공용 암호와 함께 담임선생님께 전달합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
-                    <span>4️⃣</span> 4단계: 담임교사 취합 자료 선택 병합 (Merge)
+                    <span>4️⃣</span> 4단계: 담임교사 취합 자료 '다중 파일 일괄 병합 (1초 완료)'
                 </h3>
                 <p class="text-slate-300">
-                    • 담임선생님들이 상담 후 제출한 패치 파일(<strong>.phgcpatch</strong>)을 수신합니다.<br>
-                    • 관리자 도구 바의 <strong>[📥 취합자료병합]</strong> 버튼을 클릭하고 공용 암호를 확인합니다.<br>
-                    • 학생별 변경 항목(출결, 봉사, 가산점, 지원희망)을 확인하고 체크하여 학년부 전체 데이터에 안전하게 병합합니다.
+                    • 담임선생님들이 상담 후 제출한 패치 파일(<strong>.phgcpatch</strong>)들을 수신합니다.<br>
+                    • 관리자 도구 바의 <strong>[📥 취합자료병합]</strong> 버튼을 클릭하고 파일 선택 창에서 <strong>Ctrl 또는 Shift 키로 전 학급 파일을 한꺼번에 다중 선택</strong>합니다.<br>
+                    • 1초 만에 전 학급의 변경 내역(출결, 봉사, 가산점, 지망학교)이 한 번에 검토 화면으로 로드되어 간편하게 승인·병합됩니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-purple-300 text-base mb-2 flex items-center gap-2">
-                    <span>5️⃣</span> 5단계: 전교 학교 통계 분석 및 원서대장 일괄 출력
+                    <span>5️⃣</span> 5단계: 전교 스마트 통계 분석 및 공식 고입원서대장 반별 분할 출력
                 </h3>
                 <p class="text-slate-300">
-                    • <strong>[🏫 전교 학교 통계]:</strong> 3학년 전체의 고교별/전형별 지망 인원 및 전교생 진학 통계를 한눈에 종합 분석합니다.<br>
-                    • <strong>[🖨️ 원서대장]:</strong> 교육청 제출용 교내 원서대장을 정렬/검토하고 A4로 즉시 일괄 출력합니다.<br>
-                    • <strong>[커트라인 관리 & 관내 자료 내보내기/병합]:</strong> 최근 5개년 커트라인을 관리하며, 타 학교와 개인정보 없는 순수 통계 파일(<strong>.phgcdata</strong>)을 상호 교환하여 입결 정확도를 극대화합니다.<br>
-                    • <strong>[🗄️ 최종 보관본 / 📅 입시년도 전환]:</strong> 입시 종료 후 암호화 최종 보관본을 생성하고, 새 학년도 전환으로 학생 데이터를 안전하게 정리합니다.
+                    • <strong>[🏫 전교 학교 통계]:</strong> 학교-전형-학과별 1줄 요약과 1~5지망 가로 뱃지 통계를 제공하며, 클릭 시 전교 지원 학생 명단이 즉시 팝업됩니다.<br>
+                    • <strong>[🖨️ 공식 고입원서대장]:</strong><br>
+                    &nbsp;&nbsp;① <strong>동적 결재라인 체크:</strong> 담임, 학년부장, 교무부장, 진로부장, 교감, 교장 직책을 체크하여 소규모 학교 및 학교 환경에 맞게 결재란을 즉시 변경합니다.<br>
+                    &nbsp;&nbsp;② <strong>전교 반별 자동 분할 인쇄:</strong> [전교 일괄] 모드로 출력 시, 반이 바뀔 때마다 자동으로 새 A4 용지에서 시작되어 인쇄 버튼 한 번으로 학급별 대장이 1장씩 착착 분할 출력됩니다.<br>
+                    &nbsp;&nbsp;③ <strong>한 페이지 자동 맞춤:</strong> 학급별 학생 수(20~30명 이상)에 맞춰 글자 크기와 행 간격이 자동으로 한 페이지에 딱 맞게 조절됩니다.<br>
+                    &nbsp;&nbsp;④ <strong>특성화고 추가모집 자동 표기:</strong> 후기 일반고 탈락 후 추가모집에 합격한 학생은 비고란에 [추가모집] 뱃지가 자동 표기됩니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-rose-300 text-base mb-2 flex items-center gap-2">
+                    <span>6️⃣</span> 6단계: 입시 확정, 최종 암호화 보관본 생성 및 차년도 전환
+                </h3>
+                <p class="text-slate-300">
+                    • <strong>[🔒 입시 결과 확정]:</strong> 모든 고입 전형 종료 후 결과를 확정하여 당해 연도 최종 커트라인을 통계에 반영합니다.<br>
+                    • <strong>[🗄️ 최종 보관본 생성]:</strong> 감사 및 차후 조회를 위한 100% 암호화 백업 아카이브를 생성합니다.<br>
+                    • <strong>[📅 새 학년도 전환]:</strong> 졸업생 개인정보를 안전하게 비우고, 다음 학년도(예: 2027학년도 입학)로 5개년 커트라인 기준을 한 칸씩 자동 시프트(Shift)하여 완벽한 인수인계를 준비합니다.
                 </p>
             </div>
         </div>
