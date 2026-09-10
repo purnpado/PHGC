@@ -1064,6 +1064,19 @@ func (dm *DBManager) SaveApplication(record ApplicationRecord) error {
 	return err
 }
 
+// UpdateAssignedSchool 후기 일반고 학생의 최종 배정 고등학교명을 업데이트합니다.
+func (dm *DBManager) UpdateAssignedSchool(classNum int, studentNum, studentName, assignedSchool string) error {
+	db, err := dm.openDB(dm.getClassDBPath(classNum))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	_, err = db.Exec(`UPDATE student_applications SET assigned_school=?, updated_at=CURRENT_TIMESTAMP 
+		WHERE student_num=? AND student_name=? AND category='general'`,
+		assignedSchool, studentNum, studentName)
+	return err
+}
+
 func (dm *DBManager) DeleteApplication(classNum int, studentNum, studentName, category, schoolName, track string) error {
 	db, err := dm.openDB(dm.getClassDBPath(classNum))
 	if err != nil {

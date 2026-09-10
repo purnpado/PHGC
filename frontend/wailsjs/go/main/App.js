@@ -326,6 +326,10 @@ export function UpdateAdmissionYear(arg1) {
   return window['go']['main']['App']['UpdateAdmissionYear'](arg1);
 }
 
+export function UpdateAssignedSchool(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UpdateAssignedSchool'](arg1, arg2, arg3, arg4);
+}
+
 export function VerifyAdminPassword(arg1) {
   return window['go']['main']['App']['VerifyAdminPassword'](arg1);
 }

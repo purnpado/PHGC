@@ -1447,10 +1447,35 @@ func (a *App) GetClassApplicationSummaries(classNum int) ([]ApplicationSummary, 
 }
 
 func (a *App) GetSchoolApplicationRecords() ([]ApplicationRecord, error) {
-	if a.user == nil || (a.user.Role != "master" && a.user.Role != "viewer") {
-		return nil, fmt.Errorf("학교 결과대장은 학년부장·진로부장만 조회할 수 있습니다")
+	if a.user == nil {
+		return nil, fmt.Errorf("로그인이 필요합니다")
 	}
-	return a.db.GetSchoolApplicationRecords()
+	all, err := a.db.GetSchoolApplicationRecords()
+	if err != nil {
+		return nil, err
+	}
+	// 담임교사인 경우 본인 학급 학생 명단만 반환하여 개인정보 보호
+	if a.user.Role == "homeroom" {
+		var classRecords []ApplicationRecord
+		for _, r := range all {
+			if r.ClassNum == a.user.ClassNum {
+				classRecords = append(classRecords, r)
+			}
+		}
+		return classRecords, nil
+	}
+	return all, nil
+}
+
+// UpdateAssignedSchool 일반고 학생의 최종 배정 고등학교명을 저장합니다.
+func (a *App) UpdateAssignedSchool(classNum int, studentNum, studentName, assignedSchool string) error {
+	if a.user == nil {
+		return fmt.Errorf("로그인이 필요합니다")
+	}
+	if a.user.Role == "homeroom" && a.user.ClassNum != classNum {
+		return fmt.Errorf("본인 담당 학급의 학생만 수정할 수 있습니다")
+	}
+	return a.db.UpdateAssignedSchool(classNum, studentNum, studentName, assignedSchool)
 }
 
 // GetAdmissionClosureReview returns only school-level counts for the selected

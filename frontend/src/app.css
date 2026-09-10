@@ -487,4 +487,23 @@ input[type="number"]::-webkit-inner-spin-button {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+
+    /* 고입원서대장 인쇄 전용 스타일: 검은색 선명한 테두리 및 인라인 입력창 텍스트화 */
+    body.printing[data-print-kind="register"] .print-document table {
+        border: 2px solid black !important;
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+    body.printing[data-print-kind="register"] .print-document th,
+    body.printing[data-print-kind="register"] .print-document td {
+        border: 1px solid black !important;
+        color: black !important;
+    }
+    body.printing[data-print-kind="register"] .register-assigned-school-input {
+        border: none !important;
+        background: transparent !important;
+        color: black !important;
+        padding: 0 !important;
+        text-align: left !important;
+    }
 }

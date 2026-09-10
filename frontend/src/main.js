@@ -2039,7 +2039,7 @@ async function renderStudentList(students, classNum) {
     });
 }
 
-// ===== 고입원서대장 (학교 공식 표준 양식 & 동적 결재라인 & A4 인쇄 최적화) =====
+// ===== 고입원서대장 (학교 공식 표준 양식 & 동적 결재라인 & 일반고 배정 수기입력 & 반별 자동 페이지분할 인쇄) =====
 async function openApplicationRegisterModal() {
     document.getElementById('applicationRegisterModal')?.remove();
 
@@ -2062,6 +2062,9 @@ async function openApplicationRegisterModal() {
         console.error('원서대장 데이터 로드 실패:', e);
     }
 
+    const isHomeroom = window.currentUser && window.currentUser.Role === 'homeroom';
+    const homeroomClass = isHomeroom ? window.currentUser.ClassNum : null;
+
     // 결재라인 기본 옵션 및 저장된 설정 로드 (소규모 학교: 담임/교무부장/교장, 일반: 담임/부장/교감/교장 등)
     const defaultApprovalCandidates = [
         { id: 'homeroom', label: '담임', defaultChecked: true },
@@ -2079,7 +2082,10 @@ async function openApplicationRegisterModal() {
     } catch (e) { }
 
     let activeApprovals = Array.isArray(savedApprovals) ? savedApprovals : ['담임', '학년부장', '교감', '교장'];
-    let selectedClassFilter = 'all'; // 'all' 또는 특정 반 번호
+    
+    // 출력 모드: 'all_paged' (전교 반별 자동 페이지분할 인쇄), 'single_class' (특정 반 단독 인쇄)
+    let printLayoutMode = isHomeroom ? 'single_class' : 'all_paged';
+    let selectedClassFilter = isHomeroom ? String(homeroomClass) : 'all';
 
     // 전체 학급 번호 추출
     const classSet = new Set();
@@ -2092,95 +2098,184 @@ async function openApplicationRegisterModal() {
     modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col p-2 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200';
 
     const renderModalContent = () => {
-        // 필터링된 레코드
-        const filteredRecords = records.filter(r => {
-            if (selectedClassFilter === 'all') return true;
-            return String(r.classNum) === String(selectedClassFilter);
-        }).sort((a, b) => {
-            if (a.classNum !== b.classNum) return a.classNum - b.classNum;
-            const numA = parseInt(a.studentNum, 10) || 0;
-            const numB = parseInt(b.studentNum, 10) || 0;
-            return numA - numB;
-        });
-
-        // 1. 헤더 결재란 서브 컬럼 HTML
+        // 결재란 헤더 HTML
         const approvalHeadersHTML = activeApprovals.length > 0
-            ? activeApprovals.map(role => `<th class="border border-black bg-slate-100 font-bold p-1 w-14 text-center text-xs tracking-tight">${role}</th>`).join('')
+            ? activeApprovals.map(role => `<th class="border border-black bg-slate-100 font-bold p-1 w-16 text-center text-xs tracking-tight">${role}</th>`).join('')
             : '<th class="border border-black bg-slate-100 font-normal p-1 text-slate-400 text-[11px]">-</th>';
 
-        // 2. 테이블 행 생성
-        const tableRowsHTML = filteredRecords.length > 0 ? filteredRecords.map((r, idx) => {
-            // 학번 포맷 (예: 3학년 1반 1번 -> 30101 포맷)
-            const paddedClass = String(r.classNum || 1);
-            const paddedNum = String(r.studentNum || 0).padStart(2, '0');
-            const studentId = `3${paddedClass.padStart(2, '0')}${paddedNum}`;
+        // 학급별로 레코드 그룹화 (전교 일괄 인쇄 시 반별 자동 분할 대응)
+        const targetClasses = (printLayoutMode === 'single_class' && selectedClassFilter !== 'all')
+            ? [parseInt(selectedClassFilter, 10)]
+            : (classList.length > 0 ? classList : [1]);
 
-            // 학교명
-            let schoolDisplay = r.schoolName || '-';
-            if (r.category === 'general') {
-                schoolDisplay = r.assignedSchool ? `후기 일반고 (${r.assignedSchool})` : '후기 일반고';
-            } else if (r.category === 'none') {
-                schoolDisplay = '미진학 (진학포기)';
-            }
+        // 문서 전체 HTML 생성 (반별로 페이지 생성)
+        const documentPagesHTML = targetClasses.map((currentClass, pageIdx) => {
+            const classRecords = records.filter(r => r.classNum === currentClass).sort((a, b) => {
+                const numA = parseInt(a.studentNum, 10) || 0;
+                const numB = parseInt(b.studentNum, 10) || 0;
+                return numA - numB;
+            });
 
-            // 지원학과 (전기, 1지망) OR 최종배정학교 (후기고)
-            let deptDisplay = '-';
-            if (r.category === 'general') {
-                deptDisplay = r.assignedSchool ? r.assignedSchool : '(배정 발표 전)';
-            } else {
-                if (r.assignedDepartment) {
-                    deptDisplay = `${r.assignedDepartment} (배정)`;
-                } else if (r.preferences && r.preferences.length > 0) {
-                    deptDisplay = r.preferences[0]; // 1지망 학과 우선 표기
+            const rowsHTML = classRecords.length > 0 ? classRecords.map((r, idx) => {
+                // 학번 포맷 (예: 3학년 1반 1번 -> 30101)
+                const paddedClass = String(r.classNum || 1);
+                const paddedNum = String(r.studentNum || 0).padStart(2, '0');
+                const studentId = `3${paddedClass.padStart(2, '0')}${paddedNum}`;
+
+                // 학교명 (타시도, 특목고, 예체고, 대안학교 등 포함)
+                let schoolDisplay = r.schoolName || '-';
+                if (r.category === 'general') {
+                    schoolDisplay = '후기 일반고';
+                } else if (r.category === 'none') {
+                    schoolDisplay = '미진학 (진학포기)';
                 }
-            }
 
-            // 합격여부 (O, X)
-            let passDisplay = '';
-            if (r.status === '합격' || r.status === '최종 진학' || r.status === '최종진학') {
-                passDisplay = '<span class="font-black text-sm">O</span>';
-            } else if (r.status === '불합격') {
-                passDisplay = '<span class="font-black text-sm text-red-600">X</span>';
-            } else if (r.status === '지원완료' || r.status === '지원희망') {
-                passDisplay = '<span class="text-xs text-slate-500 font-normal">진행</span>';
-            }
+                // 지원학과 (전기, 1지망) OR 최종배정학교 (후기고)
+                let deptDisplayHTML = '';
+                if (r.category === 'general') {
+                    // 후기 일반고는 배정고 인라인 즉시 수정 input 지원!
+                    deptDisplayHTML = `
+                        <div class="flex items-center justify-center gap-1 w-full">
+                            <input type="text" 
+                                   class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent px-1 py-0.5 text-xs text-left w-full focus:outline-none focus:border-indigo-700 print:border-none print:text-black print:p-0"
+                                   value="${r.assignedSchool || ''}" 
+                                   placeholder="배정고 입력(수기)" 
+                                   data-class="${r.classNum}" 
+                                   data-num="${r.studentNum}" 
+                                   data-name="${r.studentName}" />
+                        </div>
+                    `;
+                } else {
+                    if (r.assignedDepartment) {
+                        deptDisplayHTML = `<span class="font-semibold">${r.assignedDepartment}</span> <span class="text-[10px] text-slate-500 font-normal">(배정)</span>`;
+                    } else if (r.preferences && r.preferences.length > 0) {
+                        deptDisplayHTML = `<span class="font-medium">${r.preferences[0]}</span>`; // 1지망 학과
+                    } else {
+                        deptDisplayHTML = '-';
+                    }
+                }
 
-            // 내신총점 (소수점 2자리)
-            const scoreDisplay = (r.score && r.score > 0) ? r.score.toFixed(2) : '-';
+                // 합격여부 (O, X)
+                let passDisplay = '';
+                if (r.status === '합격' || r.status === '최종 진학' || r.status === '최종진학') {
+                    passDisplay = '<span class="font-black text-sm text-black">O</span>';
+                } else if (r.status === '불합격') {
+                    passDisplay = '<span class="font-black text-sm text-red-600">X</span>';
+                } else if (r.status === '지원완료' || r.status === '지원희망') {
+                    passDisplay = '<span class="text-xs text-slate-500 font-normal">진행</span>';
+                }
 
-            // 비고 (전형 정보 또는 메모)
-            let noteDisplay = r.track || '';
-            if (noteDisplay === '해당 없음' || noteDisplay === '해당없음') noteDisplay = '';
-            if (r.category === 'special' && noteDisplay && !noteDisplay.includes('전형')) {
-                noteDisplay += '전형';
-            }
+                // 내신총점 (소수점 2자리)
+                const scoreDisplay = (r.score && r.score > 0) ? r.score.toFixed(2) : '-';
 
-            // 결재란 빈칸 (도장/서명 날인 공간)
-            const approvalCellsHTML = activeApprovals.length > 0
-                ? activeApprovals.map(() => `<td class="border border-black p-0 h-10 w-14 text-center"></td>`).join('')
-                : '<td class="border border-black p-0 h-10 text-center text-slate-300">-</td>';
+                // 비고: 전형명 및 특성화고 '추가모집' 자동 감지 표기
+                let noteParts = [];
+                if (r.track && r.track !== '해당 없음' && r.track !== '해당없음') {
+                    noteParts.push(r.track.includes('전형') ? r.track : `${r.track}전형`);
+                }
+                // 추가모집 감지 (학교명, 트랙, 상태 또는 메모에 추가가 들어간 경우)
+                const isExtraRecruit = (r.schoolName || '').includes('추가') || (r.track || '').includes('추가') || (r.status || '').includes('추가');
+                if (isExtraRecruit) {
+                    noteParts.push('<span class="font-bold text-indigo-700">[추가모집]</span>');
+                }
+                const noteDisplay = noteParts.join(' ') || '';
 
-            return `
-                <tr class="text-center text-black text-xs font-sans hover:bg-slate-50 print:hover:bg-transparent">
-                    <td class="border border-black p-2 font-mono">${idx + 1}</td>
-                    <td class="border border-black p-2 font-mono font-medium">${studentId}</td>
-                    <td class="border border-black p-2 text-slate-600">-</td>
-                    <td class="border border-black p-2 font-bold text-sm whitespace-nowrap">${r.studentName}</td>
-                    <td class="border border-black p-2 font-mono font-medium">${scoreDisplay}</td>
-                    <td class="border border-black p-2 font-semibold text-left pl-3">${schoolDisplay}</td>
-                    <td class="border border-black p-2 text-left pl-3">${deptDisplay}</td>
-                    <td class="border border-black p-2">${passDisplay}</td>
-                    ${approvalCellsHTML}
-                    <td class="border border-black p-2 text-left pl-2.5 text-[11px] text-slate-700">${noteDisplay}</td>
+                // 결재란 빈칸 (도장/서명 날인 공간)
+                const approvalCellsHTML = activeApprovals.length > 0
+                    ? activeApprovals.map(() => `<td class="border border-black p-0 h-10 w-16 text-center"></td>`).join('')
+                    : '<td class="border border-black p-0 h-10 text-center text-slate-300">-</td>';
+
+                return `
+                    <tr class="text-center text-black text-xs font-sans hover:bg-slate-50 print:hover:bg-transparent">
+                        <td class="border border-black p-2 font-mono">${idx + 1}</td>
+                        <td class="border border-black p-2 font-mono font-medium">${studentId}</td>
+                        <td class="border border-black p-2 font-bold text-sm whitespace-nowrap">${r.studentName}</td>
+                        <td class="border border-black p-2 font-mono font-medium">${scoreDisplay}</td>
+                        <td class="border border-black p-2 font-semibold text-left pl-3">${schoolDisplay}</td>
+                        <td class="border border-black p-2 text-left pl-3 min-w-[200px]">${deptDisplayHTML}</td>
+                        <td class="border border-black p-2">${passDisplay}</td>
+                        ${approvalCellsHTML}
+                        <td class="border border-black p-2 text-left pl-2.5 text-[11px] text-slate-700">${noteDisplay}</td>
+                    </tr>
+                `;
+            }).join('') : `
+                <tr>
+                    <td colspan="${8 + Math.max(1, activeApprovals.length)}" class="border border-black p-10 text-center text-slate-400 font-medium">
+                        ${currentClass}반에 등록된 지원 학생 자료가 없습니다.
+                    </td>
                 </tr>
             `;
-        }).join('') : `
-            <tr>
-                <td colspan="${9 + Math.max(1, activeApprovals.length)}" class="border border-black p-12 text-center text-slate-400 font-medium">
-                    등록된 지원 학생 자료가 없습니다.
-                </td>
-            </tr>
-        `;
+
+            // 반별 페이지 분할 스타일 (전교 일괄 인쇄 시 2번째 반부터 자동으로 새 A4 용지에서 시작)
+            const pageBreakClass = (pageIdx > 0 && printLayoutMode === 'all_paged') ? 'print:break-before-page' : '';
+
+            return `
+                <div class="print-document bg-white text-black p-8 sm:p-10 shadow-2xl rounded-sm w-full max-w-[1300px] min-h-[850px] mb-8 last:mb-0 flex flex-col justify-between select-text ${pageBreakClass}" 
+                     style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif; ${pageIdx > 0 && printLayoutMode === 'all_paged' ? 'page-break-before: always;' : ''}">
+                    <div>
+                        <!-- 문서 대제목 -->
+                        <div class="text-center my-5">
+                            <h1 class="text-3xl sm:text-4xl font-black tracking-[0.6em] inline-block pb-2" style="letter-spacing: 0.6em;">
+                                고 입 원 서 대 장
+                            </h1>
+                        </div>
+
+                        <!-- 상단 학년도, 학급, 학교명 -->
+                        <div class="flex items-end justify-between font-bold text-sm sm:text-base mb-2 px-1">
+                            <div class="tracking-wider flex items-center gap-3">
+                                <span>${admissionYear}학년도</span>
+                                <span class="text-indigo-900 font-black bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200 print:border-black print:bg-transparent">
+                                    제 3학년 ${currentClass}반
+                                </span>
+                            </div>
+                            <div class="tracking-widest text-base sm:text-lg">
+                                ${schoolName}
+                            </div>
+                        </div>
+
+                        <!-- 공문서 메인 테이블 (성별 열 제외, 가로 폭 확장) -->
+                        <div class="w-full overflow-x-auto">
+                            <table class="w-full border-collapse border-2 border-black text-center" style="border: 2px solid black;">
+                                <thead>
+                                    <tr class="bg-slate-100 font-bold text-xs" style="background-color: #f1f5f9;">
+                                        <th rowspan="2" class="border border-black p-2 w-10">연번</th>
+                                        <th rowspan="2" class="border border-black p-2 w-16">학번</th>
+                                        <th rowspan="2" class="border border-black p-2 w-20">이름</th>
+                                        <th rowspan="2" class="border border-black p-2 w-20">내신총점</th>
+                                        <th rowspan="2" class="border border-black p-2 w-48">지원고등학교</th>
+                                        <th rowspan="2" class="border border-black p-2 text-center min-w-[210px]">
+                                            지원학과(전기, 1지망)<br>
+                                            <span class="text-[10px] font-normal">OR 최종배정학교(후기고)</span>
+                                        </th>
+                                        <th rowspan="2" class="border border-black p-2 w-16">
+                                            합격여부<br>
+                                            <span class="text-[10px] font-normal">(O, X)</span>
+                                        </th>
+                                        <th colspan="${Math.max(1, activeApprovals.length)}" class="border border-black p-1 text-center font-bold">
+                                            결재
+                                        </th>
+                                        <th rowspan="2" class="border border-black p-2 w-28">비고</th>
+                                    </tr>
+                                    <tr class="bg-slate-50 font-semibold text-xs" style="background-color: #f8fafc;">
+                                        ${approvalHeadersHTML}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 하단 출력 정보 및 안내 -->
+                    <div class="mt-8 pt-3 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-sans">
+                        <span>출력일시: ${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                        <span>[내부 결재 및 원서 접수 확인용]</span>
+                        <span>${schoolName} 3학년 진학상담시스템</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
 
         modal.innerHTML = `
             <!-- 상단 제어 바 (인쇄 시 완벽 숨김) -->
@@ -2193,23 +2288,40 @@ async function openApplicationRegisterModal() {
                                 고입원서대장
                                 <span class="text-xs font-normal text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-500/40">학교 공식 표준 서식</span>
                             </h2>
-                            <p class="text-[11px] text-slate-400">결재 라인을 체크하면 대장 양식에 즉시 반영되며 A4 가로로 최적화 출력됩니다.</p>
+                            <p class="text-[11px] text-slate-400">성별 열을 제외하여 가로 공간을 넓혔으며, 일반고 배정학교 즉시 입력 및 반별 자동 분할 출력을 지원합니다.</p>
                         </div>
                     </div>
 
                     <div class="h-6 w-px bg-slate-700/80 hidden lg:block"></div>
 
-                    <!-- 학급 필터 드롭다운 -->
+                    <!-- 출력 모드 토글 (학년부장: 전교 vs 반별, 담임: 우리 반 고정) -->
+                    ${!isHomeroom ? `
+                    <div class="flex items-center gap-1.5 bg-slate-800/90 p-1 rounded-xl border border-slate-700 text-xs">
+                        <button id="modeAllPagedBtn" class="px-3 py-1.5 rounded-lg font-bold transition-all ${printLayoutMode === 'all_paged' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
+                            📜 전교 일괄 (반별 자동분할 인쇄)
+                        </button>
+                        <button id="modeSingleClassBtn" class="px-3 py-1.5 rounded-lg font-bold transition-all ${printLayoutMode === 'single_class' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
+                            📑 학급별 개별 출력
+                        </button>
+                    </div>
+                    ` : `
+                    <div class="px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/40 text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                        <span>👩‍🏫</span> 3학년 ${homeroomClass}반 담임 전용 대장 모드
+                    </div>
+                    `}
+
+                    <!-- 학급 선택 필터 (개별 출력 모드 시 활성화) -->
+                    ${(!isHomeroom && printLayoutMode === 'single_class') ? `
                     <div class="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700">
                         <label class="text-xs font-bold text-indigo-200">학급 선택:</label>
                         <select id="registerClassFilterSelect" class="bg-slate-900 text-white font-bold text-xs px-2.5 py-1 rounded-lg border border-slate-600 outline-none cursor-pointer">
-                            <option value="all" ${selectedClassFilter === 'all' ? 'selected' : ''}>전체 학급 (총 ${records.length}명)</option>
                             ${classList.map(c => {
                                 const cnt = records.filter(r => r.classNum === c).length;
                                 return `<option value="${c}" ${String(selectedClassFilter) === String(c) ? 'selected' : ''}>${c}반 (${cnt}명)</option>`;
                             }).join('')}
                         </select>
                     </div>
+                    ` : ''}
 
                     <!-- 결재라인 선택 체크박스들 -->
                     <div class="flex items-center gap-2 bg-slate-800/90 px-3 py-1.5 rounded-xl border border-slate-700 flex-wrap">
@@ -2237,74 +2349,26 @@ async function openApplicationRegisterModal() {
             </div>
 
             <!-- 대장 본문 영역 (A4 가로 화이트 페이퍼 뷰어) -->
-            <div class="flex-1 overflow-auto custom-scrollbar flex justify-center p-2 sm:p-4 bg-slate-950/60 rounded-2xl border border-slate-800">
-                <div class="print-document bg-white text-black p-8 sm:p-10 shadow-2xl rounded-sm w-full max-w-[1300px] min-h-[850px] flex flex-col justify-between select-text" style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif;">
-                    <div>
-                        <!-- 문서 대제목 (스크린샷 2 100% 동일 양식) -->
-                        <div class="text-center my-6">
-                            <h1 class="text-3xl sm:text-4xl font-black tracking-[0.6em] inline-block pb-2 border-b-2 border-transparent" style="letter-spacing: 0.6em;">
-                                고 입 원 서 대 장
-                            </h1>
-                        </div>
-
-                        <!-- 상단 학년도 및 학교명 -->
-                        <div class="flex items-end justify-between font-bold text-sm sm:text-base mb-2 px-1 border-b border-transparent">
-                            <div class="tracking-wider">
-                                ${admissionYear}학년도
-                            </div>
-                            <div class="tracking-widest text-base sm:text-lg">
-                                ${schoolName}
-                            </div>
-                        </div>
-
-                        <!-- 공문서 메인 테이블 -->
-                        <div class="w-full overflow-x-auto">
-                            <table class="w-full border-collapse border-2 border-black text-center" style="border: 2px solid black;">
-                                <thead>
-                                    <tr class="bg-slate-100 font-bold text-xs" style="background-color: #f1f5f9;">
-                                        <th rowspan="2" class="border border-black p-2 w-10">연번</th>
-                                        <th rowspan="2" class="border border-black p-2 w-16">학번</th>
-                                        <th rowspan="2" class="border border-black p-2 w-10">성별</th>
-                                        <th rowspan="2" class="border border-black p-2 w-20">이름</th>
-                                        <th rowspan="2" class="border border-black p-2 w-20">내신총점</th>
-                                        <th rowspan="2" class="border border-black p-2 w-44">지원고등학교</th>
-                                        <th rowspan="2" class="border border-black p-2 text-center min-w-[200px]">
-                                            지원학과(전기, 1지망)<br>
-                                            <span class="text-[10px] font-normal">OR 최종배정학교(후기고)</span>
-                                        </th>
-                                        <th rowspan="2" class="border border-black p-2 w-16">
-                                            합격여부<br>
-                                            <span class="text-[10px] font-normal">(O, X)</span>
-                                        </th>
-                                        <th colspan="${Math.max(1, activeApprovals.length)}" class="border border-black p-1 text-center font-bold">
-                                            결재
-                                        </th>
-                                        <th rowspan="2" class="border border-black p-2 w-28">비고</th>
-                                    </tr>
-                                    <tr class="bg-slate-50 font-semibold text-xs" style="background-color: #f8fafc;">
-                                        ${approvalHeadersHTML}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${tableRowsHTML}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- 하단 페이지 및 직인 서명 안내 (인쇄 시 정갈하게 배치) -->
-                    <div class="mt-8 pt-4 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-sans">
-                        <span>출력일시: ${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                        <span>[내부 결재 및 원서 접수 확인용]</span>
-                        <span>${schoolName} 3학년 진학상담시스템</span>
-                    </div>
-                </div>
+            <div class="flex-1 overflow-auto custom-scrollbar flex flex-col items-center p-2 sm:p-4 bg-slate-950/60 rounded-2xl border border-slate-800">
+                ${documentPagesHTML}
             </div>
         `;
 
         // 이벤트 바인딩
         document.getElementById('closeRegisterBtn')?.addEventListener('click', () => modal.remove());
         document.getElementById('printRegisterBtn')?.addEventListener('click', () => printOnly('register', 'landscape'));
+
+        // 모드 토글 이벤트 (전교 일괄 vs 학급별 개별)
+        document.getElementById('modeAllPagedBtn')?.addEventListener('click', () => {
+            printLayoutMode = 'all_paged';
+            selectedClassFilter = 'all';
+            renderModalContent();
+        });
+        document.getElementById('modeSingleClassBtn')?.addEventListener('click', () => {
+            printLayoutMode = 'single_class';
+            if (selectedClassFilter === 'all') selectedClassFilter = String(classList[0] || 1);
+            renderModalContent();
+        });
 
         // 학급 필터 변경 이벤트
         document.getElementById('registerClassFilterSelect')?.addEventListener('change', (e) => {
@@ -2323,7 +2387,6 @@ async function openApplicationRegisterModal() {
                 } else {
                     activeApprovals = activeApprovals.filter(r => r !== role);
                 }
-                // 순서 보존 정렬
                 const orderMap = { '담임': 1, '학년부장': 2, '교무부장': 3, '진로부장': 4, '교감': 5, '교장': 6 };
                 activeApprovals.sort((a, b) => (orderMap[a] || 99) - (orderMap[b] || 99));
 
@@ -2332,6 +2395,34 @@ async function openApplicationRegisterModal() {
                 } catch (e) { }
 
                 renderModalContent();
+            });
+        });
+
+        // 일반고 배정학교 인라인 수정 & DB 즉시 저장 이벤트
+        modal.querySelectorAll('.register-assigned-school-input').forEach(input => {
+            const saveAssigned = async () => {
+                const cNum = parseInt(input.dataset.class, 10);
+                const sNum = input.dataset.num;
+                const sName = input.dataset.name;
+                const val = input.value.trim();
+
+                try {
+                    if (window.go?.main?.App?.UpdateAssignedSchool) {
+                        await window.go.main.App.UpdateAssignedSchool(cNum, sNum, sName, val);
+                    }
+                    // 메모리 레코드에도 즉시 반영
+                    const target = records.find(r => r.classNum === cNum && r.studentNum === sNum);
+                    if (target) target.assignedSchool = val;
+                } catch (err) {
+                    console.error('배정학교 저장 실패:', err);
+                }
+            };
+
+            input.addEventListener('blur', saveAssigned);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
             });
         });
     };
