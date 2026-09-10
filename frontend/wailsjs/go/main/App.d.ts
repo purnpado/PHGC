@@ -122,6 +122,8 @@ export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number
 
 export function PurgeOldCutoffs(arg1:number,arg2:number):Promise<number>;
 
+export function QuitApp():Promise<void>;
+
 export function ReopenAdmissionYear(arg1:number):Promise<void>;
 
 export function ResetAcademicYear(arg1:number):Promise<void>;

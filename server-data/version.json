@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.5",
+  "latestVersion": "1.2.6",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.5 - 동기화 화면 알림 버그 수정, 헤더 중복 피드백 버튼 정리, 워터마크 표시 개선 및 레거시 업데이트 코드 정리",
+  "releaseNotes": "v1.2.6 - 다운로드 시 프로그램 창 자동 종료 처리, GitHub 및 Gitea 릴리즈 노트 서식 완전 일치",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

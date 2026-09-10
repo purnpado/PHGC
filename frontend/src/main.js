@@ -583,6 +583,9 @@ function showSyncComplete(container, schoolName, result) {
 
     document.getElementById('goToDownloadInSyncBtn')?.addEventListener('click', () => {
         openExternalUrlSafe(GITHUB_RELEASE_URL);
+        setTimeout(() => {
+            quitAppSafe();
+        }, 400);
     });
 
     document.getElementById('goToFeedbackInSyncBtn')?.addEventListener('click', () => {
@@ -3971,6 +3974,20 @@ function openExternalUrlSafe(url) {
     }
 }
 
+function quitAppSafe() {
+    try {
+        if (window.go?.main?.App?.QuitApp) {
+            window.go.main.App.QuitApp();
+        } else if (window.runtime?.Quit) {
+            window.runtime.Quit();
+        } else {
+            window.close();
+        }
+    } catch (err) {
+        console.error("프로그램 종료 실패:", err);
+    }
+}
+
 function showStartupUpdateModal(result) {
     document.getElementById('startupUpdateModal')?.remove();
 
@@ -4063,6 +4080,9 @@ ${releaseNotes}
     document.getElementById('goToDownloadReleaseBtn')?.addEventListener('click', () => {
         openExternalUrlSafe(GITHUB_RELEASE_URL);
         modal.remove();
+        setTimeout(() => {
+            quitAppSafe();
+        }, 400);
     });
 }
 

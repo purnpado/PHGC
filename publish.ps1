@@ -92,6 +92,18 @@ Write-Host ">>> server-data 폴더 복사 완료 (PHGC.exe & $versionedExeName)"
 # ===== 4. Git 커밋 & 태그 & 푸시 =====
 Write-Host ">>> Git 커밋 및 GitHub/Gitea 양방향 푸시 중..." -ForegroundColor Cyan
 
+$releaseTitle = "v$newVer - $Notes"
+$commonReleaseBody = @"
+## 🌟 v$newVer 릴리즈 안내
+
+### 주요 개선 사항
+$Notes
+
+### 다운로드 안내
+- **공식 실행 파일**: 아래 Assets 항목의 **$versionedExeName** (또는 `PHGC.exe`)를 다운로드하여 실행하시면 됩니다.
+- 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
+"@
+
 $commitMsgFile = Join-Path $PWD ".git\temp_commit_msg.txt"
 $commitText = @"
 release: v$newVer - $Notes
@@ -105,8 +117,11 @@ git commit -F "$commitMsgFile" -q 2>$null
 if (git tag -l "v$newVer") {
     git tag -d "v$newVer" > $null 2>&1
 }
-git tag -a "v$newVer" -F "$commitMsgFile" -f
+$tagMsgFile = Join-Path $PWD ".git\temp_tag_msg.txt"
+[System.IO.File]::WriteAllText($tagMsgFile, $commonReleaseBody, (New-Object System.Text.UTF8Encoding($false)))
+git tag -a "v$newVer" -F "$tagMsgFile" -f
 Remove-Item $commitMsgFile -Force -ErrorAction SilentlyContinue
+Remove-Item $tagMsgFile -Force -ErrorAction SilentlyContinue
 
 # 4-1. GitHub 푸시 (메인 브랜치 및 태그)
 try {
@@ -166,22 +181,11 @@ if (-not $SkipGitHubRelease) {
                 Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases/$($existing.id)" -Headers $headers -Method Delete -ErrorAction Stop
             }
 
-            $ghReleaseBody = @"
-## 🌟 v$newVer 릴리즈 안내
-
-### 주요 개선 사항
-$Notes
-
-### 다운로드 안내
-- **공식 실행 파일**: 아래 Assets 항목의 **`$versionedExeName`** (또는 `PHGC.exe`)를 다운로드하여 실행하시면 됩니다.
-- 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
-"@
-
             $payload = @{
                 tag_name         = "v$newVer"
                 target_commitish = "main"
-                name             = "v$newVer - $Notes"
-                body             = $ghReleaseBody
+                name             = $releaseTitle
+                body             = $commonReleaseBody
                 draft            = $false
                 prerelease       = $false
             } | ConvertTo-Json -Depth 5 -Compress
@@ -218,12 +222,63 @@ $Notes
     }
 }
 
-# ===== 6. Gitea Release (옵션 요청 시) =====
-if ($UploadGiteaRelease -and $giteaToken) {
-    Write-Host ">>> Gitea [$giteaRepo] 릴리즈 바이너리 업로드 중..." -ForegroundColor Cyan
-    # Gitea 업로드 처리...
+# ===== 6. Gitea Release 릴리즈 노트 동기화 (GitHub 양식과 100% 일치) =====
+try {
+    Write-Host ">>> Gitea [$giteaRepo] 릴리즈 정보 동기화 중..." -ForegroundColor Cyan
+    $procInfoG = New-Object System.Diagnostics.ProcessStartInfo
+    $procInfoG.FileName = "git.exe"
+    $procInfoG.Arguments = "credential fill"
+    $procInfoG.RedirectStandardInput = $true
+    $procInfoG.RedirectStandardOutput = $true
+    $procInfoG.UseShellExecute = $false
+    $pG = [System.Diagnostics.Process]::Start($procInfoG)
+    $pG.StandardInput.WriteLine("protocol=https")
+    $pG.StandardInput.WriteLine("host=gitea.gguk.link")
+    $pG.StandardInput.WriteLine("")
+    $pG.StandardInput.Close()
+    $credOutputG = $pG.StandardOutput.ReadToEnd()
+    $pG.WaitForExit()
+
+    $gUser = ""
+    $gPass = ""
+    if ($credOutputG -match "username=([^\r\n]+)") { $gUser = $matches[1].Trim() }
+    if ($credOutputG -match "password=([^\r\n]+)") { $gPass = $matches[1].Trim() }
+
+    if ($gUser -and $gPass) {
+        $basicAuth = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$($gUser):$($gPass)"))
+        $gHeaders = @{
+            "Authorization" = "Basic $basicAuth"
+            "Content-Type"  = "application/json; charset=utf-8"
+        }
+
+        # 태그 기반 Gitea 릴리즈 조회
+        $gRelease = $null
+        try {
+            $gRelease = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/tags/v$newVer" -Headers $gHeaders -Method Get -ErrorAction Stop
+        } catch {}
+
+        $gPayload = @{
+            name = $releaseTitle
+            body = $commonReleaseBody
+        } | ConvertTo-Json -Depth 5 -Compress
+
+        if ($gRelease -and $gRelease.id) {
+            Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$($gRelease.id)" -Headers $gHeaders -Method Patch -Body ([System.Text.Encoding]::UTF8.GetBytes($gPayload)) > $null
+            Write-Host ">>> Gitea 릴리즈 노트 업데이트 완료! (ID: $($gRelease.id))" -ForegroundColor Green
+        } else {
+            $gCreatePayload = @{
+                tag_name = "v$newVer"
+                name     = $releaseTitle
+                body     = $commonReleaseBody
+            } | ConvertTo-Json -Depth 5 -Compress
+            Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $gHeaders -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($gCreatePayload)) > $null
+            Write-Host ">>> Gitea 릴리즈 신규 생성 완료!" -ForegroundColor Green
+        }
+    }
+} catch {
+    Write-Host ">>> Gitea 릴리즈 동기화 예외: $_" -ForegroundColor Yellow
 }
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host ">>> PHGC v$newVer GitHub 릴리즈 및 배포 파이프라인 완료!" -ForegroundColor Green
+Write-Host ">>> PHGC v$newVer GitHub & Gitea 릴리즈 및 배포 파이프라인 완료!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green

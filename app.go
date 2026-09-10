@@ -2055,6 +2055,15 @@ func (a *App) GetSchoolRuleList() []map[string]string {
 	return GetAllSchoolRuleNames()
 }
 
+// QuitApp 프로그램 정상 안전 종료
+func (a *App) QuitApp() {
+	if a.ctx != nil {
+		runtime.Quit(a.ctx)
+	} else {
+		os.Exit(0)
+	}
+}
+
 // GetHighSchoolsData 고교 목록 데이터 반환 (후기 일반고 포함)
 func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 	data, err := a.sync.GetHighSchools()

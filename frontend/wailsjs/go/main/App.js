@@ -242,6 +242,10 @@ export function PurgeOldCutoffs(arg1, arg2) {
   return window['go']['main']['App']['PurgeOldCutoffs'](arg1, arg2);
 }
 
+export function QuitApp() {
+  return window['go']['main']['App']['QuitApp']();
+}
+
 export function ReopenAdmissionYear(arg1) {
   return window['go']['main']['App']['ReopenAdmissionYear'](arg1);
 }
