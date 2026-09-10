@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.7",
+  "latestVersion": "1.2.8",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.7 - 울산 관내 11개 고교 체제 완비, 공식 공개 데이터 고교 선택 등록 팝업 지원, 기본값 복원 버튼 제거 및 UI 최적화",
+  "releaseNotes": "v1.2.8 - 공식 공개 데이터 학교별 학과 자동 연동, 전형 선택 개선(비우면 전체), 최고/평균/최저점 체제 개편 및 불합격 최고점 삭제",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

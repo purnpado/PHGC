@@ -5591,27 +5591,27 @@ async function renderCutoffScreen(schoolName) {
                                            value="${p.dept === '공통' ? '' : (p.dept || '')}" placeholder="학교 전체" data-index="${p.originalIndex}" />
                                 </td>
                                 <td class="p-2.5">
-                                    <input type="text" class="input-field py-1.5 px-2 text-xs font-bold text-sky-200 text-center w-20 public-track" 
-                                           value="${trackClean}" placeholder="일반/특별" data-index="${p.originalIndex}" />
-                                </td>
-                                <td class="p-2.5 text-center">
-                                    <div class="flex items-center justify-center gap-1">
-                                        <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-black text-emerald-400 w-24 public-min-score" 
-                                               value="${p.min ?? ''}" placeholder="최저점" data-index="${p.originalIndex}" />
-                                        <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
-                                    </div>
+                                    <input type="text" class="input-field py-1.5 px-2 text-xs font-bold text-sky-200 text-center w-24 public-track" 
+                                           value="${p.track === '전체' ? '' : (p.track || '')}" placeholder="전체" data-index="${p.originalIndex}" />
                                 </td>
                                 <td class="p-2.5 text-center">
                                     <div class="flex items-center justify-center gap-1">
                                         <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-sky-300 w-24 public-max-score" 
-                                               value="${p.max ?? ''}" placeholder="선택" data-index="${p.originalIndex}" />
+                                               value="${p.max ?? ''}" placeholder="최고점" data-index="${p.originalIndex}" />
                                         <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
                                     </div>
                                 </td>
                                 <td class="p-2.5 text-center">
                                     <div class="flex items-center justify-center gap-1">
                                         <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-semibold text-amber-300 w-24 public-avg-score" 
-                                               value="${p.avg ?? ''}" placeholder="선택" data-index="${p.originalIndex}" />
+                                               value="${p.avg ?? ''}" placeholder="평균점" data-index="${p.originalIndex}" />
+                                        <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
+                                    </div>
+                                </td>
+                                <td class="p-2.5 text-center">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <input type="text" inputmode="decimal" class="input-field py-1.5 px-2 text-xs text-right font-black text-emerald-400 w-24 public-min-score" 
+                                               value="${p.min ?? ''}" placeholder="최저점" data-index="${p.originalIndex}" />
                                         <span class="text-xs text-slate-400 font-semibold">${p.unit || '점'}</span>
                                     </div>
                                 </td>
@@ -5670,9 +5670,9 @@ async function renderCutoffScreen(schoolName) {
                                     <th class="p-3 text-left pl-4 w-44 border-r border-slate-700/50">고교명</th>
                                     <th class="p-3 w-28">학과</th>
                                     <th class="p-3 w-24">전형</th>
-                                    <th class="p-3 w-32 text-emerald-300">최저점 (합격선)</th>
-                                    <th class="p-3 w-32 text-sky-300">최고 불합격점</th>
+                                    <th class="p-3 w-32 text-sky-300">최고점</th>
                                     <th class="p-3 w-32 text-amber-300">평균점</th>
+                                    <th class="p-3 w-32 text-emerald-300">최저점 (합격선)</th>
                                     <th class="p-3 w-36">출처 / 구분</th>
                                     <th class="p-3 w-28">관리</th>
                                 </tr>
@@ -6115,7 +6115,7 @@ async function renderCutoffScreen(schoolName) {
     renderMainScreen();
 }
 
-// 울산 관내 고교 공식 공개자료 신규 추가 모달
+// 울산 관내 고교 공식 공개자료 신규 추가 모달 (학교별 학과·전형 자동 연동 & 최고/평균/최저점)
 function renderAddPublicDataModal(defaultYear, onAddCallback) {
     document.getElementById('addPublicDataModal')?.remove();
 
@@ -6134,6 +6134,21 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
         { name: "울산 후기 일반계고", category: "후기 일반고", unit: "%", maxHint: "석차 백분율 (%)" }
     ];
 
+    const schoolDeptMap = {
+        "울산마이스터고": ["정밀기계과", "산업설비과", "전기시스템제어과", "자동화시스템과"],
+        "울산에너지고": ["전기에너지과", "신재생에너지과"],
+        "현대공업고": ["정밀기계과", "산업설비과", "전기제어과"],
+        "울산공업고": ["스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과", "건축과", "기계과", "전기과", "전자통신과", "토목과", "화공과"],
+        "울산기술공업고": ["산업설비기계과", "드론공간정보과", "융합디자인과", "전기과", "기계과"],
+        "울산미용예술고": ["미용예술과"],
+        "울산산업고": ["그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과", "금융경영과"],
+        "울산생활과학고": ["보건간호과", "사무행정과", "조리과", "제과제빵과", "뷰티예술과"],
+        "울산여자상업고": ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과", "금융사무과", "글로벌비즈니스과", "관광레저과"],
+        "울산상업고": ["군사경영과", "물류경영과", "IT콘텐츠과", "공공사무행정과", "군사행정과"],
+        "청량고": ["K-Food조리과", "콘텐츠디자인과", "보건간호과"],
+        "울산 후기 일반계고": []
+    };
+
     const currentYear = new Date().getFullYear() + 1;
     const yearOptions = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
 
@@ -6147,83 +6162,148 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
                     <span class="text-xl">📊</span>
                     <h3 class="font-bold text-white text-base">공식 공개 입결자료 추가</h3>
                 </div>
-                <button id="closeAddPublicModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg text-sm">✕</button>
+                <button id="closeAddPublicModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg text-sm cursor-pointer">✕</button>
             </div>
 
-            <div class="space-y-3 text-xs">
+            <div class="space-y-3.5 text-xs">
+                <!-- 1. 입학년도 -->
                 <div>
                     <label class="block text-slate-300 font-bold mb-1">📅 입학년도</label>
-                    <select id="modalPublicYear" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold">
+                    <select id="modalPublicYear" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer">
                         ${yearOptions.map(y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}학년도 입학 기준</option>`).join('')}
                     </select>
                 </div>
 
+                <!-- 2. 대상 고등학교 -->
                 <div>
                     <label class="block text-slate-300 font-bold mb-1">🏫 울산 관내 대상 고등학교</label>
-                    <select id="modalPublicSchool" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold">
-                        ${ulsanSchools.map(s => `<option value="${s.name}" data-unit="${s.unit}" data-hint="${s.maxHint}">[${s.category}] ${s.name} (${s.maxHint})</option>`).join('')}
+                    <select id="modalPublicSchool" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer">
+                        ${ulsanSchools.map(s => `<option value="${s.name}" data-category="${s.category}" data-unit="${s.unit}" data-hint="${s.maxHint}">[${s.category}] ${s.name} (${s.maxHint})</option>`).join('')}
                     </select>
                 </div>
 
+                <!-- 3. 학과명 (학교 연동 드롭다운) & 전형 (전체 지원 드롭다운) -->
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
-                        <label class="block text-slate-300 font-bold mb-1">학과명</label>
-                        <input id="modalPublicDept" type="text" placeholder="비우면 학교 전체" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white" />
+                        <label class="block text-slate-300 font-bold mb-1">학과명 <span class="text-slate-400 font-normal">(자동 목록)</span></label>
+                        <select id="modalPublicDeptSelect" class="input-field w-full py-2 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-white font-semibold cursor-pointer">
+                            <option value="">학교 전체 (공통)</option>
+                        </select>
+                        <input id="modalPublicDeptCustom" type="text" placeholder="학과 직접 입력" class="input-field w-full py-1.5 px-2.5 mt-1.5 bg-slate-900 border-indigo-500/50 rounded-lg text-white hidden" />
                     </div>
                     <div>
-                        <label class="block text-slate-300 font-bold mb-1">전형</label>
-                        <input id="modalPublicTrack" type="text" value="일반" placeholder="예: 일반, 특별" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-indigo-200 font-bold" />
+                        <label class="block text-slate-300 font-bold mb-1">전형 <span class="text-slate-400 font-normal">(비우면 전체)</span></label>
+                        <select id="modalPublicTrackSelect" class="input-field w-full py-2 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-indigo-300 font-bold cursor-pointer">
+                            <option value="">전체 (비움)</option>
+                            <option value="일반" selected>일반</option>
+                            <option value="특별">특별</option>
+                        </select>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-emerald-400 font-bold mb-1">최저점 (합격선) *</label>
-                        <div class="flex items-center gap-1">
-                            <input id="modalPublicMin" type="text" inputmode="decimal" placeholder="필수" class="input-field w-full py-2 px-2 text-right font-black text-emerald-400 bg-slate-900 border-slate-700 rounded-xl" />
-                            <span id="modalPublicUnit1" class="text-slate-400 font-semibold text-xs">점</span>
+                <!-- 4. 점수 입력 (최고점, 평균점, 최저점) -->
+                <div>
+                    <label class="block text-slate-300 font-bold mb-1.5 flex items-center justify-between">
+                        <span>🎯 입결 점수 입력</span>
+                        <span class="text-[11px] font-normal text-slate-400">불합격자 점수 제외, 실제 합격선 기준</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <!-- 최고점 -->
+                        <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                            <label class="block text-sky-300 font-bold mb-1 text-[11px] text-center">최고점 (선택)</label>
+                            <div class="flex items-center justify-center gap-1">
+                                <input id="modalPublicMax" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1.5 text-right font-bold text-sky-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-sky-300 font-semibold mb-1">최고 불합격점</label>
-                        <div class="flex items-center gap-1">
-                            <input id="modalPublicMax" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-2 px-2 text-right font-semibold text-sky-300 bg-slate-900 border-slate-700 rounded-xl" />
-                            <span id="modalPublicUnit2" class="text-slate-400 font-semibold text-xs">점</span>
+
+                        <!-- 평균점 -->
+                        <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                            <label class="block text-amber-300 font-bold mb-1 text-[11px] text-center">평균점 (선택)</label>
+                            <div class="flex items-center justify-center gap-1">
+                                <input id="modalPublicAvg" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1.5 text-right font-bold text-amber-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <label class="block text-amber-300 font-semibold mb-1">평균점</label>
-                        <div class="flex items-center gap-1">
-                            <input id="modalPublicAvg" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-2 px-2 text-right font-semibold text-amber-300 bg-slate-900 border-slate-700 rounded-xl" />
-                            <span id="modalPublicUnit3" class="text-slate-400 font-semibold text-xs">점</span>
+
+                        <!-- 최저점 (합격선/필수) -->
+                        <div class="bg-slate-900/60 p-2 rounded-xl border border-emerald-500/30">
+                            <label class="block text-emerald-400 font-black mb-1 text-[11px] text-center">최저점 (합격선) *</label>
+                            <div class="flex items-center justify-center gap-1">
+                                <input id="modalPublicMin" type="text" inputmode="decimal" placeholder="필수" class="input-field w-full py-1.5 px-1.5 text-right font-black text-emerald-400 bg-slate-900 border-emerald-500/50 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
+                <!-- 5. 출처 / 비고 -->
                 <div>
                     <label class="block text-slate-300 font-semibold mb-1">출처 / 비고</label>
                     <input id="modalPublicNote" type="text" value="공식 합격선" placeholder="예: 학교 홈페이지 공지 등" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-slate-300" />
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/60 mt-1">
-                <button id="cancelAddPublicModalBtn" class="btn-secondary py-2 px-4 text-xs font-bold rounded-xl">취소</button>
-                <button id="submitAddPublicModalBtn" class="btn-primary py-2 px-5 text-xs font-bold rounded-xl shadow-md">➕ 추가하기</button>
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-700/60 mt-1">
+                <button id="cancelAddPublicModalBtn" class="btn-secondary py-2 px-4 text-xs font-bold rounded-xl cursor-pointer">취소</button>
+                <button id="submitAddPublicModalBtn" class="btn-primary py-2 px-5 text-xs font-bold rounded-xl shadow-md cursor-pointer">➕ 추가하기</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
 
     const schoolSel = document.getElementById('modalPublicSchool');
-    const updateUnits = () => {
-        const selected = schoolSel.options[schoolSel.selectedIndex];
-        const unit = selected?.dataset?.unit || '점';
-        document.getElementById('modalPublicUnit1').textContent = unit;
-        document.getElementById('modalPublicUnit2').textContent = unit;
-        document.getElementById('modalPublicUnit3').textContent = unit;
+    const deptSel = document.getElementById('modalPublicDeptSelect');
+    const deptCustom = document.getElementById('modalPublicDeptCustom');
+    const trackSel = document.getElementById('modalPublicTrackSelect');
+
+    // 학교 변경 시 학과 목록 및 전형 목록, 단위 자동 연동
+    const syncSchoolFields = () => {
+        const selectedOpt = schoolSel.options[schoolSel.selectedIndex];
+        const schoolName = selectedOpt.value;
+        const category = selectedOpt.dataset.category;
+        const unit = selectedOpt.dataset.unit || '점';
+
+        // 1. 점수 단위 업데이트
+        modal.querySelectorAll('.modal-unit').forEach(el => el.textContent = unit);
+
+        // 2. 학과 드롭다운 자동 갱신
+        const depts = schoolDeptMap[schoolName] || [];
+        let deptHTML = `<option value="">학교 전체 (공통)</option>`;
+        depts.forEach(d => {
+            deptHTML += `<option value="${d}">${d}</option>`;
+        });
+        deptHTML += `<option value="__custom__">✏️ 직접 입력...</option>`;
+        deptSel.innerHTML = deptHTML;
+        deptCustom.classList.add('hidden');
+        deptCustom.value = '';
+
+        // 3. 전형 드롭다운 학교 유형별 맞춤 갱신
+        let trackHTML = `<option value="">전체 (비움)</option>`;
+        if (category === '마이스터고') {
+            trackHTML += `<option value="일반" selected>일반</option>`;
+            trackHTML += `<option value="특별">특별</option>`;
+        } else if (category === '특성화고') {
+            trackHTML += `<option value="일반" selected>일반</option>`;
+            trackHTML += `<option value="취업희망자">취업희망자 (취업자)</option>`;
+        } else {
+            // 후기 일반고
+            trackHTML += `<option value="일반" selected>일반</option>`;
+        }
+        trackSel.innerHTML = trackHTML;
     };
-    schoolSel.addEventListener('change', updateUnits);
-    updateUnits();
+
+    deptSel.addEventListener('change', () => {
+        if (deptSel.value === '__custom__') {
+            deptCustom.classList.remove('hidden');
+            deptCustom.focus();
+        } else {
+            deptCustom.classList.add('hidden');
+        }
+    });
+
+    schoolSel.addEventListener('change', syncSchoolFields);
+    syncSchoolFields();
 
     const closeModal = () => modal.remove();
     document.getElementById('closeAddPublicModalBtn').addEventListener('click', closeModal);
@@ -6231,9 +6311,14 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
 
     document.getElementById('submitAddPublicModalBtn').addEventListener('click', async () => {
         const year = parseInt(document.getElementById('modalPublicYear').value, 10);
-        const school = document.getElementById('modalPublicSchool').value;
-        const dept = document.getElementById('modalPublicDept').value.trim();
-        const track = document.getElementById('modalPublicTrack').value.trim() || '일반';
+        const school = schoolSel.value;
+        
+        let dept = deptSel.value;
+        if (dept === '__custom__') {
+            dept = deptCustom.value.trim();
+        }
+
+        const track = trackSel.value.trim(); // 비우면 '' (전체)
         const minStr = document.getElementById('modalPublicMin').value.trim();
         const maxStr = document.getElementById('modalPublicMax').value.trim();
         const avgStr = document.getElementById('modalPublicAvg').value.trim();
@@ -6243,7 +6328,7 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
         if (isNaN(minVal) || minVal <= 0) {
             await showModalAlert({
                 title: '입력 확인',
-                message: '최저 합격선(필수)을 올바른 숫자로 입력해 주세요.',
+                message: '최저점(합격선/필수)을 올바른 숫자로 입력해 주세요.',
                 type: 'warning'
             });
             document.getElementById('modalPublicMin').focus();
