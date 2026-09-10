@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.2",
+  "latestVersion": "1.2.3",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.2 - 스마트 1:1 진학 상담 일지(상담 날짜·목표고교·스마트태그) 및 교원별 비밀보장/자료취합 보안 격리 체계 탑재",
+  "releaseNotes": "v1.2.3 - 신호등 종합 매트릭스 6개 탭 세분화 및 마이스터고 3개년 평균 연동, GitHub 최신 릴리즈 직접 이동 및 꾹링크 피드백 게시판 연동",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }
