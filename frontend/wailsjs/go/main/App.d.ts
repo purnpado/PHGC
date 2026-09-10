@@ -18,6 +18,8 @@ export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Prom
 
 export function DeleteStudentApplication(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
 
+export function DeleteStudentCounselingRecord(arg1:number,arg2:number):Promise<void>;
+
 export function DeleteUser(arg1:string):Promise<void>;
 
 export function ExportDistributionPackage(arg1:string,arg2:string):Promise<void>;
@@ -39,6 +41,8 @@ export function GetAppVersion():Promise<string>;
 export function GetApplicationSummaries():Promise<Array<main.ApplicationSummary>>;
 
 export function GetClassApplicationSummaries(arg1:number):Promise<Array<main.ApplicationSummary>>;
+
+export function GetClassCounselingSummary(arg1:number):Promise<Record<string, string>>;
 
 export function GetClassFullGrades(arg1:number):Promise<Array<main.StudentFullData>>;
 
@@ -67,6 +71,8 @@ export function GetServerNotices():Promise<Array<main.NoticeItem>>;
 export function GetStudentApplicationScoreSnapshot(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<main.ApplicationScoreSnapshot>;
 
 export function GetStudentApplications(arg1:number,arg2:string,arg3:string):Promise<Array<main.ApplicationRecord>>;
+
+export function GetStudentCounselingRecords(arg1:number,arg2:string,arg3:string):Promise<Array<main.StudentCounselingRecord>>;
 
 export function GetStudentFullDetail(arg1:number,arg2:string,arg3:string):Promise<main.StudentFullData>;
 
@@ -135,6 +141,8 @@ export function SaveFinalArchive(arg1:string):Promise<string>;
 export function SavePasswordResetPackage(arg1:string):Promise<string>;
 
 export function SaveStudentApplication(arg1:main.ApplicationRecord):Promise<void>;
+
+export function SaveStudentCounselingRecord(arg1:main.StudentCounselingRecord):Promise<void>;
 
 export function SaveStudentExtra(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
 

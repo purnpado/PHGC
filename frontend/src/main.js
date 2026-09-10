@@ -1706,10 +1706,11 @@ async function renderStudentList(students, classNum) {
         return;
     }
 
-    const [fullStudents, dbCutoffs, officialResp] = await Promise.all([
+    const [fullStudents, dbCutoffs, officialResp, counselSummary] = await Promise.all([
         window.go.main.App.GetClassFullGrades(classNum).catch(() => []),
         window.go.main.App.GetCutoffs().catch(() => []),
         window.go.main.App.GetOfficialAdmissionData().catch(() => null),
+        window.go.main.App.GetClassCounselingSummary ? window.go.main.App.GetClassCounselingSummary(classNum).catch(() => ({})) : Promise.resolve({}),
     ]);
 
     // 공식 공개 자료를 커트라인 형태로 정규화 및 결합
@@ -1810,7 +1811,18 @@ async function renderStudentList(students, classNum) {
                 </td>
                 <td class="p-3.5 font-bold text-white text-center text-lg cursor-pointer hover:text-indigo-300 hover:underline text-student-name transition-colors"
                     data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="클릭하여 진학 상담 시작">
-                    ${s.Name}
+                    <div class="flex flex-col items-center justify-center">
+                        <span>${s.Name}</span>
+                        ${counselSummary && counselSummary[s.StudentNum] ? `
+                            <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-indigo-950/90 text-indigo-300 border border-indigo-500/40 font-semibold mt-1 shadow-xs" title="최근 상담일: ${counselSummary[s.StudentNum]} (본인 작성)">
+                                <span>💬</span> ${counselSummary[s.StudentNum]}
+                            </span>
+                        ` : `
+                            <span class="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800/80 text-slate-500 border border-slate-700/60 font-medium mt-1">
+                                미상담
+                            </span>
+                        `}
+                    </div>
                 </td>
                 <td class="p-3.5 text-center">${generalBadge}</td>
                 <td class="p-3.5 text-center min-w-68">
@@ -2854,6 +2866,7 @@ async function openStudentModal(classNum, studentNum, name) {
 
 // 모달 내용 렌더링
 function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs, officialItems = []) {
+    const todayDate = new Date().toISOString().split('T')[0];
     // 학교별 합격 가능성 카드 목록 생성
     let cardsHTML = '';
 
@@ -3150,6 +3163,84 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     ${cardsHTML}
                 </div>
             </div>
+
+            <!-- 4. 스마트 1:1 진학 상담 일지 영역 -->
+            <div class="p-5 rounded-2xl bg-indigo-950/25 border border-indigo-500/40 space-y-4 shadow-xl">
+                <div class="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-indigo-500/20">
+                    <div>
+                        <h3 class="font-black text-sm text-indigo-200 flex items-center gap-2">
+                            <span>📝</span> ${name} 학생 1:1 진학 상담 일지
+                        </h3>
+                        <p class="text-[11px] text-slate-400 mt-0.5">
+                            🔒 <strong>개인 상담 비밀보장:</strong> 작성자 본인만 열람 가능하며, 관내 취합 및 학년부장 제출 시 상담 내용은 100% 자동 제외됩니다.
+                        </p>
+                    </div>
+                    <span class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-300 border border-indigo-400/30 font-bold">
+                        로컬 독립 보안 모드
+                    </span>
+                </div>
+
+                <!-- 상담 작성 폼 -->
+                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-700/70 space-y-3">
+                    <input type="hidden" id="counselRecordId" value="0" />
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                        <div class="sm:col-span-4">
+                            <label class="block text-xs font-bold text-slate-300 mb-1">상담 날짜</label>
+                            <input type="date" id="counselDateInput" class="input-field w-full text-xs font-mono font-bold text-indigo-200 py-1.5" value="${todayDate}" required />
+                        </div>
+                        <div class="sm:col-span-8">
+                            <label class="block text-xs font-bold text-slate-300 mb-1">상담 목표/관련 고교 (선택)</label>
+                            <input type="text" id="counselTargetSchoolInput" class="input-field w-full text-xs py-1.5" placeholder="예: 울산에너지고 신재생에너지과, 일반고 등" />
+                        </div>
+                    </div>
+
+                    <!-- 스마트 빠른 태그 바 -->
+                    <div>
+                        <div class="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
+                            <span>⚡</span> 스마트 빠른 태그 (클릭 시 내용에 자동 추가):
+                        </div>
+                        <div class="flex flex-wrap gap-1.5" id="counselQuickTags">
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/40 font-medium transition-all cursor-pointer" data-tag="[마이스터고 희망] ">마이스터고 희망</button>
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 font-medium transition-all cursor-pointer" data-tag="[특성화고 취업희망자전형] ">특성화 취업희망</button>
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-medium transition-all cursor-pointer" data-tag="[후기 일반고 안정권] ">일반고 안정권</button>
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-medium transition-all cursor-pointer" data-tag="[내신 추이 및 비교과 상담] ">성적·비교과 추이</button>
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 font-medium transition-all cursor-pointer" data-tag="[학부모 전화 상담 완료] ">학부모 상담</button>
+                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/40 font-medium transition-all cursor-pointer" data-tag="[원서 변경 고민 중] ">원서 변경 고민</button>
+                        </div>
+                    </div>
+
+                    <!-- 상담 내용 입력창 -->
+                    <div>
+                        <textarea id="counselContentInput" rows="3" class="input-field w-full text-xs leading-relaxed py-2 px-3 resize-y" placeholder="학생의 진로 희망, 강점 및 약점, 학부모 상담 내용, 추천 고교 등을 자유롭게 기록하세요. (Ctrl+Enter를 누르면 바로 저장됩니다)"></textarea>
+                    </div>
+
+                    <!-- 액션 버튼 -->
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-[11px] text-slate-500 font-mono">단축키: Ctrl + Enter</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="cancelCounselEditBtn" class="btn-secondary text-xs px-3 py-1.5 font-semibold hidden">수정 취소</button>
+                            <button type="button" id="saveCounselBtn" class="btn-primary text-xs px-4 py-1.5 font-bold inline-flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer">
+                                <span>💾</span> <span id="saveCounselBtnText">상담 일지 저장</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 누적 상담 타임라인 목록 -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                            <span>📋</span> 누적 상담 이력 (<span id="counselRecordCount" class="text-indigo-400 font-bold">0</span>건)
+                        </span>
+                        <span class="text-[11px] text-slate-400">최신순 정렬</span>
+                    </div>
+                    <div id="counselRecordsList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                        <div class="text-center py-6 text-slate-500 text-xs">
+                            <span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 상담 일지를 불러오는 중...
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -3321,6 +3412,194 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
     // 인쇄/PDF 저장
     document.getElementById('printReportBtn').addEventListener('click', () => printOnly('report'));
+
+    // ===== 스마트 1:1 진학 상담 일지 컨트롤러 =====
+    const counselDateInput = document.getElementById('counselDateInput');
+    const counselTargetSchoolInput = document.getElementById('counselTargetSchoolInput');
+    const counselContentInput = document.getElementById('counselContentInput');
+    const counselRecordId = document.getElementById('counselRecordId');
+    const saveCounselBtn = document.getElementById('saveCounselBtn');
+    const saveCounselBtnText = document.getElementById('saveCounselBtnText');
+    const cancelCounselEditBtn = document.getElementById('cancelCounselEditBtn');
+    const counselRecordsList = document.getElementById('counselRecordsList');
+    const counselRecordCount = document.getElementById('counselRecordCount');
+
+    let currentRecords = [];
+
+    // 1. 상담 일지 목록 불러오기 (작성자 본인 기록만 로드)
+    const loadCounselRecords = async () => {
+        if (!counselRecordsList) return;
+        try {
+            if (!window.go?.main?.App?.GetStudentCounselingRecords) {
+                counselRecordsList.innerHTML = `<div class="text-center py-4 text-slate-500 text-xs">상담 일지 기능 준비 중...</div>`;
+                return;
+            }
+            currentRecords = await window.go.main.App.GetStudentCounselingRecords(classNum, studentNum, name) || [];
+            counselRecordCount.textContent = currentRecords.length;
+
+            if (currentRecords.length === 0) {
+                counselRecordsList.innerHTML = `
+                    <div class="p-6 rounded-xl bg-slate-900/40 border border-slate-800 text-center text-slate-400 space-y-1">
+                        <div class="text-xl">💬</div>
+                        <div class="text-xs font-semibold text-slate-300">작성된 상담 일지가 없습니다</div>
+                        <div class="text-[11px] text-slate-500">학생과의 진로 희망 및 상담 내용을 위 입력창에 첫 기록으로 남겨보세요.</div>
+                    </div>
+                `;
+                return;
+            }
+
+            counselRecordsList.innerHTML = currentRecords.map(r => `
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700/70 hover:border-indigo-500/40 transition-all space-y-2 group shadow-sm">
+                    <div class="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800/80">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/40 font-mono font-bold">
+                                📅 ${r.counselDate}
+                            </span>
+                            ${r.targetSchool ? `
+                                <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-indigo-200 border border-slate-700 font-medium">
+                                    🏫 ${r.targetSchool}
+                                </span>
+                            ` : ''}
+                            <span class="text-[10px] text-slate-400">
+                                작성: <strong class="text-slate-300">${r.authorName || '본인'}</strong>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                            <button type="button" class="btn-edit-counsel text-[11px] py-0.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer" data-id="${r.id}">
+                                수정
+                            </button>
+                            <button type="button" class="btn-delete-counsel text-[11px] py-0.5 px-2 rounded bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-500/30 transition-colors cursor-pointer" data-id="${r.id}">
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed px-0.5 font-sans">
+                        ${r.content}
+                    </div>
+                </div>
+            `).join('');
+
+            // 수정 버튼 바인딩
+            counselRecordsList.querySelectorAll('.btn-edit-counsel').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.currentTarget.dataset.id);
+                    const record = currentRecords.find(item => item.id === id);
+                    if (record) {
+                        counselRecordId.value = record.id;
+                        counselDateInput.value = record.counselDate;
+                        counselTargetSchoolInput.value = record.targetSchool || '';
+                        counselContentInput.value = record.content;
+                        saveCounselBtnText.textContent = '수정 내용 저장';
+                        cancelCounselEditBtn.classList.remove('hidden');
+                        counselContentInput.focus();
+                    }
+                });
+            });
+
+            // 삭제 버튼 바인딩
+            counselRecordsList.querySelectorAll('.btn-delete-counsel').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = parseInt(e.currentTarget.dataset.id);
+                    if (!confirm('이 상담 일지를 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) return;
+                    try {
+                        await window.go.main.App.DeleteStudentCounselingRecord(classNum, id);
+                        await loadCounselRecords();
+                    } catch (err) {
+                        alert('삭제 실패: ' + err);
+                    }
+                });
+            });
+
+        } catch (err) {
+            counselRecordsList.innerHTML = `<div class="p-3 text-danger text-xs text-center">상담 일지 로드 실패: ${err}</div>`;
+        }
+    };
+
+    // 2. 스마트 빠른 태그 클릭 시 내용에 자동 추가
+    document.getElementById('counselQuickTags')?.querySelectorAll('.quick-tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tag = btn.dataset.tag;
+            if (!counselContentInput) return;
+            const curVal = counselContentInput.value;
+            if (!curVal.includes(tag.trim())) {
+                counselContentInput.value = curVal ? (curVal + ' ' + tag) : tag;
+            }
+            counselContentInput.focus();
+        });
+    });
+
+    // 3. 수정 취소 버튼
+    cancelCounselEditBtn?.addEventListener('click', () => {
+        counselRecordId.value = '0';
+        counselTargetSchoolInput.value = '';
+        counselContentInput.value = '';
+        counselDateInput.value = todayDate;
+        saveCounselBtnText.textContent = '상담 일지 저장';
+        cancelCounselEditBtn.classList.add('hidden');
+    });
+
+    // 4. 저장 함수
+    const handleSaveCounsel = async () => {
+        const dateVal = counselDateInput.value;
+        const contentVal = counselContentInput.value.trim();
+        const targetSchoolVal = counselTargetSchoolInput.value.trim();
+        const idVal = parseInt(counselRecordId.value) || 0;
+
+        if (!dateVal) {
+            alert('상담 날짜를 입력해 주세요.');
+            counselDateInput.focus();
+            return;
+        }
+        if (!contentVal) {
+            alert('상담 상세 내용을 입력해 주세요.');
+            counselContentInput.focus();
+            return;
+        }
+
+        saveCounselBtn.disabled = true;
+        saveCounselBtn.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> 저장 중...';
+
+        try {
+            const record = {
+                id: idVal,
+                classNum: classNum,
+                studentNum: studentNum,
+                studentName: name,
+                counselDate: dateVal,
+                targetSchool: targetSchoolVal,
+                content: contentVal,
+            };
+            await window.go.main.App.SaveStudentCounselingRecord(record);
+
+            // 입력 폼 리셋
+            counselRecordId.value = '0';
+            counselTargetSchoolInput.value = '';
+            counselContentInput.value = '';
+            counselDateInput.value = todayDate;
+            saveCounselBtnText.textContent = '상담 일지 저장';
+            cancelCounselEditBtn.classList.add('hidden');
+
+            await loadCounselRecords();
+        } catch (err) {
+            alert('상담 일지 저장 실패: ' + err);
+        } finally {
+            saveCounselBtn.disabled = false;
+            saveCounselBtn.innerHTML = `<span>💾</span> <span id="saveCounselBtnText">${counselRecordId.value !== '0' ? '수정 내용 저장' : '상담 일지 저장'}</span>`;
+        }
+    };
+
+    saveCounselBtn?.addEventListener('click', handleSaveCounsel);
+
+    // 단축키: Ctrl + Enter로 즉시 저장
+    counselContentInput?.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            handleSaveCounsel();
+        }
+    });
+
+    // 초기 목록 자동 로드
+    loadCounselRecords();
 }
 
 // ===== 우리 반 전체 고교 신호등 매트릭스 모달 =====

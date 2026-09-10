@@ -573,6 +573,38 @@ export namespace main {
 	        this.GeneralProjected = source["GeneralProjected"];
 	    }
 	}
+	export class StudentCounselingRecord {
+	    id: number;
+	    studentNum: string;
+	    studentName: string;
+	    classNum: number;
+	    counselDate: string;
+	    targetSchool: string;
+	    content: string;
+	    authorUsername: string;
+	    authorName: string;
+	    createdAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StudentCounselingRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.studentNum = source["studentNum"];
+	        this.studentName = source["studentName"];
+	        this.classNum = source["classNum"];
+	        this.counselDate = source["counselDate"];
+	        this.targetSchool = source["targetSchool"];
+	        this.content = source["content"];
+	        this.authorUsername = source["authorUsername"];
+	        this.authorName = source["authorName"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	}
 	export class StudentFullData {
 	    classNum: number;
 	    studentNum: string;

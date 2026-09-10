@@ -34,6 +34,10 @@ export function DeleteStudentApplication(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['DeleteStudentApplication'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
+export function DeleteStudentCounselingRecord(arg1, arg2) {
+  return window['go']['main']['App']['DeleteStudentCounselingRecord'](arg1, arg2);
+}
+
 export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
@@ -76,6 +80,10 @@ export function GetApplicationSummaries() {
 
 export function GetClassApplicationSummaries(arg1) {
   return window['go']['main']['App']['GetClassApplicationSummaries'](arg1);
+}
+
+export function GetClassCounselingSummary(arg1) {
+  return window['go']['main']['App']['GetClassCounselingSummary'](arg1);
 }
 
 export function GetClassFullGrades(arg1) {
@@ -132,6 +140,10 @@ export function GetStudentApplicationScoreSnapshot(arg1, arg2, arg3, arg4, arg5,
 
 export function GetStudentApplications(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetStudentApplications'](arg1, arg2, arg3);
+}
+
+export function GetStudentCounselingRecords(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetStudentCounselingRecords'](arg1, arg2, arg3);
 }
 
 export function GetStudentFullDetail(arg1, arg2, arg3) {
@@ -268,6 +280,10 @@ export function SavePasswordResetPackage(arg1) {
 
 export function SaveStudentApplication(arg1) {
   return window['go']['main']['App']['SaveStudentApplication'](arg1);
+}
+
+export function SaveStudentCounselingRecord(arg1) {
+  return window['go']['main']['App']['SaveStudentCounselingRecord'](arg1);
 }
 
 export function SaveStudentExtra(arg1, arg2, arg3, arg4) {
