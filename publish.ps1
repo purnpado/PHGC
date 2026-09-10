@@ -60,7 +60,9 @@ Start-Sleep -Milliseconds 500
 # ===== 3. Wails 빌드 =====
 Write-Host ">>> Wails 빌드 실행 중..." -ForegroundColor Cyan
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-$wailsArgs = @("build")
+# 개발 PC의 사용자명·절대 경로가 EXE 디버그 정보에 남지 않도록 경로와
+# 디버그 심볼을 제거한 배포용 바이너리를 생성한다.
+$wailsArgs = @("build", "-trimpath", "-ldflags", "-s -w")
 if ($SkipBindings) {
     $wailsArgs += "-skipbindings"
 }

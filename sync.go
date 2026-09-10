@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"bytes"
@@ -325,6 +325,7 @@ func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
 	}
 	return []NoticeItem{}, nil
 }
+
 
 
 
