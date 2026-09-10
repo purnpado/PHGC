@@ -239,9 +239,9 @@ input[type="number"]::-webkit-inner-spin-button {
 .watermark {
     position: fixed;
     bottom: 1rem;
-    left: 1.5rem;
+    right: 1.5rem;
     font-size: 0.75rem;
-    color: rgba(148, 163, 184, 0.5); /* text-text-muted with opacity */
+    color: rgba(148, 163, 184, 0.4); /* text-text-muted with opacity */
     pointer-events: none;
     z-index: 9999;
     user-select: none;

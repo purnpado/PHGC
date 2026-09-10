@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.3",
+  "latestVersion": "1.2.4",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.3 - 로그인 화면 수동 업데이트/릴리즈 버튼 정리, 깔끔한 피드백 링크 단일화 및 자동 업데이트 감지 팝업 유지",
+  "releaseNotes": "v1.2.4 - 모든 페이지 좌측 하단 상시 노출 전역 질문·피드백 플로팅 버튼 탑재 및 로그인 화면 UI 정돈",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

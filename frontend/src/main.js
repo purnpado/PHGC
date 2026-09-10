@@ -4489,11 +4489,24 @@ async function init() {
     }
 }
 
+// 전역 플로팅 피드백 버튼 리스너 바인딩 (모든 페이지 공통)
+function bindGlobalFeedbackListener() {
+    const btn = document.getElementById('globalFeedbackFloatingBtn');
+    if (btn && !btn.dataset.bound) {
+        btn.dataset.bound = 'true';
+        btn.addEventListener('click', () => {
+            openExternalUrlSafe(FEEDBACK_BOARD_URL);
+        });
+    }
+}
+bindGlobalFeedbackListener();
+document.addEventListener('DOMContentLoaded', bindGlobalFeedbackListener);
+
 init();
 
 // ==========================================
 // ===== 로그인 화면 =====
-export async function renderLoginScreen(schoolName) {
+async function renderLoginScreen(schoolName) {
     app.className = '';
     updateAppWindowTitle();
     try {
@@ -4559,22 +4572,15 @@ export async function renderLoginScreen(schoolName) {
                     </div>
                 </form>
 
-                <!-- 현재 설치된 버전 및 수동 업데이트 확인 버튼 -->
-                <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted gap-2">
-                    <div class="flex items-center gap-2 flex-wrap justify-center">
+                <!-- 현재 설치된 버전 -->
+                <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted gap-1.5">
+                    <div>
                         <span>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></span>
-                        <button type="button" id="loginFeedbackBtn" class="text-[11px] py-1 px-3 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm" title="선생님 질문 및 피드백 게시판 열기 (그래서? 넌 어디 갈래? · 꾹링크)">
-                            <span>💬</span> 질문·피드백 게시판
-                        </button>
                     </div>
                     <div id="startupUpdateStatus" class="text-[11px] text-slate-400"></div>
                 </div>
             </div>
         `;
-
-        document.getElementById('loginFeedbackBtn')?.addEventListener('click', () => {
-            openExternalUrlSafe(FEEDBACK_BOARD_URL);
-        });
 
         const refreshSharedPasswordRequirement = async () => {
             const username = document.getElementById('loginUsername').value;
@@ -4747,7 +4753,7 @@ function renderPasswordChangeScreen(username) {
 }
 
 // ===== 사용자 및 권한 관리 화면 =====
-export async function renderUserManagementScreen(schoolName) {
+async function renderUserManagementScreen(schoolName) {
     app.className = 'wide-layout';
 
     let classCount = 8;

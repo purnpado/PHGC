@@ -12,6 +12,17 @@
 
 <div id="app"></div>
 
+<!-- 왼쪽 하단 전역 피드백 플로팅 버튼 (모든 페이지 공통 노출) -->
+<div id="globalFeedbackContainer" class="fixed bottom-3.5 left-4 z-40 no-print">
+    <button id="globalFeedbackFloatingBtn" 
+            type="button"
+            class="group px-3.5 py-1.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-emerald-300 hover:text-emerald-200 border border-emerald-500/50 hover:border-emerald-400 shadow-xl backdrop-blur-md font-bold text-xs flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer" 
+            title="선생님 의견 및 질문/피드백 게시판 (그래서? 넌 어디 갈래? · 꾹링크)">
+        <span class="text-sm group-hover:scale-125 transition-transform">💬</span>
+        <span class="tracking-wide">질문·피드백</span>
+    </button>
+</div>
+
 <!-- 보안 워터마크 -->
 <div class="watermark">
     🔒 100% 오프라인 안전 모드 · Made by 푸른파도소리
