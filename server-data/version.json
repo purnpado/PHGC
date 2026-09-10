@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.6",
+  "latestVersion": "1.2.7",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.6 - 다운로드 시 프로그램 창 자동 종료 처리, GitHub 및 Gitea 릴리즈 노트 서식 완전 일치",
+  "releaseNotes": "v1.2.7 - 울산 관내 11개 고교 체제 완비, 공식 공개 데이터 고교 선택 등록 팝업 지원, 기본값 복원 버튼 제거 및 UI 최적화",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }
