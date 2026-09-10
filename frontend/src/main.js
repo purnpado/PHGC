@@ -849,6 +849,9 @@ async function renderAdminScreen(schoolName) {
                     <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl" style="width: auto;" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
+                    <button id="openAdminFeedbackBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl text-emerald-300 hover:text-emerald-200 border-emerald-500/40 hover:bg-emerald-950/40 shadow-sm" style="width: auto;" title="선생님 의견 및 질문/피드백 게시판 (그래서? 넌 어디 갈래? · 꾹링크)">
+                        <span>💬</span> 의견·피드백
+                    </button>
                     <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl text-slate-300 hover:text-white" style="width: auto;">
                         <span>🚪</span> 로그아웃
                     </button>
@@ -1003,6 +1006,10 @@ async function renderAdminScreen(schoolName) {
 
     document.getElementById('openAdminGuideBtn')?.addEventListener('click', () => {
         renderGuideModal('master');
+    });
+
+    document.getElementById('openAdminFeedbackBtn')?.addEventListener('click', () => {
+        openExternalUrlSafe(FEEDBACK_BOARD_URL);
     });
 
     document.getElementById('goToTeacherBtn')?.addEventListener('click', () => {
@@ -1464,6 +1471,9 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="openTeacherGuideBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
+                    <button id="openTeacherFeedbackBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5 text-emerald-300 hover:text-emerald-200 border-emerald-500/40 hover:bg-emerald-950/40 shadow-sm" title="선생님 의견 및 질문/피드백 게시판 (그래서? 넌 어디 갈래? · 꾹링크)">
+                        <span>💬</span> 의견·피드백
+                    </button>
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
@@ -1565,6 +1575,10 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     document.getElementById('openTeacherGuideBtn')?.addEventListener('click', () => {
         renderGuideModal(window.currentUser?.Role || 'homeroom');
+    });
+
+    document.getElementById('openTeacherFeedbackBtn')?.addEventListener('click', () => {
+        openExternalUrlSafe(FEEDBACK_BOARD_URL);
     });
 
     document.getElementById('backBtn').addEventListener('click', async () => {
@@ -3962,41 +3976,70 @@ async function checkUpdateOnStartup(localVer, isManual = false) {
     }
 }
 
+const FEEDBACK_BOARD_URL = "https://gguk.link/boards/phgc";
+const GITHUB_RELEASE_URL = "https://github.com/purnpado/PHGC/releases/latest";
+
+function openExternalUrlSafe(url) {
+    try {
+        if (window.go?.main?.App?.OpenExternalURL) {
+            window.go.main.App.OpenExternalURL(url);
+        } else if (window.runtime?.BrowserOpenURL) {
+            window.runtime.BrowserOpenURL(url);
+        } else {
+            window.open(url, '_blank');
+        }
+    } catch (err) {
+        console.error("외부 링크 열기 실패:", err);
+    }
+}
+
 function showStartupUpdateModal(result) {
     document.getElementById('startupUpdateModal')?.remove();
+
+    const latestVer = result.latestVersion || '1.0.0';
+    const currentVer = result.currentVersion || '1.0.0';
 
     const modal = document.createElement('div');
     modal.id = 'startupUpdateModal';
     modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 fade-in';
     modal.innerHTML = `
-        <div class="glass-card p-6 md:p-8 w-full max-w-lg border border-warning/40 space-y-5 text-left">
-            <div class="flex items-center gap-3 border-b border-slate-700/60 pb-3">
+        <div class="glass-card p-6 md:p-8 w-full max-w-lg border border-amber-500/40 space-y-5 text-left shadow-2xl">
+            <div class="flex items-center gap-3.5 border-b border-slate-700/60 pb-3">
                 <span class="text-3xl">🚀</span>
                 <div>
-                    <h3 class="text-lg font-black text-white">새로운 버전이 출시되었습니다!</h3>
-                    <div class="text-xs text-warning font-bold">v${result.latestVersion} (현재 버전: v${result.currentVersion})</div>
+                    <h3 class="text-lg font-black text-white">최신 버전(v\${latestVer}) 출시 안내</h3>
+                    <div class="text-xs text-amber-300 font-bold mt-0.5">현재 설치 버전: v\${currentVer} → 최신 버전: v\${latestVer}</div>
                 </div>
+            </div>
+
+            <div class="p-3.5 rounded-xl bg-amber-950/25 border border-amber-500/30 text-xs text-amber-200 leading-relaxed font-medium">
+                📢 <strong>최신 버전이 출시되었습니다!</strong><br>
+                새로운 기능과 최신 개선사항이 포함되어 있습니다. 공식 배포 페이지(GitHub Releases)로 이동하여 다운로드 받으시겠습니까?
             </div>
 
             <div class="space-y-2">
-                <div class="text-xs font-bold text-slate-300">📦 업데이트 주요 내용:</div>
-                <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap font-sans">
-                    ${result.releaseNotes || '새로운 기능 추가 및 시스템 안정화 패치'}
+                <div class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <span>📦</span> 업데이트 주요 변경 내용:
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-44 overflow-y-auto whitespace-pre-wrap font-sans select-text">
+                    \${result.releaseNotes || '시스템 안정화 및 사용자 편의 기능이 개선되었습니다.'}
                 </div>
             </div>
 
-            <div id="startupUpdateStatusMsg" class="text-xs font-bold text-warning hidden"></div>
+            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 text-[11px] text-slate-400 leading-relaxed">
+                💡 <strong>안내:</strong> 공식 배포 페이지에서 최신 <code class="text-indigo-300 font-bold">PHGC.exe</code> 파일을 다운로드하여 실행하시면 됩니다. 기존 학생 상담 자료 및 커트라인 설정은 그대로 안전하게 유지됩니다.
+            </div>
 
             <div class="flex items-center justify-between gap-3 pt-2 flex-wrap">
-                <button id="openDistributionBoardBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 text-indigo-300 border-indigo-500/40 hover:bg-indigo-950/40" style="width: auto;">
-                    🌐 공식 배포자료실 바로가기
+                <button id="openFeedbackInUpdateBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 text-emerald-300 border-emerald-500/40 hover:bg-emerald-950/40" style="width: auto;" title="그래서? 넌 어디 갈래? · 꾹링크 게시판">
+                    💬 질문·피드백 게시판
                 </button>
                 <div class="flex items-center gap-2">
-                    <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold" style="width: auto;">
-                        닫기
+                    <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold text-slate-300 hover:text-white" style="width: auto;">
+                        나중에 하기
                     </button>
-                    <button id="applyStartupUpdateBtn" class="btn-primary text-xs px-4 py-2 font-bold flex items-center gap-2" style="background: linear-gradient(135deg, #f59e0b, #d97706); width: auto;">
-                        🚀 자동 업데이트 다운로드
+                    <button id="goToDownloadReleaseBtn" class="btn-primary text-xs px-5 py-2.5 font-bold flex items-center gap-2 shadow-lg hover:scale-[1.02] active:scale-95 transition-all" style="background: linear-gradient(135deg, #6366f1, #4f46e5); width: auto;">
+                        <span>🌐</span> 다운로드 받으러 이동
                     </button>
                 </div>
             </div>
@@ -4004,47 +4047,17 @@ function showStartupUpdateModal(result) {
     `;
     document.body.appendChild(modal);
 
-    const boardUrl = "https://github.com/purnpado/PHGC/releases";
-
-    document.getElementById('openDistributionBoardBtn')?.addEventListener('click', async () => {
-        try {
-            if (window.go?.main?.App?.OpenExternalURL) {
-                await window.go.main.App.OpenExternalURL(boardUrl);
-            } else if (window.runtime?.BrowserOpenURL) {
-                window.runtime.BrowserOpenURL(boardUrl);
-            } else {
-                window.open(boardUrl, '_blank');
-            }
-        } catch (err) {
-            console.error(err);
-        }
+    document.getElementById('openFeedbackInUpdateBtn')?.addEventListener('click', () => {
+        openExternalUrlSafe(FEEDBACK_BOARD_URL);
     });
 
-    document.getElementById('skipStartupUpdateBtn').addEventListener('click', () => {
+    document.getElementById('skipStartupUpdateBtn')?.addEventListener('click', () => {
         modal.remove();
     });
 
-    document.getElementById('applyStartupUpdateBtn').addEventListener('click', async () => {
-        const btn = document.getElementById('applyStartupUpdateBtn');
-        const skipBtn = document.getElementById('skipStartupUpdateBtn');
-        const statusMsg = document.getElementById('startupUpdateStatusMsg');
-
-        btn.disabled = true;
-        skipBtn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> <span>다운로드 중...</span>';
-        statusMsg.className = 'text-xs font-bold text-warning';
-        statusMsg.textContent = '최신 업데이트 파일을 다운로드하고 있습니다. 완료되면 프로그램이 자동으로 재시작됩니다...';
-        statusMsg.classList.remove('hidden');
-
-        try {
-            await window.go.main.App.PerformAutoUpdate(result.downloadUrl);
-        } catch (err) {
-            btn.disabled = false;
-            skipBtn.disabled = false;
-            btn.textContent = '🚀 다시 시도';
-            statusMsg.className = 'text-xs font-bold text-danger';
-            statusMsg.textContent = '자동 업데이트 실패: ' + err;
-        }
+    document.getElementById('goToDownloadReleaseBtn')?.addEventListener('click', () => {
+        openExternalUrlSafe(GITHUB_RELEASE_URL);
+        modal.remove();
     });
 }
 
@@ -4564,26 +4577,21 @@ export async function renderLoginScreen(schoolName) {
                         <button type="button" id="loginBoardLinkBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 border border-indigo-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="공식 GitHub 릴리즈 및 배포자료실 열기">
                             <span>📦</span> GitHub 릴리즈
                         </button>
+                        <button type="button" id="loginFeedbackBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="선생님 질문 및 피드백 게시판 열기 (그래서? 넌 어디 갈래? · 꾹링크)">
+                            <span>💬</span> 질문·피드백 게시판
+                        </button>
                     </div>
                     <div id="startupUpdateStatus" class="text-[11px] text-slate-400"></div>
                 </div>
             </div>
         `;
 
-        const boardUrl = "https://github.com/purnpado/PHGC/releases";
+        document.getElementById('loginBoardLinkBtn')?.addEventListener('click', () => {
+            openExternalUrlSafe(GITHUB_RELEASE_URL);
+        });
 
-        document.getElementById('loginBoardLinkBtn')?.addEventListener('click', async () => {
-            try {
-                if (window.go?.main?.App?.OpenExternalURL) {
-                    await window.go.main.App.OpenExternalURL(boardUrl);
-                } else if (window.runtime?.BrowserOpenURL) {
-                    window.runtime.BrowserOpenURL(boardUrl);
-                } else {
-                    window.open(boardUrl, '_blank');
-                }
-            } catch (err) {
-                console.error(err);
-            }
+        document.getElementById('loginFeedbackBtn')?.addEventListener('click', () => {
+            openExternalUrlSafe(FEEDBACK_BOARD_URL);
         });
 
         document.getElementById('manualCheckUpdateBtn')?.addEventListener('click', async () => {
