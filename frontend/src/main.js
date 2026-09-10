@@ -1185,17 +1185,122 @@ async function renderAdminScreen(schoolName) {
         renderSyncScreen(schoolName);
     });
 
-    document.getElementById('importPatchBtn')?.addEventListener('click', async () => {
+    document.getElementById('importPatchBtn')?.addEventListener('click', () => {
+        openPatchImportModal(schoolName);
+    });
+
+}
+
+// 담임교사 취합자료 병합 방식 선택 모달 (다중 파일 일괄 병합 vs 단일 파일 상세 검토)
+function openPatchImportModal(schoolName) {
+    document.getElementById('patchImportModeModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'patchImportModeModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+    modal.innerHTML = `
+        <div class="glass-card p-6 md:p-8 w-full max-w-xl space-y-5">
+            <div class="flex justify-between items-start border-b border-slate-700/60 pb-3">
+                <div>
+                    <h2 class="text-xl font-black text-white flex items-center gap-2">
+                        <span>📥</span> 담임교사 취합자료 병합
+                    </h2>
+                    <p class="text-xs text-text-muted mt-1">
+                        각 학급 담임선생님이 제출한 취합 파일(<strong>.phgcpatch</strong>)을 학년부장 시스템에 반영합니다.
+                    </p>
+                </div>
+                <button id="closePatchImportModeModal" class="text-2xl text-slate-400 hover:text-white transition-colors">×</button>
+            </div>
+
+            <div class="space-y-3.5">
+                <!-- 옵션 1: 여러 반 일괄 병합 (다중 선택) -->
+                <div id="btnBatchPatchMerge" class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/50 hover:bg-indigo-900/50 hover:border-indigo-400 cursor-pointer transition-all flex items-start gap-3.5 group shadow-md">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/40 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform">
+                        ⚡
+                    </div>
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-white group-hover:text-indigo-200">여러 반 일괄 병합 (다중 선택 권장)</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">추천</span>
+                        </div>
+                        <p class="text-xs text-slate-300/90 leading-relaxed">
+                            파일 탐색기에서 <strong>Ctrl 또는 Shift 키를 누른 채</strong> 여러 반 파일(예: 1반~8반 취합본)을 한꺼번에 동시 선택하여 <strong>1초 만에 전교 일괄 병합</strong>합니다.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 옵션 2: 1개 반 상세 검토 병합 -->
+                <div id="btnSinglePatchMerge" class="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 hover:bg-slate-700/60 hover:border-slate-500 cursor-pointer transition-all flex items-start gap-3.5 group shadow-sm">
+                    <div class="w-10 h-10 rounded-xl bg-slate-700/50 border border-slate-600/50 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 transition-transform">
+                        🔍
+                    </div>
+                    <div class="space-y-1">
+                        <span class="text-sm font-bold text-white group-hover:text-indigo-200">1개 반 상세 검토 병합 (체크박스 선택)</span>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            특정 학급 1개 파일을 열어 학생별로 반영할 항목(출결, 봉사, 수기 가산점, 지원현황)을 직접 눈으로 검토하고 선택적으로 병합합니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-3 border-t border-slate-700/60">
+                <button id="closePatchImportModeModal2" class="btn-secondary text-xs px-4 py-2 font-bold" style="width: auto;">
+                    닫기
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeModal = () => modal.remove();
+    document.getElementById('closePatchImportModeModal')?.addEventListener('click', closeModal);
+    document.getElementById('closePatchImportModeModal2')?.addEventListener('click', closeModal);
+
+    // 1. 여러 반 일괄 병합 핸들러
+    document.getElementById('btnBatchPatchMerge')?.addEventListener('click', async () => {
         const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
         if (!password) return;
+        closeModal();
+
         try {
-            const preview = await window.go.main.App.OpenTeacherPatchPreview(password);
-            openPatchMergeSelection(preview, password, schoolName);
+            const res = await window.go.main.App.OpenTeacherPatch(password);
+            if (res && res.files > 0) {
+                await showModalAlert({
+                    title: '취합자료 일괄 병합 완료',
+                    message: `선택하신 <strong>${res.files}개 학급 취합 파일</strong>에서 학생 <strong>${res.students}명</strong>의 최신 데이터가 성공적으로 일괄 병합되었습니다!`,
+                    type: 'success'
+                });
+                renderAdminScreen(schoolName);
+            }
         } catch (err) {
-            alert('취합자료 가져오기 실패: ' + err);
+            await showModalAlert({
+                title: '일괄 병합 실패',
+                message: String(err),
+                type: 'error'
+            });
         }
     });
 
+    // 2. 1개 반 상세 검토 병합 핸들러
+    document.getElementById('btnSinglePatchMerge')?.addEventListener('click', async () => {
+        const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
+        if (!password) return;
+        closeModal();
+
+        try {
+            const preview = await window.go.main.App.OpenTeacherPatchPreview(password);
+            if (preview && preview.path) {
+                openPatchMergeSelection(preview, password, schoolName);
+            }
+        } catch (err) {
+            await showModalAlert({
+                title: '취합자료 가져오기 실패',
+                message: String(err),
+                type: 'error'
+            });
+        }
+    });
 }
 
 function openPatchMergeSelection(preview, password, schoolName) {
@@ -1957,6 +2062,176 @@ async function openApplicationRegisterModal() {
     modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-7xl"><div class="flex justify-between mb-4"><div><h2 class="text-2xl font-bold">🗂️ 학교 내부 원서대장</h2><p class="text-xs text-text-muted">학교 내부 관리용이며 공식 원서 서식을 대체하지 않습니다.</p></div><div class="no-print"><button id="printRegister" class="btn-secondary px-3 py-2">🖨️ 인쇄 / PDF</button><button id="closeRegister" class="ml-2 text-xl">×</button></div></div><div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr><th>번호</th><th>반</th><th>번</th><th>성명</th><th>입학년도</th><th>지원학교</th><th>전형</th><th>학과/지망(배정)</th><th>점수</th><th>결과</th></tr></thead><tbody>${rows}</tbody></table></div></div>`; document.body.appendChild(modal); document.getElementById('closeRegister').onclick = () => modal.remove(); document.getElementById('printRegister').onclick = () => printOnly('register');
 }
 
+// 지원 학생 상세 명단 팝업 모달 (지망 뱃지 또는 총 인원수 클릭 시)
+function openApplicantDetailModal(title, students) {
+    document.getElementById('applicantDetailModal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'applicantDetailModal';
+    modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-150';
+    
+    // 학급, 번호 순 정렬
+    const sorted = [...students].sort((a, b) => (a.classNum - b.classNum) || (parseInt(a.studentNum || 0) - parseInt(b.studentNum || 0)));
+    
+    const rowsHTML = sorted.map((s, idx) => {
+        let statusBadge = '<span class="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300">지원예정</span>';
+        if (s.status === '지원완료') statusBadge = '<span class="px-2 py-0.5 rounded text-xs bg-indigo-900/60 text-indigo-200 border border-indigo-500/40">지원완료</span>';
+        else if (s.status === '합격') statusBadge = '<span class="px-2 py-0.5 rounded text-xs bg-emerald-900/60 text-emerald-300 font-bold border border-emerald-500/40">합격</span>';
+        else if (s.status === '불합격') statusBadge = '<span class="px-2 py-0.5 rounded text-xs bg-rose-900/60 text-rose-300 border border-rose-500/40">불합격</span>';
+        else if (s.status === '최종 진학' || s.status === '최종진학') statusBadge = '<span class="px-2 py-0.5 rounded text-xs bg-sky-900/60 text-sky-200 font-black border border-sky-400/40">최종진학</span>';
+
+        return `
+            <tr class="border-b border-slate-700/60 hover:bg-slate-800/40 text-xs">
+                <td class="p-2.5 text-center text-slate-400">${idx + 1}</td>
+                <td class="p-2.5 text-center font-bold text-white">${s.classNum}반 ${s.studentNum}번</td>
+                <td class="p-2.5 text-left font-black text-indigo-200 pl-4">${s.studentName}</td>
+                <td class="p-2.5 text-center font-semibold text-sky-300">${s.prefRank ? `${s.prefRank}지망` : (s.assignedDepartment ? `배정 (${s.assignedDepartment})` : '-')}</td>
+                <td class="p-2.5 text-right font-mono font-bold text-amber-300 pr-4">${s.score ? s.score.toFixed(2) : '-'}</td>
+                <td class="p-2.5 text-center">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('') || '<tr><td colspan="6" class="p-6 text-center text-slate-400">해당 조건의 지원 학생이 없습니다.</td></tr>';
+
+    modal.innerHTML = `
+        <div class="glass-card max-w-2xl w-full p-6 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col gap-4 text-left animate-in zoom-in-95 duration-150 select-none break-keep-all">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">👥</span>
+                    <h3 class="font-bold text-white text-base">${title}</h3>
+                </div>
+                <button id="closeApplicantDetailBtn" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg cursor-pointer transition-colors">✕</button>
+            </div>
+            <div class="overflow-auto max-h-[60vh] border border-slate-700/70 rounded-xl bg-slate-900/50">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-800 sticky top-0 text-slate-400 font-bold text-xs border-b border-slate-700">
+                        <tr>
+                            <th class="p-2.5 w-12 text-center">번호</th>
+                            <th class="p-2.5 w-24 text-center">학급·번호</th>
+                            <th class="p-2.5 w-28 text-left pl-4">학생 성명</th>
+                            <th class="p-2.5 w-24 text-center">지망구분</th>
+                            <th class="p-2.5 w-24 text-right pr-4">내신 점수</th>
+                            <th class="p-2.5 w-24 text-center">진행 상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHTML}</tbody>
+                </table>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-slate-700/60 text-xs">
+                <span class="text-slate-400">조회된 지원자: <b class="text-indigo-300 font-bold">${sorted.length}명</b></span>
+                <button id="closeApplicantDetailBottomBtn" class="btn-secondary py-1.5 px-4 text-xs font-bold rounded-xl cursor-pointer">닫기</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const close = () => modal.remove();
+    document.getElementById('closeApplicantDetailBtn').onclick = close;
+    document.getElementById('closeApplicantDetailBottomBtn').onclick = close;
+}
+
+// 스마트 지원현황 그룹 생성 헬퍼 함수
+function buildSmartApplicationGroups(records) {
+    const categoryLabel = category => ({
+        meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고', other: '기타', none: '미진학'
+    }[category] || category);
+
+    const groupsMap = new Map();
+
+    records.forEach(r => {
+        const year = r.admissionYear;
+        const cat = r.category || 'general';
+        const school = r.schoolName || (cat === 'general' ? '후기 일반고' : '-');
+        const track = r.track || (cat === 'general' ? '후기 일반계고' : '일반');
+
+        // 학생의 학과 및 지망 추출
+        let items = [];
+        if (cat === 'general') {
+            const dept = r.assignedSchool ? `[배정고] ${r.assignedSchool}` : '일반계고 공통';
+            items.push({ dept, rank: 0 });
+        } else {
+            // 전기고 (마이스터/특성화): preferences 순회
+            if (r.preferences && r.preferences.length > 0) {
+                r.preferences.forEach((d, idx) => {
+                    if (d && d.trim()) {
+                        items.push({ dept: d.trim(), rank: idx + 1 });
+                    }
+                });
+            }
+            if (items.length === 0) {
+                const dept = r.assignedDepartment || '학교 전체';
+                items.push({ dept, rank: 1 });
+            }
+        }
+
+        items.forEach(({ dept, rank }) => {
+            const key = `${year}__${cat}__${school}__${track}__${dept}`;
+            if (!groupsMap.has(key)) {
+                groupsMap.set(key, {
+                    key,
+                    admissionYear: year,
+                    category: cat,
+                    categoryLabel: categoryLabel(cat),
+                    schoolName: school,
+                    track,
+                    department: dept,
+                    ranks: {}, // rank -> [student info]
+                    allStudents: [],
+                    plannedCount: 0,
+                    submittedCount: 0,
+                    acceptedCount: 0,
+                    rejectedCount: 0,
+                    finalCount: 0,
+                    acceptedScores: [],
+                    maxRejectedScore: 0
+                });
+            }
+            const g = groupsMap.get(key);
+            const studentInfo = {
+                classNum: r.classNum,
+                studentNum: r.studentNum,
+                studentName: r.studentName,
+                prefRank: rank,
+                score: r.score,
+                status: r.status,
+                assignedDepartment: r.assignedDepartment
+            };
+            if (!g.ranks[rank]) g.ranks[rank] = [];
+            g.ranks[rank].push(studentInfo);
+            g.allStudents.push(studentInfo);
+
+            if (r.status === '지원희망' || r.status === '지원예정') g.plannedCount++;
+            else if (r.status === '지원완료') g.submittedCount++;
+            else if (r.status === '합격') {
+                g.acceptedCount++;
+                if (r.score > 0) g.acceptedScores.push(r.score);
+            } else if (r.status === '불합격') {
+                g.rejectedCount++;
+                if (r.score > g.maxRejectedScore) g.maxRejectedScore = r.score;
+            } else if (r.status === '최종 진학' || r.status === '최종진학') {
+                g.finalCount++;
+                g.acceptedCount++;
+                if (r.score > 0) g.acceptedScores.push(r.score);
+            }
+        });
+    });
+
+    // 정렬: 입학년도 역순 -> 학교구분(마이스터, 특성화, 자사고, 일반고) -> 학교명 -> 전형(특별 먼저, 일반) -> 학과명
+    const catOrder = { meister: 1, special: 2, self_foreign: 3, general: 4, other: 5, none: 6 };
+    const trackOrder = track => (track.includes('특별') || track.includes('취업') ? 1 : 2);
+
+    const list = Array.from(groupsMap.values()).sort((a, b) => {
+        if (b.admissionYear !== a.admissionYear) return b.admissionYear - a.admissionYear;
+        const ca = catOrder[a.category] || 9, cb = catOrder[b.category] || 9;
+        if (ca !== cb) return ca - cb;
+        if (a.schoolName !== b.schoolName) return a.schoolName.localeCompare(b.schoolName);
+        const ta = trackOrder(a.track), tb = trackOrder(b.track);
+        if (ta !== tb) return ta - tb;
+        return a.department.localeCompare(b.department);
+    });
+
+    return list;
+}
+
+// 1. 우리 반 지원희망 모달 (스마트 지망 가로 뱃지 + 학생 명단 팝업 지원)
 async function openClassApplicationSummaryModal(classNum) {
     document.getElementById('classApplicationSummaryModal')?.remove();
     const modal = document.createElement('div');
@@ -1964,70 +2239,135 @@ async function openClassApplicationSummaryModal(classNum) {
     modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
     modal.innerHTML = '<div class="glass-card p-7"><span class="spinner"></span> 우리 반 지원희망을 집계하는 중...</div>';
     document.body.appendChild(modal);
+
     try {
-        const summaries = await window.go.main.App.GetClassApplicationSummaries(classNum);
-        const categoryLabel = category => ({ meister: '마이스터고', special: '특성화고', self_foreign: '자사고·외고', general: '후기 일반고', other: '기타 (전기 기타고/타시도 등)', none: '미진학' }[category] || category);
-        let rows = '<tr><td colspan="11" class="p-10 text-center text-text-muted">우리 반에 기록된 지원희망이 없습니다.</td></tr>';
-        if (summaries.length) {
-            let currentSchool = null, currentCategory = null, currentYear = null;
-            let currentDept = null, currentRank = null;
-            const groupedRows = [];
+        const allRecords = await window.go.main.App.GetSchoolApplicationRecords() || [];
+        const classRecords = allRecords.filter(r => r.classNum === classNum);
+        const smartGroups = buildSmartApplicationGroups(classRecords);
 
-            summaries.forEach(s => {
-                const isSameGroup = currentSchool === s.schoolName && currentCategory === s.category && currentYear === s.admissionYear;
-                const isSameDept = isSameGroup && currentDept === s.department;
-                const isSameRank = isSameDept && currentRank === s.preferenceRank;
+        let rowsHTML = '<tr><td colspan="12" class="p-10 text-center text-text-muted">우리 반에 기록된 지원희망이 없습니다.</td></tr>';
+        if (smartGroups.length > 0) {
+            let currentSchool = null, currentYear = null;
+            const groupedWithRowSpan = [];
 
-                let rowSpanSchool = 0, rowSpanDept = 0, rowSpanRank = 0;
-
+            smartGroups.forEach(g => {
+                const isSameGroup = currentSchool === g.schoolName && currentYear === g.admissionYear;
+                let rowSpanSchool = 0;
                 if (!isSameGroup) {
-                    currentSchool = s.schoolName; currentCategory = s.category; currentYear = s.admissionYear;
-                    rowSpanSchool = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear).length;
+                    currentSchool = g.schoolName;
+                    currentYear = g.admissionYear;
+                    rowSpanSchool = smartGroups.filter(x => x.schoolName === currentSchool && x.admissionYear === currentYear).length;
                 }
-                if (!isSameDept) {
-                    currentDept = s.department;
-                    rowSpanDept = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept).length;
-                }
-                if (!isSameRank) {
-                    currentRank = s.preferenceRank;
-                    rowSpanRank = summaries.filter(x => x.schoolName === currentSchool && x.category === currentCategory && x.admissionYear === currentYear && x.department === currentDept && x.preferenceRank === currentRank).length;
-                }
-
-                groupedRows.push({
-                    ...s,
-                    isFirstGroup: !isSameGroup, rowSpanSchool,
-                    isFirstDept: !isSameDept, rowSpanDept,
-                    isFirstRank: !isSameRank, rowSpanRank
-                });
+                groupedWithRowSpan.push({ ...g, isFirstGroup: !isSameGroup, rowSpanSchool });
             });
 
-            rows = groupedRows.map(s => {
-                const groupCells = s.isFirstGroup ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.admissionYear}학년도</td><td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${categoryLabel(s.category)}</td><td class="p-3 font-bold text-white border-r border-slate-700/50" rowspan="${s.rowSpanSchool}">${s.schoolName || '후기 일반고'}</td>` : '';
-                const deptCell = s.isFirstDept ? `<td class="p-3 border-r border-slate-700/50" rowspan="${s.rowSpanDept}">${s.department || '-'}</td>` : '';
-                const rankCell = s.isFirstRank ? `<td class="p-3 text-center border-r border-slate-700/50" rowspan="${s.rowSpanRank}">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td>` : '';
+            rowsHTML = groupedWithRowSpan.map(g => {
+                const schoolCells = g.isFirstGroup ? `
+                    <td class="p-3 border-r border-slate-700/50 text-center font-bold text-slate-300" rowspan="${g.rowSpanSchool}">${g.admissionYear}학년도</td>
+                    <td class="p-3 border-r border-slate-700/50 text-center font-semibold text-slate-300" rowspan="${g.rowSpanSchool}">${g.categoryLabel}</td>
+                    <td class="p-3 border-r border-slate-700/50 font-bold text-white" rowspan="${g.rowSpanSchool}">${g.schoolName}</td>
+                ` : '';
 
-                return `<tr class="border-b border-slate-700/60 hover:bg-slate-800/40 transition-colors">
-                    ${groupCells}
-                    ${deptCell}
-                    ${rankCell}
-                    <td class="p-3">${s.track || '-'}</td>
-                    <td class="p-3 text-center text-cyan-200 font-medium">${s.plannedCount}</td>
-                    <td class="p-3 text-center text-indigo-200 font-medium">${s.submittedCount}</td>
-                    <td class="p-3 text-center text-emerald-300 font-medium">${s.acceptedCount}</td>
-                    <td class="p-3 text-center text-rose-300 font-medium">${s.rejectedCount}</td>
-                    <td class="p-3 text-center font-bold text-white">${s.finalCount}</td>
-                </tr>`;
+                const rankBadges = Object.keys(g.ranks).sort((a, b) => a - b).map(rank => `
+                    <button type="button" class="btn-show-class-rank px-2 py-0.5 rounded-md bg-indigo-950/90 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/40 text-[11px] font-semibold transition-colors cursor-pointer"
+                            data-group-key="${g.key}" data-rank="${rank}" title="클릭하여 ${rank}지망 학생 명단 보기">
+                        ${rank > 0 ? `${rank}지망: ` : ''}<b>${g.ranks[rank].length}명</b>
+                    </button>
+                `).join('');
+
+                const totalBadge = `
+                    <button type="button" class="btn-show-class-all px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-black text-[11px] border border-slate-600 transition-colors cursor-pointer"
+                            data-group-key="${g.key}" title="클릭하여 전체 지원 학생 명단 보기">
+                        (총 ${g.allStudents.length}명)
+                    </button>
+                `;
+
+                return `
+                    <tr class="border-b border-slate-700/60 hover:bg-slate-800/40 transition-colors text-xs">
+                        ${schoolCells}
+                        <td class="p-3 font-semibold ${g.track.includes('특별') || g.track.includes('취업') ? 'text-amber-300' : 'text-sky-200'}">${g.track}</td>
+                        <td class="p-3 font-bold text-white">${g.department}</td>
+                        <td class="p-3">
+                            <div class="flex flex-wrap items-center gap-1.5">${rankBadges} ${totalBadge}</div>
+                        </td>
+                        <td class="p-3 text-center text-cyan-200 font-medium">${g.plannedCount}</td>
+                        <td class="p-3 text-center text-indigo-200 font-medium">${g.submittedCount}</td>
+                        <td class="p-3 text-center text-emerald-300 font-medium">${g.acceptedCount}</td>
+                        <td class="p-3 text-center text-rose-300 font-medium">${g.rejectedCount}</td>
+                        <td class="p-3 text-center font-bold text-white">${g.finalCount}</td>
+                    </tr>
+                `;
             }).join('');
         }
-        modal.innerHTML = `<div class="glass-card print-document p-7 w-full max-w-6xl"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📋 ${classNum}반 지원희망</h2><p class="text-sm text-text-muted mt-1">본인 학급 자료만 집계합니다. 다른 학급·학교 전체 자료는 표시하지 않습니다.</p></div><div class="no-print flex items-center gap-2"><button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm">🖨️ 인쇄 / PDF</button><button id="closeClassApplicationSummary" class="text-3xl text-text-muted">×</button></div></div><div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl"><table class="w-full text-sm"><thead class="sticky top-0 bg-slate-800"><tr><th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">전형</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th></tr></thead><tbody>${rows}</tbody></table></div><p class="mt-4 text-xs text-text-muted">* 학생별 입력·수정은 목록의 ‘지원 현황’ 버튼에서 합니다. 취합자료는 학년부장에게 전달해 병합할 수 있습니다.</p></div>`;
+
+        modal.innerHTML = `
+            <div class="glass-card print-document p-7 w-full max-w-6xl select-none break-keep-all">
+                <div class="flex justify-between items-start gap-4 mb-5">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white flex items-center gap-2">📋 ${classNum}반 지원희망 스마트 현황</h2>
+                        <p class="text-sm text-text-muted mt-1">지망별 뱃지를 클릭하면 해당 지망으로 지원한 학생 명단을 즉시 확인할 수 있습니다.</p>
+                    </div>
+                    <div class="no-print flex items-center gap-2">
+                        <button id="printClassSummary" class="btn-secondary px-3 py-2 text-sm cursor-pointer">🖨️ 인쇄 / PDF</button>
+                        <button id="closeClassApplicationSummary" class="text-3xl text-text-muted hover:text-white cursor-pointer transition-colors">×</button>
+                    </div>
+                </div>
+                <div class="overflow-auto max-h-[70vh] border border-slate-700 rounded-xl bg-slate-900/40">
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-slate-800 border-b border-slate-700">
+                            <tr class="text-xs text-slate-400 font-bold">
+                                <th class="p-3 border-r border-slate-700/50 w-24">입학년도</th>
+                                <th class="p-3 border-r border-slate-700/50 w-24">구분</th>
+                                <th class="p-3 border-r border-slate-700/50 w-40 text-left pl-3">학교</th>
+                                <th class="p-3 w-28 text-left pl-3">전형</th>
+                                <th class="p-3 w-36 text-left pl-3">학과</th>
+                                <th class="p-3 text-left pl-3">지망별 지원 분포 (클릭 시 학생 명단)</th>
+                                <th class="p-3 w-16 text-center text-cyan-300">예정</th>
+                                <th class="p-3 w-16 text-center text-indigo-300">지원</th>
+                                <th class="p-3 w-16 text-center text-emerald-300">합격</th>
+                                <th class="p-3 w-16 text-center text-rose-300">불합</th>
+                                <th class="p-3 w-16 text-center text-white">최종</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHTML}</tbody>
+                    </table>
+                </div>
+                <p class="mt-4 text-xs text-text-muted">* 지망별 뱃지(예: 1지망: 2명)를 누르면 명단이 바로 표시됩니다.</p>
+            </div>
+        `;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
         document.getElementById('printClassSummary').onclick = () => printOnly('summary', 'landscape');
+
+        // 지망 뱃지 클릭 리스너 연결
+        modal.querySelectorAll('.btn-show-class-rank').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupKey = btn.dataset.groupKey;
+                const rank = parseInt(btn.dataset.rank, 10);
+                const group = smartGroups.find(g => g.key === groupKey);
+                if (group && group.ranks[rank]) {
+                    openApplicantDetailModal(`[${group.schoolName}] ${group.department} (${group.track}) - ${rank}지망 지원자`, group.ranks[rank]);
+                }
+            });
+        });
+
+        // 전체 총원 뱃지 클릭 리스너 연결
+        modal.querySelectorAll('.btn-show-class-all').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupKey = btn.dataset.groupKey;
+                const group = smartGroups.find(g => g.key === groupKey);
+                if (group) {
+                    openApplicantDetailModal(`[${group.schoolName}] ${group.department} (${group.track}) - 전체 지원자`, group.allStudents);
+                }
+            });
+        });
+
     } catch (err) {
         modal.innerHTML = `<div class="glass-card p-7 max-w-lg"><h2 class="text-xl font-bold mb-3">우리 반 지원희망을 불러올 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeClassApplicationSummary" class="btn-secondary w-auto px-4 py-2 mt-5">닫기</button></div>`;
         document.getElementById('closeClassApplicationSummary').onclick = () => modal.remove();
     }
 }
 
+// 2. 우리 학교 전체 지원현황 모달 (학교-전형-학과 1줄 통합, 스마트 지망 가로 뱃지 + 학생 명단 팝업)
 async function openApplicationSummaryModal() {
     document.getElementById('applicationSummaryModal')?.remove();
     const modal = document.createElement('div');
@@ -2049,60 +2389,160 @@ async function openApplicationSummaryModal() {
     };
 
     try {
-        const [summaries, config] = await Promise.all([
-            window.go.main.App.GetApplicationSummaries(),
+        const [config, allRecords] = await Promise.all([
             window.go.main.App.GetSchoolConfig(),
+            window.go.main.App.GetSchoolApplicationRecords() || []
         ]);
         const admissionYear = config?.admissionYear || new Date().getFullYear() + 1;
         const [closure, review] = await Promise.all([
             window.go.main.App.GetAdmissionClosure(admissionYear),
             window.go.main.App.GetAdmissionClosureReview(admissionYear),
         ]);
-        const rows = summaries.length ? summaries.map(s => `<tr class="border-b border-slate-700/60"><td class="p-3">${s.admissionYear}학년도</td><td class="p-3">${s.category === 'meister' ? '마이스터고' : s.category === 'special' ? '특성화고' : s.category === 'self_foreign' ? '자사고·외고' : s.category === 'general' ? '후기 일반고' : s.category === 'none' ? '미진학' : '기타'}</td><td class="p-3 font-bold">${s.schoolName || (s.category === 'general' ? '후기 일반고' : (s.category === 'none' ? '미진학' : '-'))}</td><td class="p-3">${s.track || '-'}</td><td class="p-3">${s.department || '-'}</td><td class="p-3 text-center">${s.preferenceRank ? `${s.preferenceRank}지망` : '-'}</td><td class="p-3 text-center">${s.plannedCount}</td><td class="p-3 text-center">${s.submittedCount}</td><td class="p-3 text-center text-success">${s.acceptedCount}</td><td class="p-3 text-center text-danger">${s.rejectedCount}</td><td class="p-3 text-center">${s.finalCount}</td><td class="p-3 text-right">${s.acceptedCount ? `${s.maxAcceptedScore.toFixed(2)} / ${s.minAcceptedScore.toFixed(2)} / ${s.avgAcceptedScore.toFixed(2)}` : '-'}</td><td class="p-3 text-right">${s.rejectedCount ? s.maxRejectedScore.toFixed(2) : '-'}</td></tr>`).join('') : '<tr><td colspan="13" class="p-10 text-center text-text-muted">기록된 지원현황이 없습니다.</td></tr>';
+
+        const smartGroups = buildSmartApplicationGroups(allRecords);
+
+        let rowsHTML = '<tr><td colspan="12" class="p-10 text-center text-text-muted">기록된 지원현황이 없습니다.</td></tr>';
+        if (smartGroups.length > 0) {
+            let currentSchool = null, currentYear = null;
+            const groupedWithRowSpan = [];
+
+            smartGroups.forEach(g => {
+                const isSameGroup = currentSchool === g.schoolName && currentYear === g.admissionYear;
+                let rowSpanSchool = 0;
+                if (!isSameGroup) {
+                    currentSchool = g.schoolName;
+                    currentYear = g.admissionYear;
+                    rowSpanSchool = smartGroups.filter(x => x.schoolName === currentSchool && x.admissionYear === currentYear).length;
+                }
+                groupedWithRowSpan.push({ ...g, isFirstGroup: !isSameGroup, rowSpanSchool });
+            });
+
+            rowsHTML = groupedWithRowSpan.map(g => {
+                const schoolCells = g.isFirstGroup ? `
+                    <td class="p-3 border-r border-slate-700/50 text-center font-bold text-slate-300" rowspan="${g.rowSpanSchool}">${g.admissionYear}학년도</td>
+                    <td class="p-3 border-r border-slate-700/50 text-center font-semibold text-slate-300" rowspan="${g.rowSpanSchool}">${g.categoryLabel}</td>
+                    <td class="p-3 border-r border-slate-700/50 font-bold text-white" rowspan="${g.rowSpanSchool}">${g.schoolName}</td>
+                ` : '';
+
+                const rankBadges = Object.keys(g.ranks).sort((a, b) => a - b).map(rank => `
+                    <button type="button" class="btn-show-school-rank px-2 py-0.5 rounded-md bg-indigo-950/90 hover:bg-indigo-800 text-indigo-200 border border-indigo-500/40 text-[11px] font-semibold transition-colors cursor-pointer"
+                            data-group-key="${g.key}" data-rank="${rank}" title="클릭하여 ${rank}지망 학생 명단 보기">
+                        ${rank > 0 ? `${rank}지망: ` : ''}<b>${g.ranks[rank].length}명</b>
+                    </button>
+                `).join('');
+
+                const totalBadge = `
+                    <button type="button" class="btn-show-school-all px-2 py-0.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-black text-[11px] border border-slate-600 transition-colors cursor-pointer"
+                            data-group-key="${g.key}" title="클릭하여 전체 지원 학생 명단 보기">
+                        (총 ${g.allStudents.length}명)
+                    </button>
+                `;
+
+                const scoreDisplay = g.acceptedScores.length > 0 ? `
+                    <span class="text-sky-300 font-bold">${Math.max(...g.acceptedScores).toFixed(2)}</span> / 
+                    <span class="text-emerald-300 font-bold">${Math.min(...g.acceptedScores).toFixed(2)}</span> / 
+                    <span class="text-amber-300 font-semibold">${(g.acceptedScores.reduce((a, b) => a + b, 0) / g.acceptedScores.length).toFixed(2)}</span>
+                ` : '-';
+
+                return `
+                    <tr class="border-b border-slate-700/60 hover:bg-slate-800/40 transition-colors text-xs">
+                        ${schoolCells}
+                        <td class="p-3 font-semibold ${g.track.includes('특별') || g.track.includes('취업') ? 'text-amber-300' : 'text-sky-200'}">${g.track}</td>
+                        <td class="p-3 font-bold text-white">${g.department}</td>
+                        <td class="p-3">
+                            <div class="flex flex-wrap items-center gap-1.5">${rankBadges} ${totalBadge}</div>
+                        </td>
+                        <td class="p-3 text-center text-cyan-200 font-medium">${g.plannedCount}</td>
+                        <td class="p-3 text-center text-indigo-200 font-medium">${g.submittedCount}</td>
+                        <td class="p-3 text-center text-emerald-300 font-medium">${g.acceptedCount}</td>
+                        <td class="p-3 text-center text-rose-300 font-medium">${g.rejectedCount}</td>
+                        <td class="p-3 text-center font-bold text-white">${g.finalCount}</td>
+                        <td class="p-3 text-right font-mono text-xs pr-3">${scoreDisplay}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
         const canApplyCutoffs = window.currentUser?.Role === 'master';
-        const canViewExpected = window.currentUser?.Role === 'master' || window.currentUser?.Role === 'viewer';
         const closeInfo = closure
             ? `<div class="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-4"><p class="font-bold text-emerald-200">🔒 ${admissionYear}학년도 입시 결과 확정됨</p><p class="text-xs text-slate-300 mt-1">확정자: ${closure.closedBy || '학년부장'} · 결과 커트라인 ${closure.cutoffsApplied || 0}건 반영됨${closure.note ? ` · 메모: ${closure.note}` : ''}</p></div>`
             : `<div class="rounded-xl border ${review.pendingCount ? 'border-amber-400/40 bg-amber-500/10' : 'border-sky-400/40 bg-sky-500/10'} p-4"><p class="font-bold ${review.pendingCount ? 'text-amber-200' : 'text-sky-200'}">${admissionYear}학년도 결과 확정 전</p><p class="text-xs text-slate-300 mt-1">기록 ${review.totalRecorded}건 · 진행 중 ${review.pendingCount}건 · 합격 ${review.acceptedCount}건 · 불합격 ${review.rejectedCount}건 · 포기 ${review.withdrawnCount}건 · 최종 진학 ${review.finalCount}건</p><p class="text-xs text-slate-400 mt-1">진행 중 기록을 모두 결과 상태로 바꾼 뒤 확정하면 수정이 잠기고, 합격 결과가 우리 학교 커트라인에 자동 반영됩니다.</p></div>`;
         const closeControls = canApplyCutoffs
             ? (closure
-                ? '<button id="reopenAdmissionYear" class="btn-secondary w-auto px-4 py-2 text-sm font-medium">🔓 결과 확정 해제</button>'
-                : `<input id="admissionClosureNote" class="input-field w-44 py-2 text-xs" placeholder="확정 메모 (선택)"><button id="closeAdmissionYear" class="btn-primary w-auto px-4 py-2 text-sm font-medium">🔒 입시 결과 확정</button>`)
+                ? '<button id="reopenAdmissionYear" class="btn-secondary w-auto px-4 py-2 text-sm font-medium cursor-pointer">🔓 결과 확정 해제</button>'
+                : `<input id="admissionClosureNote" class="input-field w-44 py-2 text-xs" placeholder="확정 메모 (선택)"><button id="closeAdmissionYear" class="btn-primary w-auto px-4 py-2 text-sm font-medium cursor-pointer">🔒 입시 결과 확정</button>`)
             : '';
+
         modal.innerHTML = `
-            <div class="glass-card p-6 sm:p-7 w-full max-w-7xl max-h-[92vh] flex flex-col my-auto shadow-2xl">
+            <div class="glass-card p-6 sm:p-7 w-full max-w-7xl max-h-[92vh] flex flex-col my-auto shadow-2xl select-none break-keep-all">
                 <div class="shrink-0 flex justify-between items-start gap-4 mb-4 pb-3 border-b border-slate-700/60">
                     <div>
-                        <h2 class="text-2xl font-bold text-white flex items-center gap-2">📋 우리 학교 지원현황</h2>
-                        <p class="text-sm text-text-muted mt-1">기본 화면은 학교 내부 암호화 자료입니다. 중앙 전송은 학년부장이 아래 버튼을 눌러야만 진행됩니다.</p>
+                        <h2 class="text-2xl font-bold text-white flex items-center gap-2">📋 우리 학교 지원현황 스마트 통계</h2>
+                        <p class="text-sm text-text-muted mt-1">학교-전형-학과별 1줄로 통합되어 지원 경향이 한눈에 파악되며, 지망 뱃지 클릭 시 학생 명단이 팝업됩니다.</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button id="closeApplicationSummary" class="text-2xl text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-slate-700/50 transition-colors" title="닫기 (ESC)">✕</button>
+                        <button id="closeApplicationSummary" class="text-2xl text-slate-400 hover:text-white px-3 py-1 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer" title="닫기 (ESC)">✕</button>
                     </div>
                 </div>
                 <div class="shrink-0 mb-3">${closeInfo}</div>
                 <div class="overflow-auto flex-1 min-h-40 border border-slate-700 rounded-xl mb-4 bg-slate-900/40">
                     <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-slate-800 z-10">
-                            <tr>
-                                <th class="p-3">입학년도</th><th class="p-3">구분</th><th class="p-3">학교</th><th class="p-3">전형</th><th class="p-3">학과</th><th class="p-3">지망</th><th class="p-3">예정</th><th class="p-3">지원</th><th class="p-3">합격</th><th class="p-3">불합격</th><th class="p-3">최종</th><th class="p-3">합격 최고 / 최저 / 평균</th><th class="p-3">최고 불합격</th>
+                        <thead class="sticky top-0 bg-slate-800 z-10 border-b border-slate-700">
+                            <tr class="text-xs text-slate-400 font-bold">
+                                <th class="p-3 border-r border-slate-700/50 w-24 text-center">입학년도</th>
+                                <th class="p-3 border-r border-slate-700/50 w-24 text-center">구분</th>
+                                <th class="p-3 border-r border-slate-700/50 w-44 text-left pl-3">학교</th>
+                                <th class="p-3 w-28 text-left pl-3">전형</th>
+                                <th class="p-3 w-36 text-left pl-3">학과</th>
+                                <th class="p-3 text-left pl-3">지망별 지원 분포 (클릭 시 학생 명단)</th>
+                                <th class="p-3 w-16 text-center text-cyan-300">예정</th>
+                                <th class="p-3 w-16 text-center text-indigo-300">지원</th>
+                                <th class="p-3 w-16 text-center text-emerald-300">합격</th>
+                                <th class="p-3 w-16 text-center text-rose-300">불합</th>
+                                <th class="p-3 w-16 text-center text-white">최종</th>
+                                <th class="p-3 w-36 text-right pr-4 text-amber-300">합격 최고/최저/평균</th>
                             </tr>
                         </thead>
-                        <tbody>${rows}</tbody>
+                        <tbody>${rowsHTML}</tbody>
                     </table>
                 </div>
                 <div class="shrink-0 pt-3 border-t border-slate-700/60 flex flex-wrap justify-between items-center gap-3">
-                    <p class="text-xs text-text-muted">* 최고·최저·평균은 수기 입력값이 아니라 합격·최종진학 기록의 점수 스냅샷으로 자동 계산됩니다.</p>
+                    <p class="text-xs text-text-muted">* 지망 뱃지(예: 1지망: 3명)를 누르면 해당 지원자들의 점수와 상태가 팝업으로 나타납니다.</p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <button id="closeApplicationSummaryBottom" class="btn-secondary w-auto px-4 py-2 text-sm font-bold flex items-center gap-1.5 hover:bg-slate-700">← 닫기 (목록으로)</button>
+                        <button id="closeApplicationSummaryBottom" class="btn-secondary w-auto px-4 py-2 text-sm font-bold flex items-center gap-1.5 hover:bg-slate-700 cursor-pointer">← 닫기 (목록으로)</button>
                         <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-sm">🔒 100% 오프라인 안전 모드 (외부 유출 원천 차단)</span>
-                        ${canApplyCutoffs ? '<button id="applyApplicationCutoffs" class="btn-secondary w-auto px-4 py-2 text-sm">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}
+                        ${canApplyCutoffs ? '<button id="applyApplicationCutoffs" class="btn-secondary w-auto px-4 py-2 text-sm cursor-pointer">📈 합격 결과를 우리 학교 커트라인에 반영</button>' : ''}
                         ${closeControls}
                     </div>
                 </div>
             </div>`;
+
         document.getElementById('closeApplicationSummary').onclick = closeModal;
         document.getElementById('closeApplicationSummaryBottom').onclick = closeModal;
+
+        // 지망 뱃지 클릭 리스너 연결
+        modal.querySelectorAll('.btn-show-school-rank').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupKey = btn.dataset.groupKey;
+                const rank = parseInt(btn.dataset.rank, 10);
+                const group = smartGroups.find(g => g.key === groupKey);
+                if (group && group.ranks[rank]) {
+                    openApplicantDetailModal(`[${group.schoolName}] ${group.department} (${group.track}) - ${rank}지망 지원자`, group.ranks[rank]);
+                }
+            });
+        });
+
+        // 전체 총원 뱃지 클릭 리스너 연결
+        modal.querySelectorAll('.btn-show-school-all').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const groupKey = btn.dataset.groupKey;
+                const group = smartGroups.find(g => g.key === groupKey);
+                if (group) {
+                    openApplicantDetailModal(`[${group.schoolName}] ${group.department} (${group.track}) - 전체 지원자`, group.allStudents);
+                }
+            });
+        });
+
         document.getElementById('applyApplicationCutoffs')?.addEventListener('click', async () => {
             if (!confirm('합격·최종진학 결과의 최고·최저·평균 점수를 우리 학교 커트라인으로 반영할까요?\n기존 같은 연도·학교·전형·학과의 커트라인은 결과값으로 갱신됩니다.')) return;
             try {
@@ -2131,8 +2571,8 @@ async function openApplicationSummaryModal() {
             } catch (err) { alert('입시 결과 확정 해제 실패: ' + err); }
         });
     } catch (err) {
-        modal.innerHTML = `<div class="glass-card p-7 my-auto max-w-lg"><h2 class="text-xl font-bold mb-3">지원현황 집계 실패</h2><p class="text-text-muted mb-4">${err}</p><button id="closeApplicationSummaryError" class="btn-secondary w-auto px-4 py-2">← 닫기</button></div>`;
-        document.getElementById('closeApplicationSummaryError').onclick = closeModal;
+        modal.innerHTML = `<div class="glass-card p-7 max-w-lg my-auto"><h2 class="text-xl font-bold mb-3">우리 학교 지원현황을 불러올 수 없습니다</h2><p class="text-text-muted">${err}</p><button id="closeApplicationSummary" class="btn-secondary w-auto px-4 py-2 mt-5 cursor-pointer">닫기</button></div>`;
+        document.getElementById('closeApplicationSummary').onclick = closeModal;
     }
 }
 
@@ -6057,8 +6497,9 @@ async function renderCutoffScreen(schoolName) {
                 if (res) {
                     allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                     await showModalAlert({
-                        title: '타교자료 병합 완료',
-                        message: `타 학교 진학자료가 성공적으로 병합되었습니다!<br><br>` +
+                        title: '타교자료 일괄 병합 완료',
+                        message: `선택하신 타 학교 진학자료가 성공적으로 병합되었습니다!<br><br>` +
+                                 `• 처리된 파일: <strong>${res.files || 1}개 학교 자료</strong><br>` +
                                  `• 커트라인 갱신: <strong>${res.cutoffs || 0}건</strong><br>` +
                                  `• 타교 지원현황 합격선 반영: <strong>${res.applications || 0}건</strong><br>` +
                                  `• 공식 공개자료 보완: <strong>${res.official || 0}건</strong>`,

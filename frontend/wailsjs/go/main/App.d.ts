@@ -110,7 +110,7 @@ export function OpenFinalArchive():Promise<string>;
 
 export function OpenPasswordResetPackage():Promise<string>;
 
-export function OpenTeacherPatch(arg1:string):Promise<number>;
+export function OpenTeacherPatch(arg1:string):Promise<Record<string, number>>;
 
 export function OpenTeacherPatchPreview(arg1:string):Promise<main.PatchPreview>;
 

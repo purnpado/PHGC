@@ -1696,17 +1696,34 @@ func (a *App) OpenTeacherPatchPreview(password string) (PatchPreview, error) {
 	return a.InspectTeacherPatch(password, path)
 }
 
-// OpenTeacherPatch lets the administrator select and merge a patch file.
-func (a *App) OpenTeacherPatch(password string) (int, error) {
+// OpenTeacherPatch lets the administrator select and merge one or more patch files.
+func (a *App) OpenTeacherPatch(password string) (map[string]int, error) {
 	// 공용 데이터 암호 사전 검증: 틀린 암호 입력 시 파일 탐색기를 열지 않고 즉시 차단
 	if _, err := openSharedKeyEnvelope(a.db.dataDir, password); err != nil {
-		return 0, fmt.Errorf("공용 데이터 비밀번호가 올바르지 않습니다")
+		return nil, fmt.Errorf("공용 데이터 비밀번호가 올바르지 않습니다")
 	}
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "취합자료 병합(학년부장)", Filters: []runtime.FileFilter{{DisplayName: "PHGC 취합자료 (*.phgcpatch)", Pattern: "*.phgcpatch"}}})
-	if err != nil || path == "" {
-		return 0, err
+	paths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "취합자료 일괄 병합(학년부장) - 여러 파일 동시 선택 가능 (Ctrl 또는 Shift 클릭)",
+		Filters: []runtime.FileFilter{{DisplayName: "PHGC 취합자료 (*.phgcpatch)", Pattern: "*.phgcpatch"}},
+	})
+	if err != nil || len(paths) == 0 {
+		return nil, err
 	}
-	return a.ImportTeacherPatch(password, path)
+	totalMerged := 0
+	validFileCount := 0
+	for _, path := range paths {
+		if count, err := a.ImportTeacherPatch(password, path); err == nil {
+			totalMerged += count
+			validFileCount++
+		}
+	}
+	if validFileCount == 0 {
+		return nil, fmt.Errorf("선택된 파일 중 올바른 PHGC 취합자료가 없거나 암호가 일치하지 않습니다")
+	}
+	return map[string]int{
+		"files":    validFileCount,
+		"students": totalMerged,
+	}, nil
 }
 
 // JointSharePackage 관내 타 학교와 안전하게 공유하는 커트라인 및 지원현황 통계 패키지 (학생 개인정보 100% 원천 배제)
@@ -1813,63 +1830,74 @@ func (a *App) OpenExternalURL(targetURL string) error {
 	return nil
 }
 
-// ImportJointShareData 타 학교의 진학자료 파일을 열어 우리 학교 커트라인과 공식자료에 병합
+// ImportJointShareData 타 학교의 진학자료 파일(단일 또는 다중 선택)을 열어 우리 학교 커트라인과 공식자료에 일괄 병합
 func (a *App) ImportJointShareData(admissionYear int) (map[string]int, error) {
 	if a.user == nil || a.user.Role != "master" {
 		return nil, fmt.Errorf("타교자료 병합은 학년부장 계정만 가능합니다")
 	}
-	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:   "타교 진학자료 병합",
+	paths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title:   "타교 진학자료 일괄 병합 - 여러 파일 동시 선택 가능",
 		Filters: []runtime.FileFilter{{DisplayName: "PHGC 관내 진학자료 (*.phgcdata)", Pattern: "*.phgcdata"}},
 	})
-	if err != nil || path == "" {
+	if err != nil || len(paths) == 0 {
 		return nil, err
 	}
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("파일을 읽을 수 없습니다: %w", err)
-	}
+	var allCutoffsToMerge []CutoffInfo
+	var allOfficialItems []map[string]interface{}
+	totalApplications := 0
+	validFileCount := 0
 
-	var pkg JointSharePackage
-	if err := json.Unmarshal(data, &pkg); err != nil {
-		return nil, fmt.Errorf("올바른 PHGC 관내 진학자료 파일이 아닙니다: %w", err)
-	}
-	if pkg.Format != "PHGC_JOINT_SHARE_V1" {
-		return nil, fmt.Errorf("지원하지 않는 자료 형식입니다")
-	}
-
-	// 1. 커트라인 병합
-	cutoffsToMerge := pkg.Cutoffs
-
-	// 2. 타교의 지원현황 중 합격/진학 결과가 있는 항목을 커트라인으로 자동 변환하여 추가 병합
-	for _, app := range pkg.Applications {
-		if app.AcceptedCount > 0 || app.FinalCount > 0 {
-			scoreType := "score"
-			if strings.Contains(app.SchoolName, "일반계고") || strings.Contains(app.Category, "general") {
-				scoreType = "percentile"
-			}
-			cutoffsToMerge = append(cutoffsToMerge, CutoffInfo{
-				Year:       app.AdmissionYear,
-				SchoolName: app.SchoolName,
-				Department: app.Department,
-				Track:      app.Track,
-				ScoreType:  scoreType,
-				MaxValue:   app.MaxAcceptedScore,
-				MinValue:   app.MinAcceptedScore,
-				AvgValue:   app.AvgAcceptedScore,
-			})
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
 		}
+
+		var pkg JointSharePackage
+		if err := json.Unmarshal(data, &pkg); err != nil || pkg.Format != "PHGC_JOINT_SHARE_V1" {
+			continue
+		}
+		validFileCount++
+
+		// 1. 커트라인 병합 목록에 추가
+		allCutoffsToMerge = append(allCutoffsToMerge, pkg.Cutoffs...)
+
+		// 2. 타교의 지원현황 중 합격/진학 결과가 있는 항목을 커트라인으로 자동 변환하여 추가 병합
+		for _, app := range pkg.Applications {
+			if app.AcceptedCount > 0 || app.FinalCount > 0 {
+				scoreType := "score"
+				if strings.Contains(app.SchoolName, "일반계고") || strings.Contains(app.Category, "general") {
+					scoreType = "percentile"
+				}
+				allCutoffsToMerge = append(allCutoffsToMerge, CutoffInfo{
+					Year:       app.AdmissionYear,
+					SchoolName: app.SchoolName,
+					Department: app.Department,
+					Track:      app.Track,
+					ScoreType:  scoreType,
+					MaxValue:   app.MaxAcceptedScore,
+					MinValue:   app.MinAcceptedScore,
+					AvgValue:   app.AvgAcceptedScore,
+				})
+			}
+		}
+		totalApplications += len(pkg.Applications)
+		allOfficialItems = append(allOfficialItems, pkg.OfficialItems...)
 	}
 
-	mergedCutoffCount, err := a.db.MergeCutoffs(cutoffsToMerge)
+	if validFileCount == 0 {
+		return nil, fmt.Errorf("선택된 파일 중 올바른 PHGC 관내 진학자료가 없습니다")
+	}
+
+	mergedCutoffCount, err := a.db.MergeCutoffs(allCutoffsToMerge)
 	if err != nil {
 		return nil, fmt.Errorf("커트라인 병합 중 오류 발생: %w", err)
 	}
 
 	// 3. 공식자료 보완 (로컬 JSON에 신규 항목 병합)
 	mergedOfficialCount := 0
-	if len(pkg.OfficialItems) > 0 {
+	if len(allOfficialItems) > 0 {
 		exePath, err := os.Executable()
 		if err == nil {
 			officialFile := filepath.Join(filepath.Dir(exePath), "official_admission_data.json")
@@ -1882,7 +1910,7 @@ func (a *App) ImportJointShareData(admissionYear int) (map[string]int, error) {
 				k := fmt.Sprintf("%v_%v_%v", item["schoolName"], item["department"], item["admissionYear"])
 				existKeyMap[k] = true
 			}
-			for _, item := range pkg.OfficialItems {
+			for _, item := range allOfficialItems {
 				k := fmt.Sprintf("%v_%v_%v", item["schoolName"], item["department"], item["admissionYear"])
 				if !existKeyMap[k] {
 					localData.Items = append(localData.Items, item)
@@ -1899,8 +1927,9 @@ func (a *App) ImportJointShareData(admissionYear int) (map[string]int, error) {
 	}
 
 	return map[string]int{
+		"files":        validFileCount,
 		"cutoffs":      mergedCutoffCount,
-		"applications": len(pkg.Applications),
+		"applications": totalApplications,
 		"official":     mergedOfficialCount,
 	}, nil
 }
