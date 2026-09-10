@@ -2137,7 +2137,8 @@ async function openApplicationRegisterModal() {
                     deptDisplayHTML = `
                         <div class="flex items-center justify-center gap-1 w-full">
                             <input type="text" 
-                                   class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent px-1 py-0.5 text-xs text-left w-full focus:outline-none focus:border-indigo-700 print:border-none print:text-black print:p-0"
+                                   class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent px-1 py-0.5 text-xs text-left w-full outline-none print:border-none print:text-black print:p-0"
+                                   style="border-bottom-style: dashed;"
                                    value="${r.assignedSchool || ''}" 
                                    placeholder="배정고 입력(수기)" 
                                    data-class="${r.classNum}" 
@@ -2192,7 +2193,7 @@ async function openApplicationRegisterModal() {
                         <td class="border border-black p-2 font-bold text-sm whitespace-nowrap">${r.studentName}</td>
                         <td class="border border-black p-2 font-mono font-medium">${scoreDisplay}</td>
                         <td class="border border-black p-2 font-semibold text-left pl-3">${schoolDisplay}</td>
-                        <td class="border border-black p-2 text-left pl-3 min-w-[200px]">${deptDisplayHTML}</td>
+                        <td class="border border-black p-2 text-left pl-3" style="min-width: 200px;">${deptDisplayHTML}</td>
                         <td class="border border-black p-2">${passDisplay}</td>
                         ${approvalCellsHTML}
                         <td class="border border-black p-2 text-left pl-2.5 text-[11px] text-slate-700">${noteDisplay}</td>
@@ -2210,8 +2211,8 @@ async function openApplicationRegisterModal() {
             const pageBreakClass = (pageIdx > 0 && printLayoutMode === 'all_paged') ? 'print:break-before-page' : '';
 
             return `
-                <div class="print-document bg-white text-black p-8 sm:p-10 shadow-2xl rounded-sm w-full max-w-[1300px] min-h-[850px] mb-8 last:mb-0 flex flex-col justify-between select-text ${pageBreakClass}" 
-                     style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif; ${pageIdx > 0 && printLayoutMode === 'all_paged' ? 'page-break-before: always;' : ''}">
+                <div class="print-document bg-white text-black p-8 sm:p-10 shadow-2xl rounded-sm w-full mb-8 last:mb-0 flex flex-col justify-between select-text ${pageBreakClass}" 
+                     style="font-family: 'Batang', 'Nanum Myeongjo', 'Malgun Gothic', serif; max-width: 1300px; min-height: 850px; ${pageIdx > 0 && printLayoutMode === 'all_paged' ? 'page-break-before: always;' : ''}">
                     <div>
                         <!-- 문서 대제목 -->
                         <div class="text-center my-5">
@@ -2243,7 +2244,7 @@ async function openApplicationRegisterModal() {
                                         <th rowspan="2" class="border border-black p-2 w-20">이름</th>
                                         <th rowspan="2" class="border border-black p-2 w-20">내신총점</th>
                                         <th rowspan="2" class="border border-black p-2 w-48">지원고등학교</th>
-                                        <th rowspan="2" class="border border-black p-2 text-center min-w-[210px]">
+                                        <th rowspan="2" class="border border-black p-2 text-center" style="min-width: 210px;">
                                             지원학과(전기, 1지망)<br>
                                             <span class="text-[10px] font-normal">OR 최종배정학교(후기고)</span>
                                         </th>
@@ -6952,7 +6953,7 @@ function renderAddPublicDataModal(defaultYear, availableYears, onAddCallback) {
             <div class="space-y-3.5 text-xs">
                 <!-- 1. 입학년도 (직전 5개년 자동 연동) -->
                 <div>
-                    <label class="block text-slate-300 font-bold mb-1 flex items-center justify-between">
+                    <label class="text-slate-300 font-bold mb-1 flex items-center justify-between">
                         <span>📅 입학년도</span>
                         <span class="text-[11px] text-slate-400 font-normal">결과 발표된 최근 5개년 기준</span>
                     </label>
@@ -6990,7 +6991,7 @@ function renderAddPublicDataModal(defaultYear, availableYears, onAddCallback) {
 
                 <!-- 4. 점수 입력 (최고점, 평균점, 최저점) -->
                 <div>
-                    <label class="block text-slate-300 font-bold mb-1.5 flex items-center justify-between">
+                    <label class="text-slate-300 font-bold mb-1.5 flex items-center justify-between">
                         <span>🎯 입결 점수 입력</span>
                         <span class="text-[11px] font-normal text-slate-400">실제 합격선 3대 기준 점수</span>
                     </label>
