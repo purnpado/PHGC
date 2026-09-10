@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,12 +88,98 @@ func (sm *SyncManager) saveToFile(filename string, data []byte) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
-// CheckVersion 로컬 버전 확인
+// CheckVersion 원격 릴리즈(GitHub -> Gitea)에서 최신 버전 확인 (오프라인 시 안전하게 로컬 반환)
 func (sm *SyncManager) CheckVersion() (*VersionInfo, error) {
+	client := &http.Client{Timeout: 3 * time.Second}
+
+	// 1차 시도: GitHub 공식 Releases API
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/purnpado/PHGC/releases/latest", nil)
+	if err == nil {
+		req.Header.Set("User-Agent", "PHGC-Offline-Updater")
+		req.Header.Set("Accept", "application/vnd.github+json")
+
+		resp, err := client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			defer resp.Body.Close()
+			var ghRelease struct {
+				TagName string `json:"tag_name"`
+				Name    string `json:"name"`
+				Body    string `json:"body"`
+				Assets  []struct {
+					Name               string `json:"name"`
+					BrowserDownloadURL string `json:"browser_download_url"`
+				} `json:"assets"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&ghRelease); err == nil && ghRelease.TagName != "" {
+				latestVer := strings.TrimPrefix(strings.TrimSpace(ghRelease.TagName), "v")
+				downloadURL := ""
+				// 1순위: 버전 명시 파일 (예: PHGC_v1.2.2.exe)
+				for _, a := range ghRelease.Assets {
+					if strings.Contains(strings.ToLower(a.Name), "v") && strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+						downloadURL = a.BrowserDownloadURL
+						break
+					}
+				}
+				// 2순위: 기본 PHGC.exe
+				if downloadURL == "" {
+					for _, a := range ghRelease.Assets {
+						if strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+							downloadURL = a.BrowserDownloadURL
+							break
+						}
+					}
+				}
+				return &VersionInfo{
+					LatestVersion: latestVer,
+					MinVersion:    "1.0.0",
+					ReleaseNotes:  ghRelease.Body,
+					DownloadURL:   downloadURL,
+				}, nil
+			}
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+	}
+
+	// 2차 시도: Gitea Releases API
+	giteaResp, err := client.Get("https://gitea.gguk.link/api/v1/repos/purnpadosori/PHGC-OFFLINE/releases/latest")
+	if err == nil && giteaResp.StatusCode == http.StatusOK {
+		defer giteaResp.Body.Close()
+		var gitRelease struct {
+			TagName string `json:"tag_name"`
+			Body    string `json:"body"`
+			Assets  []struct {
+				Name               string `json:"name"`
+				BrowserDownloadURL string `json:"browser_download_url"`
+			} `json:"assets"`
+		}
+		if err := json.NewDecoder(giteaResp.Body).Decode(&gitRelease); err == nil && gitRelease.TagName != "" {
+			latestVer := strings.TrimPrefix(strings.TrimSpace(gitRelease.TagName), "v")
+			downloadURL := ""
+			for _, a := range gitRelease.Assets {
+				if strings.HasSuffix(strings.ToLower(a.Name), ".exe") {
+					downloadURL = a.BrowserDownloadURL
+					break
+				}
+			}
+			return &VersionInfo{
+				LatestVersion: latestVer,
+				MinVersion:    "1.0.0",
+				ReleaseNotes:  gitRelease.Body,
+				DownloadURL:   downloadURL,
+			}, nil
+		}
+	}
+	if giteaResp != nil {
+		giteaResp.Body.Close()
+	}
+
+	// 3차: 오프라인 상태 (외부 통신 불가 시 현재 버전 안전하게 반환)
 	return &VersionInfo{
 		LatestVersion: AppVersion,
 		MinVersion:    "1.0.0",
-		ReleaseNotes:  "100% 오프라인 전용 버전 (정보보안 지침 완벽 준수, 외부 통신 원천 차단)",
+		ReleaseNotes:  "오프라인 환경으로 안전하게 작동 중입니다.",
 		DownloadURL:   "",
 	}, nil
 }
@@ -102,19 +189,33 @@ func (sm *SyncManager) SyncHighSchools() (*HighSchoolData, error) {
 	return sm.GetHighSchools()
 }
 
-// FullSync 전체 동기화 실행 (100% 로컬 데이터 로드)
+// FullSync 전체 동기화 및 업데이트 확인 실행
 func (sm *SyncManager) FullSync() *SyncResult {
 	result := &SyncResult{
 		CurrentVersion: AppVersion,
 		LatestVersion:  AppVersion,
 		HasUpdate:      false,
 		Success:        true,
-		Message:        "100% 안전한 오프라인 모드로 실행 중입니다 (외부 통신 원천 차단)",
+		Message:        "최신 버전을 사용하고 있습니다.",
 	}
 
+	// 고교 기본 데이터 로드
 	schoolData, err := sm.GetHighSchools()
 	if err == nil && schoolData != nil {
 		result.SchoolCount = len(schoolData.Schools)
+	}
+
+	// 버전 확인
+	vInfo, err := sm.CheckVersion()
+	if err == nil && vInfo != nil {
+		result.LatestVersion = vInfo.LatestVersion
+		result.ReleaseNotes = vInfo.ReleaseNotes
+		result.DownloadURL = vInfo.DownloadURL
+
+		if isNewerVersion(vInfo.LatestVersion, AppVersion) {
+			result.HasUpdate = true
+			result.Message = fmt.Sprintf("새 버전 v%s 사용 가능!", vInfo.LatestVersion)
+		}
 	}
 
 	return result
