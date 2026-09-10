@@ -5125,7 +5125,9 @@ async function renderCutoffScreen(schoolName) {
                 { dept: "정밀기계과", track: "일반" },
                 { dept: "정밀기계과", track: "특별" },
                 { dept: "산업설비과", track: "일반" },
-                { dept: "산업설비과", track: "특별" }
+                { dept: "산업설비과", track: "특별" },
+                { dept: "전기시스템제어과", track: "일반" },
+                { dept: "전기시스템제어과", track: "특별" }
             ]
         },
         {
@@ -5137,8 +5139,8 @@ async function renderCutoffScreen(schoolName) {
             unit: "점",
             placeholder: "예: 185.0",
             items: [
-                { dept: "전력제어과", track: "일반" },
-                { dept: "전력제어과", track: "특별" },
+                { dept: "전기에너지과", track: "일반" },
+                { dept: "전기에너지과", track: "특별" },
                 { dept: "신재생에너지과", track: "일반" },
                 { dept: "신재생에너지과", track: "특별" }
             ]
@@ -5160,72 +5162,38 @@ async function renderCutoffScreen(schoolName) {
                 { dept: "전기제어과", track: "특별" }
             ]
         },
-        // 2. 특성화고
-        {
-            name: "울산상업고",
-            category: "special",
-            categoryLabel: "특성화고",
-            totalMax: "100점 만점",
-            scoreType: "total_score",
-            unit: "점",
-            placeholder: "예: 75.0",
-            items: [
-                { dept: "물류경영과", track: "일반" },
-                { dept: "물류경영과", track: "취업희망자" },
-                { dept: "공공사무행정과", track: "일반" },
-                { dept: "공공사무행정과", track: "취업희망자" },
-                { dept: "군사행정과", track: "일반" }
-            ]
-        },
-        {
-            name: "울산여자상업고",
-            category: "special",
-            categoryLabel: "특성화고",
-            totalMax: "100점 만점",
-            scoreType: "total_score",
-            unit: "점",
-            placeholder: "예: 70.0",
-            items: [
-                { dept: "금융사무과", track: "일반" },
-                { dept: "금융사무과", track: "취업희망자" },
-                { dept: "글로벌비즈니스과", track: "일반" },
-                { dept: "글로벌비즈니스과", track: "취업희망자" },
-                { dept: "관광레저과", track: "일반" },
-                { dept: "관광레저과", track: "취업희망자" }
-            ]
-        },
-        {
-            name: "울산생활과학고",
-            category: "special",
-            categoryLabel: "특성화고",
-            totalMax: "100점 만점",
-            scoreType: "total_score",
-            unit: "점",
-            placeholder: "예: 68.0",
-            items: [
-                { dept: "조리과", track: "일반" },
-                { dept: "조리과", track: "취업희망자" },
-                { dept: "제과제빵과", track: "일반" },
-                { dept: "제과제빵과", track: "취업희망자" },
-                { dept: "뷰티예술과", track: "일반" },
-                { dept: "뷰티예술과", track: "취업희망자" }
-            ]
-        },
+        // 2. 특성화고 (2026 최신 공식 개편 학과)
         {
             name: "울산공업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
-            items: ["건축과", "기계과", "전기과", "전자통신과", "토목과", "화공과"].map(dept => ({ dept, track: "일반" }))
-        },
-        {
-            name: "울산산업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
-            items: ["농식품가공과", "보건간호과", "원예디자인과", "금융경영과"].map(dept => ({ dept, track: "일반" }))
+            items: ["스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
         },
         {
             name: "울산기술공업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
-            items: ["기계과", "전기과"].map(dept => ({ dept, track: "일반" }))
+            items: ["산업설비기계과", "드론공간정보과", "융합디자인과", "전기과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
         },
         {
             name: "울산미용예술고", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
             items: [{ dept: "미용예술과", track: "일반" }, { dept: "미용예술과", track: "취업희망자" }]
+        },
+        {
+            name: "울산산업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+            items: ["그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
+        },
+        {
+            name: "울산생활과학고", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 68.0",
+            items: ["보건간호과", "사무행정과", "조리과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
+        },
+        {
+            name: "울산여자상업고", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+            items: ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
+        },
+        {
+            name: "울산상업고", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 75.0",
+            items: ["군사경영과", "물류경영과", "IT콘텐츠과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
+        },
+        {
+            name: "청량고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 65.0",
+            items: ["K-Food조리과", "콘텐츠디자인과", "보건간호과"].flatMap(dept => [{ dept, track: "일반" }, { dept, track: "취업희망자" }])
         },
         // 3. 후기 일반고
         {
@@ -5956,7 +5924,7 @@ async function renderCutoffScreen(schoolName) {
 
             // 공식 공개자료 추가 버튼 (울산 관내 11개 고교 선택 등록 팝업 모달)
             document.getElementById('addPublicDataBtn')?.addEventListener('click', () => {
-                renderAddPublicDataModal(currentAdmissionYear, (newEntry) => {
+                renderAddPublicDataModal(currentAdmissionYear, admissionYears, (newEntry) => {
                     publicOfficialData.unshift(newEntry);
                     localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
                     renderMainScreen();
@@ -6115,8 +6083,8 @@ async function renderCutoffScreen(schoolName) {
     renderMainScreen();
 }
 
-// 울산 관내 고교 공식 공개자료 신규 추가 모달 (학교별 학과·전형 자동 연동 & 최고/평균/최저점)
-function renderAddPublicDataModal(defaultYear, onAddCallback) {
+// 울산 관내 고교 공식 공개자료 신규 추가 모달 (학교별 2026 최신 공식 학과·전형 자동 연동 & 최고/평균/최저점)
+function renderAddPublicDataModal(defaultYear, availableYears, onAddCallback) {
     document.getElementById('addPublicDataModal')?.remove();
 
     const ulsanSchools = [
@@ -6134,66 +6102,75 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
         { name: "울산 후기 일반계고", category: "후기 일반고", unit: "%", maxHint: "석차 백분율 (%)" }
     ];
 
+    // 울산 관내 직업계고 2026년 최신 공식 개편 학과 목록 (구 학과 완전 정리)
     const schoolDeptMap = {
-        "울산마이스터고": ["정밀기계과", "산업설비과", "전기시스템제어과", "자동화시스템과"],
+        "울산마이스터고": ["정밀기계과", "산업설비과", "전기시스템제어과"],
         "울산에너지고": ["전기에너지과", "신재생에너지과"],
         "현대공업고": ["정밀기계과", "산업설비과", "전기제어과"],
-        "울산공업고": ["스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과", "건축과", "기계과", "전기과", "전자통신과", "토목과", "화공과"],
-        "울산기술공업고": ["산업설비기계과", "드론공간정보과", "융합디자인과", "전기과", "기계과"],
+        "울산공업고": ["스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과"],
+        "울산기술공업고": ["산업설비기계과", "드론공간정보과", "융합디자인과", "전기과"],
         "울산미용예술고": ["미용예술과"],
-        "울산산업고": ["그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과", "금융경영과"],
-        "울산생활과학고": ["보건간호과", "사무행정과", "조리과", "제과제빵과", "뷰티예술과"],
-        "울산여자상업고": ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과", "금융사무과", "글로벌비즈니스과", "관광레저과"],
-        "울산상업고": ["군사경영과", "물류경영과", "IT콘텐츠과", "공공사무행정과", "군사행정과"],
+        "울산산업고": ["그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과"],
+        "울산생활과학고": ["보건간호과", "사무행정과", "조리과"],
+        "울산여자상업고": ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"],
+        "울산상업고": ["군사경영과", "물류경영과", "IT콘텐츠과"],
         "청량고": ["K-Food조리과", "콘텐츠디자인과", "보건간호과"],
         "울산 후기 일반계고": []
     };
 
-    const currentYear = new Date().getFullYear() + 1;
-    const yearOptions = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
+    // 입학년도 기준: 초기설정의 직전 5개년(예: 2026, 2025, 2024, 2023, 2022) 연동
+    const fallbackYear = new Date().getFullYear();
+    const yearOptions = (availableYears && availableYears.length > 0)
+        ? availableYears
+        : Array.from({ length: 5 }, (_, idx) => fallbackYear - idx);
+
+    const selectedYear = (yearOptions.includes(defaultYear)) ? defaultYear : yearOptions[0];
 
     const modal = document.createElement('div');
     modal.id = 'addPublicDataModal';
     modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
     modal.innerHTML = `
-        <div class="glass-card max-w-md w-full p-6 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200 break-keep-all select-none">
+        <div class="glass-card max-w-lg w-full p-6 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200 break-keep-all select-none">
             <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">📊</span>
                     <h3 class="font-bold text-white text-base">공식 공개 입결자료 추가</h3>
                 </div>
-                <button id="closeAddPublicModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg text-sm cursor-pointer">✕</button>
+                <button id="closeAddPublicModalBtn" class="text-slate-400 hover:text-white p-1.5 rounded-lg text-base cursor-pointer transition-colors">✕</button>
             </div>
 
             <div class="space-y-3.5 text-xs">
-                <!-- 1. 입학년도 -->
+                <!-- 1. 입학년도 (직전 5개년 자동 연동) -->
                 <div>
-                    <label class="block text-slate-300 font-bold mb-1">📅 입학년도</label>
-                    <select id="modalPublicYear" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer">
-                        ${yearOptions.map(y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}학년도 입학 기준</option>`).join('')}
+                    <label class="block text-slate-300 font-bold mb-1 flex items-center justify-between">
+                        <span>📅 입학년도</span>
+                        <span class="text-[11px] text-slate-400 font-normal">결과 발표된 최근 5개년 기준</span>
+                    </label>
+                    <select id="modalPublicYear" class="input-field w-full py-2.5 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer text-xs">
+                        ${yearOptions.map(y => `<option value="${y}" ${y === selectedYear ? 'selected' : ''}>${y}학년도 입학 기준</option>`).join('')}
                     </select>
                 </div>
 
                 <!-- 2. 대상 고등학교 -->
                 <div>
                     <label class="block text-slate-300 font-bold mb-1">🏫 울산 관내 대상 고등학교</label>
-                    <select id="modalPublicSchool" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer">
+                    <select id="modalPublicSchool" class="input-field w-full py-2.5 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold cursor-pointer text-xs">
                         ${ulsanSchools.map(s => `<option value="${s.name}" data-category="${s.category}" data-unit="${s.unit}" data-hint="${s.maxHint}">[${s.category}] ${s.name} (${s.maxHint})</option>`).join('')}
                     </select>
                 </div>
 
-                <!-- 3. 학과명 (학교 연동 드롭다운) & 전형 (전체 지원 드롭다운) -->
-                <div class="grid grid-cols-2 gap-2.5">
+                <!-- 3. 학과명 (최신 공식 학과 자동 연동) & 전형 (비우면 전체) -->
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-slate-300 font-bold mb-1">학과명 <span class="text-slate-400 font-normal">(자동 목록)</span></label>
-                        <select id="modalPublicDeptSelect" class="input-field w-full py-2 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-white font-semibold cursor-pointer">
+                        <label class="block text-slate-300 font-bold mb-1">학과명 <span class="text-indigo-400 font-normal">(최신 개편 학과)</span></label>
+                        <select id="modalPublicDeptSelect" class="input-field w-full py-2.5 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-white font-semibold cursor-pointer text-xs">
                             <option value="">학교 전체 (공통)</option>
                         </select>
-                        <input id="modalPublicDeptCustom" type="text" placeholder="학과 직접 입력" class="input-field w-full py-1.5 px-2.5 mt-1.5 bg-slate-900 border-indigo-500/50 rounded-lg text-white hidden" />
+                        <input id="modalPublicDeptCustom" type="text" placeholder="학과 직접 입력" class="input-field w-full py-2 px-2.5 mt-1.5 bg-slate-900 border-indigo-500/50 rounded-lg text-white hidden text-xs" />
                     </div>
                     <div>
-                        <label class="block text-slate-300 font-bold mb-1">전형 <span class="text-slate-400 font-normal">(비우면 전체)</span></label>
-                        <select id="modalPublicTrackSelect" class="input-field w-full py-2 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-indigo-300 font-bold cursor-pointer">
+                        <label class="block text-slate-300 font-bold mb-1">전형 <span class="text-indigo-400 font-normal">(비우면 전체)</span></label>
+                        <select id="modalPublicTrackSelect" class="input-field w-full py-2.5 px-2.5 bg-slate-900 border-slate-700 rounded-xl text-indigo-300 font-bold cursor-pointer text-xs">
                             <option value="">전체 (비움)</option>
                             <option value="일반" selected>일반</option>
                             <option value="특별">특별</option>
@@ -6205,33 +6182,33 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
                 <div>
                     <label class="block text-slate-300 font-bold mb-1.5 flex items-center justify-between">
                         <span>🎯 입결 점수 입력</span>
-                        <span class="text-[11px] font-normal text-slate-400">불합격자 점수 제외, 실제 합격선 기준</span>
+                        <span class="text-[11px] font-normal text-slate-400">실제 합격선 3대 기준 점수</span>
                     </label>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-3 gap-2.5">
                         <!-- 최고점 -->
-                        <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
                             <label class="block text-sky-300 font-bold mb-1 text-[11px] text-center">최고점 (선택)</label>
                             <div class="flex items-center justify-center gap-1">
-                                <input id="modalPublicMax" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1.5 text-right font-bold text-sky-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
-                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                                <input id="modalPublicMax" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1 text-right font-bold text-sky-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px] shrink-0">점</span>
                             </div>
                         </div>
 
                         <!-- 평균점 -->
-                        <div class="bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                        <div class="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
                             <label class="block text-amber-300 font-bold mb-1 text-[11px] text-center">평균점 (선택)</label>
                             <div class="flex items-center justify-center gap-1">
-                                <input id="modalPublicAvg" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1.5 text-right font-bold text-amber-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
-                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                                <input id="modalPublicAvg" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-1.5 px-1 text-right font-bold text-amber-300 bg-slate-900 border-slate-700 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px] shrink-0">점</span>
                             </div>
                         </div>
 
                         <!-- 최저점 (합격선/필수) -->
-                        <div class="bg-slate-900/60 p-2 rounded-xl border border-emerald-500/30">
+                        <div class="bg-slate-900/60 p-2.5 rounded-xl border border-emerald-500/40">
                             <label class="block text-emerald-400 font-black mb-1 text-[11px] text-center">최저점 (합격선) *</label>
                             <div class="flex items-center justify-center gap-1">
-                                <input id="modalPublicMin" type="text" inputmode="decimal" placeholder="필수" class="input-field w-full py-1.5 px-1.5 text-right font-black text-emerald-400 bg-slate-900 border-emerald-500/50 rounded-lg text-xs" />
-                                <span class="modal-unit text-slate-400 text-[11px]">점</span>
+                                <input id="modalPublicMin" type="text" inputmode="decimal" placeholder="필수" class="input-field w-full py-1.5 px-1 text-right font-black text-emerald-400 bg-slate-900 border-emerald-500/50 rounded-lg text-xs" />
+                                <span class="modal-unit text-slate-400 text-[11px] shrink-0">점</span>
                             </div>
                         </div>
                     </div>
@@ -6240,13 +6217,18 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
                 <!-- 5. 출처 / 비고 -->
                 <div>
                     <label class="block text-slate-300 font-semibold mb-1">출처 / 비고</label>
-                    <input id="modalPublicNote" type="text" value="공식 합격선" placeholder="예: 학교 홈페이지 공지 등" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-slate-300" />
+                    <input id="modalPublicNote" type="text" value="공식 합격선" placeholder="예: 고교 입시설명회 발표 자료" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-slate-300 text-xs" />
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-700/60 mt-1">
-                <button id="cancelAddPublicModalBtn" class="btn-secondary py-2 px-4 text-xs font-bold rounded-xl cursor-pointer">취소</button>
-                <button id="submitAddPublicModalBtn" class="btn-primary py-2 px-5 text-xs font-bold rounded-xl shadow-md cursor-pointer">➕ 추가하기</button>
+            <!-- 하단 취소 및 추가하기 버튼 (시원한 5:5 그리드) -->
+            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-700/60 mt-2">
+                <button id="cancelAddPublicModalBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs transition-colors cursor-pointer text-center">
+                    취소
+                </button>
+                <button id="submitAddPublicModalBtn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-lg shadow-indigo-950/50 hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 text-center">
+                    <span>➕</span> 추가하기
+                </button>
             </div>
         </div>
     `;
@@ -6257,7 +6239,7 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
     const deptCustom = document.getElementById('modalPublicDeptCustom');
     const trackSel = document.getElementById('modalPublicTrackSelect');
 
-    // 학교 변경 시 학과 목록 및 전형 목록, 단위 자동 연동
+    // 학교 변경 시 최신 학과 목록 및 전형 목록, 단위 자동 연동
     const syncSchoolFields = () => {
         const selectedOpt = schoolSel.options[schoolSel.selectedIndex];
         const schoolName = selectedOpt.value;
@@ -6267,7 +6249,7 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
         // 1. 점수 단위 업데이트
         modal.querySelectorAll('.modal-unit').forEach(el => el.textContent = unit);
 
-        // 2. 학과 드롭다운 자동 갱신
+        // 2. 최신 학과 드롭다운 자동 갱신
         const depts = schoolDeptMap[schoolName] || [];
         let deptHTML = `<option value="">학교 전체 (공통)</option>`;
         depts.forEach(d => {
@@ -6285,7 +6267,7 @@ function renderAddPublicDataModal(defaultYear, onAddCallback) {
             trackHTML += `<option value="특별">특별</option>`;
         } else if (category === '특성화고') {
             trackHTML += `<option value="일반" selected>일반</option>`;
-            trackHTML += `<option value="취업희망자">취업희망자 (취업자)</option>`;
+            trackHTML += `<option value="취업희망자">취업희망자</option>`;
         } else {
             // 후기 일반고
             trackHTML += `<option value="일반" selected>일반</option>`;
