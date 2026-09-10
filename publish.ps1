@@ -2,8 +2,8 @@
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
-    [string]$Notes = "신호등 종합 매트릭스 6개 탭(직전1년/최근3년/최근5년 × 일반/특별) 세분화 및 마이스터고 3개년 평균 기준선 연동",
-    [string]$Version = "1.2.1",
+    [string]$Notes = "Bug fixes and UI cleanup",
+    [string]$Version = "1.2.5",
     [switch]$SkipBindings,
     [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
     [switch]$UploadGiteaRelease  # Gitea에도 바이너리 릴리즈 업로드할 때 사용

@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf16"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/bcrypt"
@@ -2053,11 +2055,6 @@ func (a *App) GetSchoolRuleList() []map[string]string {
 	return GetAllSchoolRuleNames()
 }
 
-// PerformAutoUpdate 원클릭 자동 업데이트 실행
-func (a *App) PerformAutoUpdate(downloadURL string) error {
-	return DownloadAndApplyUpdate(downloadURL)
-}
-
 // GetHighSchoolsData 고교 목록 데이터 반환 (후기 일반고 포함)
 func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 	data, err := a.sync.GetHighSchools()
@@ -2245,6 +2242,18 @@ for ($i = 0; $i -lt 15; $i++) {
 	}()
 
 	return nil
+}
+
+// encodePowerShell PowerShell -EncodedCommand용 UTF-16LE Base64 인코딩
+func encodePowerShell(script string) string {
+	runes := []rune(script)
+	u16s := utf16.Encode(runes)
+	bytes := make([]byte, len(u16s)*2)
+	for i, u := range u16s {
+		bytes[i*2] = byte(u)
+		bytes[i*2+1] = byte(u >> 8)
+	}
+	return base64.StdEncoding.EncodeToString(bytes)
 }
 
 // --- 학생 1:1 진학 상담 일지 API (작성자 본인 격리 및 보안 보장) ---

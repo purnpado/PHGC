@@ -243,7 +243,7 @@ input[type="number"]::-webkit-inner-spin-button {
     font-size: 0.75rem;
     color: rgba(148, 163, 184, 0.4); /* text-text-muted with opacity */
     pointer-events: none;
-    z-index: 9999;
+    z-index: 40;
     user-select: none;
     letter-spacing: 0.05em;
     font-weight: 500;
@@ -297,7 +297,8 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing #app,
     body.printing .bg-glow,
     body.printing .watermark,
-    body.printing #globalFeedbackBtn,
+    body.printing #globalFeedbackContainer,
+    body.printing #globalFeedbackFloatingBtn,
     body.printing #studentDetailModal,
     body.printing #studentTranscriptModal,
     body.printing #matrixModal,

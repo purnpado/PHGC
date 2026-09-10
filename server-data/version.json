@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.4",
+  "latestVersion": "1.2.5",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.4 - 업데이트 알림 팝업 UI/UX 전면 리뉴얼 및 템플릿 변수 정상 표기 교정",
+  "releaseNotes": "v1.2.5 - 동기화 화면 알림 버그 수정, 헤더 중복 피드백 버튼 정리, 워터마크 표시 개선 및 레거시 업데이트 코드 정리",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

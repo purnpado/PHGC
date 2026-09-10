@@ -114,8 +114,6 @@ export function OpenTeacherPatch(arg1:string):Promise<number>;
 
 export function OpenTeacherPatchPreview(arg1:string):Promise<main.PatchPreview>;
 
-export function PerformAutoUpdate(arg1:string):Promise<void>;
-
 export function ProcessAttendanceExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ProcessExcel(arg1:string):Promise<Record<number, number>>;

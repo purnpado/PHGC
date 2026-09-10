@@ -226,10 +226,6 @@ export function OpenTeacherPatchPreview(arg1) {
   return window['go']['main']['App']['OpenTeacherPatchPreview'](arg1);
 }
 
-export function PerformAutoUpdate(arg1) {
-  return window['go']['main']['App']['PerformAutoUpdate'](arg1);
-}
-
 export function ProcessAttendanceExcel(arg1) {
   return window['go']['main']['App']['ProcessAttendanceExcel'](arg1);
 }

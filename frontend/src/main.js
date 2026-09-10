@@ -573,7 +573,7 @@ function showSyncComplete(container, schoolName, result) {
 
     container.innerHTML = `
         <div class="fade-in">
-            \${updateNotice}
+            ${updateNotice}
             <button id="continueBtn" class="btn-primary">
                 시작하기 →
             </button>
@@ -841,9 +841,6 @@ async function renderAdminScreen(schoolName) {
                     <button id="openAdminGuideBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl" style="width: auto;" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
-                    <button id="openAdminFeedbackBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl text-emerald-300 hover:text-emerald-200 border-emerald-500/40 hover:bg-emerald-950/40 shadow-sm" style="width: auto;" title="선생님 의견 및 질문/피드백 게시판 (그래서? 넌 어디 갈래? · 꾹링크)">
-                        <span>💬</span> 의견·피드백
-                    </button>
                     <button id="backBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 rounded-xl text-slate-300 hover:text-white" style="width: auto;">
                         <span>🚪</span> 로그아웃
                     </button>
@@ -998,10 +995,6 @@ async function renderAdminScreen(schoolName) {
 
     document.getElementById('openAdminGuideBtn')?.addEventListener('click', () => {
         renderGuideModal('master');
-    });
-
-    document.getElementById('openAdminFeedbackBtn')?.addEventListener('click', () => {
-        openExternalUrlSafe(FEEDBACK_BOARD_URL);
     });
 
     document.getElementById('goToTeacherBtn')?.addEventListener('click', () => {
@@ -1463,9 +1456,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="openTeacherGuideBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="프로그램 사용 설명서 열기">
                         <span>📖</span> 사용 설명서
                     </button>
-                    <button id="openTeacherFeedbackBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5 text-emerald-300 hover:text-emerald-200 border-emerald-500/40 hover:bg-emerald-950/40 shadow-sm" title="선생님 의견 및 질문/피드백 게시판 (그래서? 넌 어디 갈래? · 꾹링크)">
-                        <span>💬</span> 의견·피드백
-                    </button>
                     <button id="backBtn" class="btn-secondary whitespace-nowrap text-xs px-4 py-2.5">
                         ${window.currentUser && window.currentUser.Role === 'homeroom' ? '← 로그아웃' : '← 돌아가기'}
                     </button>
@@ -1567,10 +1557,6 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     document.getElementById('openTeacherGuideBtn')?.addEventListener('click', () => {
         renderGuideModal(window.currentUser?.Role || 'homeroom');
-    });
-
-    document.getElementById('openTeacherFeedbackBtn')?.addEventListener('click', () => {
-        openExternalUrlSafe(FEEDBACK_BOARD_URL);
     });
 
     document.getElementById('backBtn').addEventListener('click', async () => {
