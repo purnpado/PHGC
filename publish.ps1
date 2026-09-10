@@ -1,9 +1,9 @@
-﻿# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
+# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
-    [string]$Notes = "원서대장 한 페이지 자동 맞춤(Auto-Fit) 및 입력 보안 강화, 사용설명서 현행화",
-    [string]$Version = "1.3.0",
+    [string]$Notes = "신호등 매트릭스 반응형 최적화 및 인쇄 라이트 테마 적용, 지원현황 안전성 강화",
+    [string]$Version = "1.4.0",
     [switch]$SkipBindings,
     [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
     [switch]$UploadGiteaRelease  # Gitea에도 바이너리 릴리즈 업로드할 때 사용
