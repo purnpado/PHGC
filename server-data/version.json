@@ -1,6 +1,6 @@
 {
-  "latestVersion": "1.2.1",
+  "latestVersion": "1.2.2",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.1 - 신호등 종합 매트릭스 6개 탭(직전1년/최근3년/최근5년 × 일반/특별) 세분화 및 마이스터고 3개년 평균 기준선 연동",
+  "releaseNotes": "v1.2.2 - 스마트 1:1 진학 상담 일지(상담 날짜·목표고교·스마트태그) 및 교원별 비밀보장/자료취합 보안 격리 체계 탑재",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

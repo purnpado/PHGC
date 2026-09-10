@@ -77,9 +77,16 @@ if (-not (Test-Path $exePath)) {
 }
 Write-Host ">>> 빌드 성공: $exePath" -ForegroundColor Green
 
-# server-data/PHGC.exe 로도 복사
+# 버전 명시 바이너리 파일명 생성 (예: PHGC_v1.2.2.exe)
+$versionedExeName = "PHGC_v$newVer.exe"
+$versionedExePath = "build\bin\$versionedExeName"
+Copy-Item $exePath $versionedExePath -Force
+Write-Host ">>> 버전 명시 파일 생성: $versionedExePath" -ForegroundColor Green
+
+# server-data 폴더에도 복사
 Copy-Item $exePath "server-data\PHGC.exe" -Force
-Write-Host ">>> server-data\PHGC.exe 복사 완료" -ForegroundColor Green
+Copy-Item $versionedExePath "server-data\$versionedExeName" -Force
+Write-Host ">>> server-data 폴더 복사 완료 (PHGC.exe & $versionedExeName)" -ForegroundColor Green
 
 # ===== 4. Git 커밋 & 태그 & 푸시 =====
 Write-Host ">>> Git 커밋 및 GitHub/Gitea 양방향 푸시 중..." -ForegroundColor Cyan
@@ -165,7 +172,7 @@ if (-not $SkipGitHubRelease) {
 $Notes
 
 ### 다운로드 안내
-- **실행 파일**: 아래 Assets 항목의 `PHGC.exe`를 다운로드하여 실행하시면 됩니다.
+- **공식 실행 파일**: 아래 Assets 항목의 **`$versionedExeName`** (또는 `PHGC.exe`)를 다운로드하여 실행하시면 됩니다.
 - 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
 "@
 
@@ -181,16 +188,26 @@ $Notes
             $newRel = Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases" -Headers $headers -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) -ContentType "application/json; charset=utf-8"
             $relId = $newRel.id
 
+            # 1. 버전 명시 파일 업로드 (예: PHGC_v1.2.2.exe)
+            $uploadUrlVersioned = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=$versionedExeName"
+            $absVersionedExe = (Resolve-Path $versionedExePath).Path
+            & curl.exe -s -S -X POST "$uploadUrlVersioned" `
+                -H "Authorization: Bearer $ghToken" `
+                -H "Accept: application/vnd.github+json" `
+                -H "Content-Type: application/octet-stream" `
+                --data-binary "@$absVersionedExe" > $null
+            Write-Host ">>> GitHub Releases ($versionedExeName) 업로드 완료!" -ForegroundColor Green
+
+            # 2. 표준 PHGC.exe 파일 업로드 (자동 업데이트 호환)
             $uploadUrl = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=PHGC.exe"
             $absExe = (Resolve-Path $exePath).Path
-
             & curl.exe -s -S -X POST "$uploadUrl" `
                 -H "Authorization: Bearer $ghToken" `
                 -H "Accept: application/vnd.github+json" `
                 -H "Content-Type: application/octet-stream" `
                 --data-binary "@$absExe" > $null
+            Write-Host ">>> GitHub Releases (PHGC.exe) 업로드 완료!" -ForegroundColor Green
 
-            Write-Host ">>> GitHub Releases (v$newVer) 바이너리 업로드 완료!" -ForegroundColor Green
             Write-Host ">>> GitHub 릴리즈 링크: https://github.com/$ghOwner/$ghRepo/releases/tag/v$newVer" -ForegroundColor Green
         } else {
             Write-Host ">>> [안내] GitHub 자격 증명을 찾을 수 없어 릴리즈 바이너리 업로드는 건너뛰었습니다." -ForegroundColor Yellow
