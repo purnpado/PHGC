@@ -2092,10 +2092,25 @@ async function openApplicationRegisterModal() {
     records.forEach(r => { if (r.classNum) classSet.add(r.classNum); });
     const classList = Array.from(classSet).sort((a, b) => a - b);
 
-    // 모달 DOM 생성
+    // 고교별 전형별 공식 만점 산출 헬퍼 함수
+    const getSchoolTotalMaxString = (schName, cat) => {
+        if (!schName) return '';
+        const name = schName.trim();
+        if (name.includes('마이스터') || name.includes('울산마이스터')) return '300';
+        if (name.includes('에너지') || name.includes('울산에너지')) return '230';
+        if (name.includes('현대공업') || name.includes('현대공고')) return '200';
+        if (name.includes('일반고') || cat === 'general') return '%';
+        if (cat === 'special' || name.includes('공업고') || name.includes('미용예술') || name.includes('생활과학') || name.includes('산업고') || name.includes('상업고') || name.includes('청량고')) {
+            return '100';
+        }
+        return '';
+    };
+
+    // 모달 DOM 생성 및 즉시 body에 추가 (첫 진입 시 이벤트 바인딩 100% 보장)
     const modal = document.createElement('div');
     modal.id = 'applicationRegisterModal';
     modal.className = 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col p-2 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200';
+    document.body.appendChild(modal);
 
     const renderModalContent = () => {
         // 결재란 헤더 HTML
@@ -2166,8 +2181,19 @@ async function openApplicationRegisterModal() {
                     passDisplay = '<span class="text-xs text-slate-500 font-normal">진행</span>';
                 }
 
-                // 내신총점 (소수점 2자리)
-                const scoreDisplay = (r.score && r.score > 0) ? r.score.toFixed(2) : '-';
+                // 내신총점 (취득점/만점 형태 표기: 예: 219.12/300, 36.09/100, 15.05%)
+                let scoreDisplay = '-';
+                if (r.score && r.score > 0) {
+                    const formattedScore = r.score.toFixed(2);
+                    const maxVal = getSchoolTotalMaxString(r.schoolName, r.category);
+                    if (maxVal === '%') {
+                        scoreDisplay = `${formattedScore}%`;
+                    } else if (maxVal) {
+                        scoreDisplay = `${formattedScore}/${maxVal}`;
+                    } else {
+                        scoreDisplay = formattedScore;
+                    }
+                }
 
                 // 비고: 전형명 및 특성화고 '추가모집' 자동 감지 표기
                 let noteParts = [];
@@ -2191,7 +2217,7 @@ async function openApplicationRegisterModal() {
                         <td class="border border-black p-2 font-mono">${idx + 1}</td>
                         <td class="border border-black p-2 font-mono font-medium">${studentId}</td>
                         <td class="border border-black p-2 font-bold text-sm whitespace-nowrap">${r.studentName}</td>
-                        <td class="border border-black p-2 font-mono font-medium">${scoreDisplay}</td>
+                        <td class="border border-black p-2 font-mono font-medium whitespace-nowrap">${scoreDisplay}</td>
                         <td class="border border-black p-2 font-semibold text-left pl-3">${schoolDisplay}</td>
                         <td class="border border-black p-2 text-left pl-3" style="min-width: 200px;">${deptDisplayHTML}</td>
                         <td class="border border-black p-2">${passDisplay}</td>
@@ -2242,7 +2268,7 @@ async function openApplicationRegisterModal() {
                                         <th rowspan="2" class="border border-black p-2 w-10">연번</th>
                                         <th rowspan="2" class="border border-black p-2 w-16">학번</th>
                                         <th rowspan="2" class="border border-black p-2 w-20">이름</th>
-                                        <th rowspan="2" class="border border-black p-2 w-20">내신총점</th>
+                                        <th rowspan="2" class="border border-black p-2 w-28">내신총점<br><span class="text-[10px] font-normal">(취득점/만점)</span></th>
                                         <th rowspan="2" class="border border-black p-2 w-48">지원고등학교</th>
                                         <th rowspan="2" class="border border-black p-2 text-center" style="min-width: 210px;">
                                             지원학과(전기, 1지망)<br>
@@ -2289,7 +2315,7 @@ async function openApplicationRegisterModal() {
                                 고입원서대장
                                 <span class="text-xs font-normal text-indigo-300 bg-indigo-950/80 px-2 py-0.5 rounded-md border border-indigo-500/40">학교 공식 표준 서식</span>
                             </h2>
-                            <p class="text-[11px] text-slate-400">성별 열을 제외하여 가로 공간을 넓혔으며, 일반고 배정학교 즉시 입력 및 반별 자동 분할 출력을 지원합니다.</p>
+                            <p class="text-[11px] text-slate-400">내신총점(취득점/만점) 표기, 일반고 배정고 즉시 입력 및 반별 자동 분할 출력을 지원합니다.</p>
                         </div>
                     </div>
 
@@ -2355,24 +2381,24 @@ async function openApplicationRegisterModal() {
             </div>
         `;
 
-        // 이벤트 바인딩
-        document.getElementById('closeRegisterBtn')?.addEventListener('click', () => modal.remove());
-        document.getElementById('printRegisterBtn')?.addEventListener('click', () => printOnly('register', 'landscape'));
+        // 이벤트 바인딩 (modal 내부에서 직접 쿼리하여 첫 진입 시점부터 100% 즉시 바인딩 보장)
+        modal.querySelector('#closeRegisterBtn')?.addEventListener('click', () => modal.remove());
+        modal.querySelector('#printRegisterBtn')?.addEventListener('click', () => printOnly('register', 'landscape'));
 
         // 모드 토글 이벤트 (전교 일괄 vs 학급별 개별)
-        document.getElementById('modeAllPagedBtn')?.addEventListener('click', () => {
+        modal.querySelector('#modeAllPagedBtn')?.addEventListener('click', () => {
             printLayoutMode = 'all_paged';
             selectedClassFilter = 'all';
             renderModalContent();
         });
-        document.getElementById('modeSingleClassBtn')?.addEventListener('click', () => {
+        modal.querySelector('#modeSingleClassBtn')?.addEventListener('click', () => {
             printLayoutMode = 'single_class';
             if (selectedClassFilter === 'all') selectedClassFilter = String(classList[0] || 1);
             renderModalContent();
         });
 
         // 학급 필터 변경 이벤트
-        document.getElementById('registerClassFilterSelect')?.addEventListener('change', (e) => {
+        modal.querySelector('#registerClassFilterSelect')?.addEventListener('change', (e) => {
             selectedClassFilter = e.target.value;
             renderModalContent();
         });
@@ -2429,7 +2455,6 @@ async function openApplicationRegisterModal() {
     };
 
     renderModalContent();
-    document.body.appendChild(modal);
 }
 
 // 지원 학생 상세 명단 팝업 모달 (지망 뱃지 또는 총 인원수 클릭 시)
