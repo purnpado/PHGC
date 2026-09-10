@@ -4053,7 +4053,7 @@ ${releaseNotes}
                     </button>
                     <button id="goToDownloadReleaseBtn" 
                             type="button"
-                            class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-950/50 hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
+                            class="w-full py-2.5 px-4 rounded-xl bg-linear-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-950/50 hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
                         <span>🌐</span> 다운로드 받으러 이동
                     </button>
                 </div>
@@ -5223,6 +5223,10 @@ async function renderCutoffScreen(schoolName) {
             name: "울산기술공업고등학교", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
             items: ["기계과", "전기과"].map(dept => ({ dept, track: "일반" }))
         },
+        {
+            name: "울산미용예술고", category: "special", categoryLabel: "특성화고", totalMax: "100점 만점", scoreType: "total_score", unit: "점", placeholder: "예: 70.0",
+            items: [{ dept: "미용예술과", track: "일반" }, { dept: "미용예술과", track: "취업희망자" }]
+        },
         // 3. 후기 일반고
         {
             name: "울산 후기 일반계고",
@@ -5238,37 +5242,45 @@ async function renderCutoffScreen(schoolName) {
         }
     ];
 
-    // 학과·학교명은 화면에 별도 하드코딩하지 않고 공용 고교 목록을 기준으로
-    // 구성한다. 이 목록을 바꾸면 커트라인 입력 화면도 함께 바뀐다.
+    // 울산 관내 공용 고교 목록(마이스터고 3, 특성화고 7~8, 일반고 1) 동적 로드
     try {
         const highSchoolData = await window.go.main.App.GetHighSchoolsData();
         const schools = highSchoolData?.schools || [];
         const catalogSpecs = schools
-            .filter(s => s.type === '마이스터고' || s.type === '특성화고')
+            .filter(s => {
+                const t = (s.type || s.Type || '').toLowerCase();
+                const note = (s.note || s.Note || '');
+                return t === 'meister' || t === 'special' || note.includes('마이스터고') || note.includes('특성화고');
+            })
             .map(s => {
-                const isMeister = s.type === '마이스터고';
+                const t = (s.type || s.Type || '').toLowerCase();
+                const note = (s.note || s.Note || '');
+                const isMeister = t === 'meister' || note.includes('마이스터고');
                 const tracks = isMeister ? ['일반', '특별'] : ['일반', '취업희망자'];
-                const shortName = normalizeSchoolName(s.name);
+                const rawName = s.name || s.Name || '';
+                const shortName = normalizeSchoolName(rawName);
                 const totalMax = shortName === '울산마이스터고' ? '300점 만점'
                     : shortName === '울산에너지고' ? '230점 만점'
                         : shortName === '현대공업고' ? '200점 만점'
                             : '100점 만점';
+                const depts = s.departments || s.Departments || [];
                 const defaultItems = isMeister
                     ? [
                         { dept: '', track: '일반' },
                         { dept: '', track: '특별' },
-                        ...(s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track })))
+                        ...depts.flatMap(dept => tracks.map(track => ({ dept, track })))
                     ]
-                    : (s.departments || []).flatMap(dept => tracks.map(track => ({ dept, track })));
+                    : depts.flatMap(dept => tracks.map(track => ({ dept, track })));
                 return {
-                    name: s.name,
+                    name: shortName,
+                    fullName: rawName,
                     category: isMeister ? 'meister' : 'special',
-                    categoryLabel: s.type,
+                    categoryLabel: isMeister ? '마이스터고' : '특성화고',
                     totalMax,
                     scoreType: 'total_score',
                     unit: '점',
                     placeholder: isMeister ? '예: 200.0' : '예: 75.0',
-                    items: defaultItems,
+                    items: defaultItems.length > 0 ? defaultItems : [{ dept: '', track: '일반' }],
                 };
             });
         if (catalogSpecs.length) {
@@ -5318,10 +5330,8 @@ async function renderCutoffScreen(schoolName) {
         const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
         if (savedPublicData) {
             const parsed = JSON.parse(savedPublicData);
-            // 공식 공개자료인 울산마이스터고만 엄선 유지 (이전 비공식 테스트 데이터 정리)
-            const cleaned = parsed.filter(x => normalizeSchoolName(x.school) === '울산마이스터고' || !x.school);
-            publicOfficialData = cleaned.length > 0 ? cleaned : publicOfficialDefaults;
-            localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+            // 저장된 공개자료 온전히 보존 (울산 관내 마이스터고 3, 특성화고 7~8, 일반고 1)
+            publicOfficialData = Array.isArray(parsed) && parsed.length > 0 ? parsed : publicOfficialDefaults;
         } else {
             // 서버에 배포된 공식 입결 자료(official_admission_data.json) 자동 조회
             const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
@@ -5562,11 +5572,17 @@ async function renderCutoffScreen(schoolName) {
                                             <input type="hidden" class="public-year" data-index="${p.originalIndex}" value="${group.year}" />
                                         </div>
                                     </td>
-                                    <td class="p-3 align-middle text-left pl-4 bg-slate-900/40 border-r border-slate-700/50" rowspan="${rowSpan}">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-lg">🏫</span>
-                                            <span class="font-bold text-white text-sm">${group.school}</span>
-                                            <input type="hidden" class="public-school" data-index="${p.originalIndex}" value="${group.school}" />
+                                    <td class="p-3 align-middle text-left pl-3 bg-slate-900/40 border-r border-slate-700/50" rowspan="${rowSpan}">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-base">🏫</span>
+                                            <select class="input-field py-1 px-2 text-xs font-bold text-white bg-slate-800 border-slate-600 rounded-lg public-school-select" data-group-year="${group.year}" data-group-school="${group.school}">
+                                                ${[
+                                                    "울산마이스터고", "울산에너지고", "현대공업고",
+                                                    "울산공업고", "울산기술공업고", "울산미용예술고", "울산산업고", "울산생활과학고", "울산여자상업고", "울산상업고", "청량고",
+                                                    "울산 후기 일반계고"
+                                                ].map(sName => `<option value="${sName}" ${normalizeSchoolName(group.school) === normalizeSchoolName(sName) ? 'selected' : ''}>${sName}</option>`).join('')}
+                                                ${!["울산마이스터고", "울산에너지고", "현대공업고", "울산공업고", "울산기술공업고", "울산미용예술고", "울산산업고", "울산생활과학고", "울산여자상업고", "울산상업고", "청량고", "울산 후기 일반계고"].some(sName => normalizeSchoolName(group.school) === normalizeSchoolName(sName)) && group.school ? `<option value="${group.school}" selected>${group.school}</option>` : ''}
+                                            </select>
                                         </div>
                                     </td>
                                 ` : ''}
@@ -5640,9 +5656,6 @@ async function renderCutoffScreen(schoolName) {
                                     전체 연도 모아보기
                                 </button>
                             </div>
-                            <button id="resetPublicDataBtn" class="btn-secondary text-xs px-3 py-1.5 font-bold flex items-center gap-1 text-slate-300" title="공식 데이터 기본값으로 새로고침">
-                                <span>🔄</span> 기본값 복원
-                            </button>
                             <button id="addPublicDataBtn" class="btn-primary text-xs px-3.5 py-1.5 font-bold flex items-center gap-1 shadow-sm" style="width: auto;">
                                 <span>➕</span> 공개자료 추가
                             </button>
@@ -5907,17 +5920,21 @@ async function renderCutoffScreen(schoolName) {
                 renderMainScreen();
             });
 
-            // 공식 공개자료 기본값 복원 버튼
-            document.getElementById('resetPublicDataBtn')?.addEventListener('click', async () => {
-                const confirmed = await showModalConfirm({
-                    title: '공식 공개자료 기본값 복원',
-                    message: '울산마이스터고의 공식 공개자료(2024~2026학년도) 기본값으로 초기화하시겠습니까?<br><span class="text-xs text-slate-400">비공식 테스트 데이터나 임의 수정 내역이 정리됩니다.</span>'
-                });
-                if (confirmed) {
-                    publicOfficialData = JSON.parse(JSON.stringify(publicOfficialDefaults));
+            // 테이블 학교명 셀 변경 동기화
+            app.querySelectorAll('.public-school-select').forEach(sel => {
+                sel.addEventListener('change', (e) => {
+                    const newSchool = e.target.value;
+                    const oldSchool = sel.dataset.groupSchool;
+                    const gYear = Number(sel.dataset.groupYear);
+                    publicOfficialData.forEach(item => {
+                        if (item.year === gYear && normalizeSchoolName(item.school) === normalizeSchoolName(oldSchool)) {
+                            item.school = newSchool;
+                            item.unit = newSchool.includes('일반계고') ? '%' : '점';
+                        }
+                    });
                     localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
                     renderMainScreen();
-                }
+                });
             });
 
             // 인풋 실시간 동기화
@@ -5935,24 +5952,15 @@ async function renderCutoffScreen(schoolName) {
             app.querySelectorAll('.public-max-score').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'max', true)));
             app.querySelectorAll('.public-avg-score').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'avg', true)));
             app.querySelectorAll('.public-note').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'note')));
-            app.querySelectorAll('.public-school').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'school')));
             app.querySelectorAll('.public-year').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'year', true)));
 
-            // 행 추가 버튼
+            // 공식 공개자료 추가 버튼 (울산 관내 11개 고교 선택 등록 팝업 모달)
             document.getElementById('addPublicDataBtn')?.addEventListener('click', () => {
-                publicOfficialData.unshift({
-                    year: currentAdmissionYear,
-                    school: '울산마이스터고',
-                    dept: '',
-                    track: '일반',
-                    min: '',
-                    max: '',
-                    avg: '',
-                    unit: '점',
-                    note: '공식 공개자료'
+                renderAddPublicDataModal(currentAdmissionYear, (newEntry) => {
+                    publicOfficialData.unshift(newEntry);
+                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    renderMainScreen();
                 });
-                localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
-                renderMainScreen();
             });
 
             // 행 삭제 버튼
@@ -6105,4 +6113,159 @@ async function renderCutoffScreen(schoolName) {
     };
 
     renderMainScreen();
+}
+
+// 울산 관내 고교 공식 공개자료 신규 추가 모달
+function renderAddPublicDataModal(defaultYear, onAddCallback) {
+    document.getElementById('addPublicDataModal')?.remove();
+
+    const ulsanSchools = [
+        { name: "울산마이스터고", category: "마이스터고", unit: "점", maxHint: "300점 만점" },
+        { name: "울산에너지고", category: "마이스터고", unit: "점", maxHint: "230점 만점" },
+        { name: "현대공업고", category: "마이스터고", unit: "점", maxHint: "200점 만점" },
+        { name: "울산공업고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산기술공업고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산미용예술고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산산업고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산생활과학고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산여자상업고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산상업고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "청량고", category: "특성화고", unit: "점", maxHint: "100점 만점" },
+        { name: "울산 후기 일반계고", category: "후기 일반고", unit: "%", maxHint: "석차 백분율 (%)" }
+    ];
+
+    const currentYear = new Date().getFullYear() + 1;
+    const yearOptions = [currentYear, currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4];
+
+    const modal = document.createElement('div');
+    modal.id = 'addPublicDataModal';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+    modal.innerHTML = `
+        <div class="glass-card max-w-md w-full p-6 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200 break-keep-all select-none">
+            <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📊</span>
+                    <h3 class="font-bold text-white text-base">공식 공개 입결자료 추가</h3>
+                </div>
+                <button id="closeAddPublicModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg text-sm">✕</button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 font-bold mb-1">📅 입학년도</label>
+                    <select id="modalPublicYear" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold">
+                        ${yearOptions.map(y => `<option value="${y}" ${y === defaultYear ? 'selected' : ''}>${y}학년도 입학 기준</option>`).join('')}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-bold mb-1">🏫 울산 관내 대상 고등학교</label>
+                    <select id="modalPublicSchool" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white font-bold">
+                        ${ulsanSchools.map(s => `<option value="${s.name}" data-unit="${s.unit}" data-hint="${s.maxHint}">[${s.category}] ${s.name} (${s.maxHint})</option>`).join('')}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-slate-300 font-bold mb-1">학과명</label>
+                        <input id="modalPublicDept" type="text" placeholder="비우면 학교 전체" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-white" />
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 font-bold mb-1">전형</label>
+                        <input id="modalPublicTrack" type="text" value="일반" placeholder="예: 일반, 특별" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-indigo-200 font-bold" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-emerald-400 font-bold mb-1">최저점 (합격선) *</label>
+                        <div class="flex items-center gap-1">
+                            <input id="modalPublicMin" type="text" inputmode="decimal" placeholder="필수" class="input-field w-full py-2 px-2 text-right font-black text-emerald-400 bg-slate-900 border-slate-700 rounded-xl" />
+                            <span id="modalPublicUnit1" class="text-slate-400 font-semibold text-xs">점</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sky-300 font-semibold mb-1">최고 불합격점</label>
+                        <div class="flex items-center gap-1">
+                            <input id="modalPublicMax" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-2 px-2 text-right font-semibold text-sky-300 bg-slate-900 border-slate-700 rounded-xl" />
+                            <span id="modalPublicUnit2" class="text-slate-400 font-semibold text-xs">점</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-amber-300 font-semibold mb-1">평균점</label>
+                        <div class="flex items-center gap-1">
+                            <input id="modalPublicAvg" type="text" inputmode="decimal" placeholder="선택" class="input-field w-full py-2 px-2 text-right font-semibold text-amber-300 bg-slate-900 border-slate-700 rounded-xl" />
+                            <span id="modalPublicUnit3" class="text-slate-400 font-semibold text-xs">점</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-slate-300 font-semibold mb-1">출처 / 비고</label>
+                    <input id="modalPublicNote" type="text" value="공식 합격선" placeholder="예: 학교 홈페이지 공지 등" class="input-field w-full py-2 px-3 bg-slate-900 border-slate-700 rounded-xl text-slate-300" />
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-700/60 mt-1">
+                <button id="cancelAddPublicModalBtn" class="btn-secondary py-2 px-4 text-xs font-bold rounded-xl">취소</button>
+                <button id="submitAddPublicModalBtn" class="btn-primary py-2 px-5 text-xs font-bold rounded-xl shadow-md">➕ 추가하기</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const schoolSel = document.getElementById('modalPublicSchool');
+    const updateUnits = () => {
+        const selected = schoolSel.options[schoolSel.selectedIndex];
+        const unit = selected?.dataset?.unit || '점';
+        document.getElementById('modalPublicUnit1').textContent = unit;
+        document.getElementById('modalPublicUnit2').textContent = unit;
+        document.getElementById('modalPublicUnit3').textContent = unit;
+    };
+    schoolSel.addEventListener('change', updateUnits);
+    updateUnits();
+
+    const closeModal = () => modal.remove();
+    document.getElementById('closeAddPublicModalBtn').addEventListener('click', closeModal);
+    document.getElementById('cancelAddPublicModalBtn').addEventListener('click', closeModal);
+
+    document.getElementById('submitAddPublicModalBtn').addEventListener('click', async () => {
+        const year = parseInt(document.getElementById('modalPublicYear').value, 10);
+        const school = document.getElementById('modalPublicSchool').value;
+        const dept = document.getElementById('modalPublicDept').value.trim();
+        const track = document.getElementById('modalPublicTrack').value.trim() || '일반';
+        const minStr = document.getElementById('modalPublicMin').value.trim();
+        const maxStr = document.getElementById('modalPublicMax').value.trim();
+        const avgStr = document.getElementById('modalPublicAvg').value.trim();
+        const note = document.getElementById('modalPublicNote').value.trim() || '공식 합격선';
+
+        const minVal = parseFloat(minStr);
+        if (isNaN(minVal) || minVal <= 0) {
+            await showModalAlert({
+                title: '입력 확인',
+                message: '최저 합격선(필수)을 올바른 숫자로 입력해 주세요.',
+                type: 'warning'
+            });
+            document.getElementById('modalPublicMin').focus();
+            return;
+        }
+
+        const maxVal = parseFloat(maxStr);
+        const avgVal = parseFloat(avgStr);
+        const unit = school.includes('일반계고') ? '%' : '점';
+
+        onAddCallback({
+            year,
+            school,
+            dept,
+            track,
+            min: minVal,
+            max: !isNaN(maxVal) && maxVal > 0 ? maxVal : '',
+            avg: !isNaN(avgVal) && avgVal > 0 ? avgVal : '',
+            unit,
+            note
+        });
+
+        closeModal();
+    });
 }
