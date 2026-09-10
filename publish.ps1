@@ -53,8 +53,9 @@ if (Test-Path $syncFile) {
     Set-Content -Path $syncFile -Value $syncContent -Encoding UTF8
 }
 
-# ===== 2. 실행 중인 PHGC 종료 =====
-Stop-Process -Name "PHGC" -Force -ErrorAction SilentlyContinue
+# ===== 2. 실행 중인 PHGC 프로세스 종료 (버전명 실행파일 포함) =====
+Get-Process | Where-Object { $_.ProcessName -like "PHGC*" } | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
 
 # ===== 3. Wails 빌드 =====
 Write-Host ">>> Wails 빌드 실행 중..." -ForegroundColor Cyan

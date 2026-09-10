@@ -4563,13 +4563,7 @@ export async function renderLoginScreen(schoolName) {
                 <div class="mt-6 flex flex-col items-center justify-center text-xs text-text-muted gap-2">
                     <div class="flex items-center gap-2 flex-wrap justify-center">
                         <span>현재 버전: <strong class="text-indigo-300 font-mono font-bold">v${localVer}</strong></span>
-                        <button type="button" id="manualCheckUpdateBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer">
-                            <span>🔄</span> 업데이트 확인
-                        </button>
-                        <button type="button" id="loginBoardLinkBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 border border-indigo-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="공식 GitHub 릴리즈 및 배포자료실 열기">
-                            <span>📦</span> GitHub 릴리즈
-                        </button>
-                        <button type="button" id="loginFeedbackBtn" class="text-[11px] py-1 px-2.5 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold transition-colors inline-flex items-center gap-1 cursor-pointer" title="선생님 질문 및 피드백 게시판 열기 (그래서? 넌 어디 갈래? · 꾹링크)">
+                        <button type="button" id="loginFeedbackBtn" class="text-[11px] py-1 px-3 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 border border-emerald-500/40 font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm" title="선생님 질문 및 피드백 게시판 열기 (그래서? 넌 어디 갈래? · 꾹링크)">
                             <span>💬</span> 질문·피드백 게시판
                         </button>
                     </div>
@@ -4578,21 +4572,8 @@ export async function renderLoginScreen(schoolName) {
             </div>
         `;
 
-        document.getElementById('loginBoardLinkBtn')?.addEventListener('click', () => {
-            openExternalUrlSafe(GITHUB_RELEASE_URL);
-        });
-
         document.getElementById('loginFeedbackBtn')?.addEventListener('click', () => {
             openExternalUrlSafe(FEEDBACK_BOARD_URL);
-        });
-
-        document.getElementById('manualCheckUpdateBtn')?.addEventListener('click', async () => {
-            const btn = document.getElementById('manualCheckUpdateBtn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> 확인 중...';
-            await checkUpdateOnStartup(localVer, true);
-            btn.disabled = false;
-            btn.innerHTML = '<span>🔄</span> 업데이트 확인';
         });
 
         const refreshSharedPasswordRequirement = async () => {

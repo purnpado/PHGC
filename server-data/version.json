@@ -1,6 +1,6 @@
 {
   "latestVersion": "1.2.3",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.3 - 자동 업데이트 다운로드 기능 제거, 클라이언트 실행 시 GitHub 공식 다운로드 페이지 이동 안내 팝업 및 꾹링크 피드백 게시판 연동",
+  "releaseNotes": "v1.2.3 - 로그인 화면 수동 업데이트/릴리즈 버튼 정리, 깔끔한 피드백 링크 단일화 및 자동 업데이트 감지 팝업 유지",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }
