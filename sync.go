@@ -13,7 +13,7 @@ import (
 
 const (
 	// 애플리케이션 버전 (v1.2.1 오프라인 전용 에디션)
-	AppVersion = "1.3.0"
+	AppVersion = "1.4.0"
 
 	// 기본 로컬 데이터 폴더
 	ServerDataPath = "server-data"
@@ -282,7 +282,7 @@ func (sm *SyncManager) getDefaultHighSchools() *HighSchoolData {
 			{Name: "울산생활과학고등학교", Type: "special", Area: "동구", Note: "특성화고", Departments: []string{"보건간호과", "사무행정과", "조리과"}},
 			{Name: "울산여자상업고등학교", Type: "special", Area: "남구", Note: "특성화고", Departments: []string{"관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"}},
 			{Name: "울산상업고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"군사경영과", "물류경영과", "IT콘텐츠과"}},
-			{Name: "청량고등학교", Type: "special", Area: "울주군", Note: "특성화고", Departments: []string{"K-Food조리과", "콘텐츠디자인과", "보건간호과"}},
+			{Name: "울산애니원고등학교", Type: "other", Area: "중구", Note: "기타제외학교(실기전형)", Departments: []string{"만화창작과", "애니메이션과", "컴퓨터게임개발과"}},
 			{Name: "울산과학고등학교", Type: "self_foreign", Area: "울주군", Note: "특수목적고", Departments: []string{"자연과정"}},
 			{Name: "울산외국어고등학교", Type: "self_foreign", Area: "북구", Note: "특수목적고", Departments: []string{"영어과", "러시아어과", "일본어과", "중국어과", "아랍어과"}},
 			{Name: "울산스포츠과학고등학교", Type: "self_foreign", Area: "북구", Note: "특수목적고", Departments: []string{"스포츠과정"}},
@@ -325,6 +325,7 @@ func (sm *SyncManager) GetNotices() ([]NoticeItem, error) {
 	}
 	return []NoticeItem{}, nil
 }
+
 
 
 

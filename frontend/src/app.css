@@ -1,3 +1,29 @@
+/* ===== 전역 모던 슬림 스크롤바 스타일 (투박한 윈도우 기본 회색 스크롤바 제거) ===== */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.45);
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.8);
+}
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.45) rgba(15, 23, 42, 0.5);
+}
+
 /* ===== 앱 공통 컴포넌트 스타일 ===== */
 
 /* 글래스모피즘 카드 */
@@ -437,18 +463,112 @@ input[type="number"]::-webkit-inner-spin-button {
         break-inside: avoid;
         page-break-inside: avoid;
     }
-    body.printing[data-print-kind="matrix"] .print-document {
-        font-size: 7px !important;
+    /* 매트릭스 인쇄 전용 고품질 라이트 테마 스타일 (A4 가로 최적화) */
+    body.printing[data-print-kind="matrix"] #matrixModal {
+        background: white !important;
+        padding: 0 !important;
     }
+    body.printing[data-print-kind="matrix"] .glass-card {
+        background: white !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="matrix"] .print-document {
+        font-size: 7.5pt !important;
+        color: #0f172a !important;
+        background: white !important;
+    }
+    body.printing[data-print-kind="matrix"] .print-document h2 {
+        color: #0f172a !important;
+        font-size: 15pt !important;
+        font-weight: 900 !important;
+        margin-bottom: 2mm !important;
+    }
+    /* 인쇄 시 불필요한 컨트롤 숨김 */
+    body.printing[data-print-kind="matrix"] .no-print,
+    body.printing[data-print-kind="matrix"] .matrix-6tab,
+    body.printing[data-print-kind="matrix"] #matrixClassSelect,
+    body.printing[data-print-kind="matrix"] #matrixSearchInput,
+    body.printing[data-print-kind="matrix"] #matrixSortSelect,
+    body.printing[data-print-kind="matrix"] #clearMatrixSearchBtn {
+        display: none !important;
+    }
+    /* 인쇄 테이블 기본 설정 */
     body.printing[data-print-kind="matrix"] .print-document table {
         width: 100% !important;
         table-layout: fixed !important;
+        border-collapse: collapse !important;
+        border: 1.5px solid #475569 !important;
+        margin-top: 2mm !important;
     }
-    body.printing[data-print-kind="matrix"] .print-document th,
+    body.printing[data-print-kind="matrix"] .print-document th {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #94a3b8 !important;
+        font-size: 7.5pt !important;
+        font-weight: 800 !important;
+        padding: 1.5mm 0.5mm !important;
+        text-align: center !important;
+        word-break: keep-all !important;
+        line-height: 1.2 !important;
+    }
     body.printing[data-print-kind="matrix"] .print-document td {
-        padding: 1.25mm 0.75mm !important;
-        white-space: normal !important;
-        word-break: keep-all;
+        background: white !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 1.2mm 0.5mm !important;
+        font-size: 7.5pt !important;
+        text-align: center !important;
+        vertical-align: middle !important;
+    }
+    /* 인쇄 시 신호등 뱃지: 순백색 종이에 맞춘 밝고 선명한 고대비 컬러 (칸 넘침 방지) */
+    body.printing[data-print-kind="matrix"] td span {
+        display: inline-block !important;
+        max-width: 100% !important;
+        padding: 0.5mm 1.5mm !important;
+        font-size: 7.5pt !important;
+        line-height: 1.15 !important;
+        border-radius: 9999px !important;
+        box-sizing: border-box !important;
+        white-space: nowrap !important;
+    }
+    /* 🟢 안정 뱃지 (인쇄용 밝은 민트 바탕 + 짙은 녹색 글씨) */
+    body.printing[data-print-kind="matrix"] span.bg-emerald-950\/80,
+    body.printing[data-print-kind="matrix"] span.bg-emerald-600 {
+        background: #ecfdf5 !important;
+        color: #065f46 !important;
+        border: 1px solid #10b981 !important;
+        font-weight: 800 !important;
+    }
+    /* 🟡 적정/경계 뱃지 (인쇄용 밝은 노랑 바탕 + 짙은 갈색 글씨) */
+    body.printing[data-print-kind="matrix"] span.bg-amber-950\/80,
+    body.printing[data-print-kind="matrix"] span.bg-amber-500 {
+        background: #fefce8 !important;
+        color: #854d0e !important;
+        border: 1px solid #f59e0b !important;
+        font-weight: 800 !important;
+    }
+    /* 🔴 소신/주의 뱃지 (인쇄용 밝은 핑크 바탕 + 짙은 빨강 글씨) */
+    body.printing[data-print-kind="matrix"] span.bg-rose-950\/80,
+    body.printing[data-print-kind="matrix"] span.bg-rose-600 {
+        background: #fef2f2 !important;
+        color: #991b1b !important;
+        border: 1px solid #ef4444 !important;
+        font-weight: 800 !important;
+    }
+    /* 일반 텍스트 점수 */
+    body.printing[data-print-kind="matrix"] span.text-slate-300 {
+        color: #334155 !important;
+        font-weight: 600 !important;
+    }
+    /* 학반 뱃지 */
+    body.printing[data-print-kind="matrix"] span.bg-indigo-950 {
+        background: #eef2ff !important;
+        color: #3730a3 !important;
+        border: 1px solid #818cf8 !important;
+        font-weight: 800 !important;
     }
     .print-document,
     .print-document *,
