@@ -1,6 +1,6 @@
 {
   "latestVersion": "1.2.4",
   "minVersion": "0.5.0",
-  "releaseNotes": "v1.2.4 - 모든 페이지 좌측 하단 상시 노출 전역 질문·피드백 플로팅 버튼 탑재 및 로그인 화면 UI 정돈",
+  "releaseNotes": "v1.2.4 - 업데이트 알림 팝업 UI/UX 전면 리뉴얼 및 템플릿 변수 정상 표기 교정",
   "downloadUrl": "https://github.com/purnpado/PHGC/releases/latest/download/PHGC.exe"
 }

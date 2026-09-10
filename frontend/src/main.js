@@ -3990,48 +3990,75 @@ function showStartupUpdateModal(result) {
 
     const latestVer = result.latestVersion || '1.0.0';
     const currentVer = result.currentVersion || '1.0.0';
+    const releaseNotes = result.releaseNotes || '새로운 기능 추가 및 시스템 안정화 패치가 포함되어 있습니다.';
 
     const modal = document.createElement('div');
     modal.id = 'startupUpdateModal';
-    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 fade-in';
+    modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200';
     modal.innerHTML = `
-        <div class="glass-card p-6 md:p-8 w-full max-w-lg border border-amber-500/40 space-y-5 text-left shadow-2xl">
-            <div class="flex items-center gap-3.5 border-b border-slate-700/60 pb-3">
-                <span class="text-3xl">🚀</span>
-                <div>
-                    <h3 class="text-lg font-black text-white">최신 버전(v${latestVer}) 출시 안내</h3>
-                    <div class="text-xs text-amber-300 font-bold mt-0.5">현재 설치 버전: v${currentVer} → 최신 버전: v${latestVer}</div>
+        <div class="glass-card max-w-lg w-full p-6 sm:p-7 border border-indigo-500/40 rounded-3xl shadow-2xl flex flex-col gap-4 text-left animate-in zoom-in-95 duration-200 break-keep-all select-none">
+            
+            <!-- 헤더 영역 -->
+            <div class="flex items-start gap-3.5 border-b border-slate-700/60 pb-4">
+                <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-2xl shadow-inner shrink-0">
+                    🚀
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[11px] font-bold border border-indigo-500/30">
+                            NEW UPDATE
+                        </span>
+                        <span class="text-xs text-slate-400 font-mono">
+                            v${currentVer} → <strong class="text-amber-300 font-bold">v${latestVer}</strong>
+                        </span>
+                    </div>
+                    <h3 class="text-lg font-black text-white tracking-tight leading-snug">
+                        새로운 버전(v${latestVer})이 출시되었습니다!
+                    </h3>
                 </div>
             </div>
 
-            <div class="p-3.5 rounded-xl bg-amber-950/25 border border-amber-500/30 text-xs text-amber-200 leading-relaxed font-medium">
-                📢 <strong>새로 업데이트되었습니다!</strong><br>
-                새로운 기능과 최신 개선사항이 포함된 최신 버전(v${latestVer})이 배포되었습니다. 공식 다운로드 페이지(GitHub Releases)로 이동하시겠습니까?
+            <!-- 안내 메시지 -->
+            <div class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                더욱 안정적이고 편리한 진학 상담을 위해 최신 버전 이용을 권장합니다.<br>
+                <strong>공식 다운로드 페이지(GitHub Releases)</strong>로 이동하시겠습니까?
             </div>
 
-            <div class="space-y-2">
+            <!-- 주요 변경 사항 카드 -->
+            <div class="space-y-1.5">
                 <div class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                    <span>📦</span> 업데이트 주요 변경 내용:
+                    <span>📦</span> 업데이트 주요 내용:
                 </div>
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-44 overflow-y-auto whitespace-pre-wrap font-sans select-text">
-                    ${result.releaseNotes || '시스템 안정화 및 사용자 편의 기능이 개선되었습니다.'}
+                <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-sans select-text shadow-inner">
+${releaseNotes}
                 </div>
             </div>
 
-            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 text-[11px] text-slate-400 leading-relaxed">
-                💡 <strong>안내:</strong> 공식 배포 페이지에서 최신 <code class="text-indigo-300 font-bold">PHGC.exe</code> 파일을 다운로드하여 실행하시면 됩니다. 기존 학생 상담 자료 및 커트라인 설정은 그대로 안전하게 유지됩니다.
+            <!-- 안전 보장 안내 -->
+            <div class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-800/40 border border-slate-700/40 text-[11px] text-slate-400">
+                <span class="text-emerald-400 text-sm shrink-0">🔒</span>
+                <span>기존 학생 상담 데이터와 합격선 설정은 안전하게 그대로 유지됩니다.</span>
             </div>
 
-            <div class="flex items-center justify-between gap-3 pt-2 flex-wrap">
-                <button id="openFeedbackInUpdateBtn" class="btn-secondary text-xs px-3.5 py-2 font-bold inline-flex items-center gap-1.5 text-emerald-300 border-emerald-500/40 hover:bg-emerald-950/40" style="width: auto;" title="그래서? 넌 어디 갈래? · 꾹링크 게시판">
-                    💬 질문·피드백 게시판
-                </button>
-                <div class="flex items-center gap-2">
-                    <button id="skipStartupUpdateBtn" class="btn-secondary text-xs px-4 py-2 font-bold text-slate-300 hover:text-white" style="width: auto;">
+            <!-- 하단 액션 버튼 영역 -->
+            <div class="pt-2 flex flex-col gap-2.5">
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="skipStartupUpdateBtn" 
+                            type="button"
+                            class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs transition-colors cursor-pointer text-center">
                         나중에 하기
                     </button>
-                    <button id="goToDownloadReleaseBtn" class="btn-primary text-xs px-5 py-2.5 font-bold flex items-center gap-2 shadow-lg hover:scale-[1.02] active:scale-95 transition-all" style="background: linear-gradient(135deg, #6366f1, #4f46e5); width: auto;">
+                    <button id="goToDownloadReleaseBtn" 
+                            type="button"
+                            class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-indigo-950/50 hover:shadow-indigo-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
                         <span>🌐</span> 다운로드 받으러 이동
+                    </button>
+                </div>
+                <div class="text-center pt-1">
+                    <button id="openFeedbackInUpdateBtn" 
+                            type="button"
+                            class="text-[11px] text-slate-400 hover:text-emerald-300 inline-flex items-center gap-1 transition-colors cursor-pointer underline underline-offset-2">
+                        <span>💬</span> 질문이나 의견이 있으신가요? 꾹링크 피드백 게시판 바로가기
                     </button>
                 </div>
             </div>
