@@ -10,6 +10,29 @@ const app = document.querySelector('#app');
 // 현재 로그인한 사용자 세션 (role, classNum, username 등 저장)
 window.currentUser = null;
 
+// ===== HTML / Attribute XSS 및 특수문자 이스케이프 유틸리티 =====
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+window.escapeHtml = escapeHtml;
+
+function escapeAttr(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+window.escapeAttr = escapeAttr;
+
 // ===== 프로그램 창 제목(Window Title) 동적 변경 헬퍼 =====
 function updateAppWindowTitle(role = '', detail = '') {
     let roleLabel = '';
@@ -2157,7 +2180,7 @@ async function openApplicationRegisterModal() {
                 const paddedNum = String(r.studentNum || 0).padStart(2, '0');
                 const studentId = `3${paddedClass.padStart(2, '0')}${paddedNum}`;
 
-                let schoolDisplay = r.schoolName || '-';
+                let schoolDisplay = escapeHtml(r.schoolName || '-');
                 if (r.category === 'general') {
                     schoolDisplay = '후기 일반고';
                 } else if (r.category === 'none') {
@@ -2171,18 +2194,18 @@ async function openApplicationRegisterModal() {
                             <input type="text" 
                                    class="register-assigned-school-input font-bold text-indigo-900 border-b border-dashed border-indigo-400 bg-transparent text-left w-full outline-none print:border-none print:text-black print:p-0"
                                    style="border-bottom-style: dashed; ${cellFontSizeStyle} padding: 1px 2px;"
-                                   value="${r.assignedSchool || ''}" 
+                                   value="${escapeAttr(r.assignedSchool || '')}" 
                                    placeholder="배정고 입력(수기)" 
-                                   data-class="${r.classNum}" 
-                                   data-num="${r.studentNum}" 
-                                   data-name="${r.studentName}" />
+                                   data-class="${escapeAttr(r.classNum)}" 
+                                   data-num="${escapeAttr(r.studentNum)}" 
+                                   data-name="${escapeAttr(r.studentName)}" />
                         </div>
                     `;
                 } else {
                     if (r.assignedDepartment) {
-                        deptDisplayHTML = `<span class="font-semibold">${r.assignedDepartment}</span> <span class="text-[10px] text-slate-500 font-normal">(배정)</span>`;
+                        deptDisplayHTML = `<span class="font-semibold">${escapeHtml(r.assignedDepartment)}</span> <span class="text-[10px] text-slate-500 font-normal">(배정)</span>`;
                     } else if (r.preferences && r.preferences.length > 0) {
-                        deptDisplayHTML = `<span class="font-medium">${r.preferences[0]}</span>`;
+                        deptDisplayHTML = `<span class="font-medium">${escapeHtml(r.preferences[0])}</span>`;
                     } else {
                         deptDisplayHTML = '-';
                     }
@@ -2212,7 +2235,8 @@ async function openApplicationRegisterModal() {
 
                 let noteParts = [];
                 if (r.track && r.track !== '해당 없음' && r.track !== '해당없음') {
-                    noteParts.push(r.track.includes('전형') ? r.track : `${r.track}전형`);
+                    const trackText = r.track.includes('전형') ? r.track : `${r.track}전형`;
+                    noteParts.push(escapeHtml(trackText));
                 }
                 const isExtraRecruit = (r.schoolName || '').includes('추가') || (r.track || '').includes('추가') || (r.status || '').includes('추가');
                 if (isExtraRecruit) {
@@ -2227,8 +2251,8 @@ async function openApplicationRegisterModal() {
                 return `
                     <tr class="text-center text-black font-sans hover:bg-slate-50 print:hover:bg-transparent" style="${cellFontSizeStyle}">
                         <td class="border border-black font-mono" style="${cellPaddingStyle}">${idx + 1}</td>
-                        <td class="border border-black font-mono font-medium" style="${cellPaddingStyle}">${studentId}</td>
-                        <td class="border border-black font-bold whitespace-nowrap" style="${cellPaddingStyle}">${r.studentName}</td>
+                        <td class="border border-black font-mono font-medium" style="${cellPaddingStyle}">${escapeHtml(studentId)}</td>
+                        <td class="border border-black font-bold whitespace-nowrap" style="${cellPaddingStyle}">${escapeHtml(r.studentName)}</td>
                         <td class="border border-black font-mono font-medium whitespace-nowrap" style="${cellPaddingStyle}">${scoreDisplay}</td>
                         <td class="border border-black font-semibold text-left pl-2.5" style="${cellPaddingStyle}">${schoolDisplay}</td>
                         <td class="border border-black text-left pl-2.5" style="${cellPaddingStyle} min-width: 190px;">${deptDisplayHTML}</td>
@@ -3656,10 +3680,11 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
             <div class="glass-card p-8 w-full max-w-md text-center">
                 <div class="text-danger text-4xl mb-3">⚠️</div>
                 <div class="text-white font-bold mb-4">성적표를 불러오지 못했습니다</div>
-                <div class="text-text-muted text-sm mb-6">${err}</div>
-                <button class="btn-secondary w-full" onclick="document.getElementById('studentTranscriptModal').remove()">닫기</button>
+                <div class="text-text-muted text-sm mb-6">${escapeHtml(String(err))}</div>
+                <button type="button" class="btn-secondary w-full" id="closeTranscriptErrBtn">닫기</button>
             </div>
         `;
+        modalEl.querySelector('#closeTranscriptErrBtn')?.addEventListener('click', () => modalEl.remove());
     }
 }
 
@@ -3677,7 +3702,7 @@ async function openStudentModal(classNum, studentNum, name) {
     modalEl.className = 'fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto';
     modalEl.innerHTML = `
         <div class="glass-card p-8 w-full max-w-4xl text-center">
-            <span class="spinner"></span> <span class="text-white ml-2">${name} 학생의 고교별 산출 데이터를 분석하는 중...</span>
+            <span class="spinner"></span> <span class="text-white ml-2">${escapeHtml(name)} 학생의 고교별 산출 데이터를 분석하는 중...</span>
         </div>
     `;
     document.body.appendChild(modalEl);
@@ -3695,10 +3720,11 @@ async function openStudentModal(classNum, studentNum, name) {
             <div class="glass-card p-8 w-full max-w-md text-center">
                 <div class="text-danger text-4xl mb-3">⚠️</div>
                 <div class="text-white font-bold mb-4">데이터를 불러오지 못했습니다</div>
-                <div class="text-text-muted text-sm mb-6">${err}</div>
-                <button class="btn-secondary w-full" onclick="document.getElementById('studentDetailModal').remove()">닫기</button>
+                <div class="text-text-muted text-sm mb-6">${escapeHtml(String(err))}</div>
+                <button type="button" class="btn-secondary w-full" id="closeStudentDetailErrBtn">닫기</button>
             </div>
         `;
+        modalEl.querySelector('#closeStudentDetailErrBtn')?.addEventListener('click', () => modalEl.remove());
     }
 }
 
@@ -4291,28 +4317,28 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     <div class="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-800/80">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-500/40 font-mono font-bold">
-                                📅 ${r.counselDate}
+                                📅 ${escapeHtml(r.counselDate)}
                             </span>
                             ${r.targetSchool ? `
                                 <span class="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-indigo-200 border border-slate-700 font-medium">
-                                    🏫 ${r.targetSchool}
+                                    🏫 ${escapeHtml(r.targetSchool)}
                                 </span>
                             ` : ''}
                             <span class="text-[10px] text-slate-400">
-                                작성: <strong class="text-slate-300">${r.authorName || '본인'}</strong>
+                                작성: <strong class="text-slate-300">${escapeHtml(r.authorName || '본인')}</strong>
                             </span>
                         </div>
                         <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
-                            <button type="button" class="btn-edit-counsel text-[11px] py-0.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer" data-id="${r.id}">
+                            <button type="button" class="btn-edit-counsel text-[11px] py-0.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer" data-id="${escapeAttr(r.id)}">
                                 수정
                             </button>
-                            <button type="button" class="btn-delete-counsel text-[11px] py-0.5 px-2 rounded bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-500/30 transition-colors cursor-pointer" data-id="${r.id}">
+                            <button type="button" class="btn-delete-counsel text-[11px] py-0.5 px-2 rounded bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-500/30 transition-colors cursor-pointer" data-id="${escapeAttr(r.id)}">
                                 삭제
                             </button>
                         </div>
                     </div>
                     <div class="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed px-0.5 font-sans">
-                        ${r.content}
+                        ${escapeHtml(r.content)}
                     </div>
                 </div>
             `).join('');
@@ -5865,13 +5891,13 @@ async function renderUserManagementScreen(schoolName) {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-800/30 transition-colors";
                 tr.innerHTML = `
-                    <td class="p-3.5 font-bold text-slate-200">${roleLabel}</td>
-                    <td class="p-3.5 text-text-muted font-mono">${u.Username}</td>
+                    <td class="p-3.5 font-bold text-slate-200">${escapeHtml(roleLabel)}</td>
+                    <td class="p-3.5 text-text-muted font-mono">${escapeHtml(u.Username)}</td>
                     <td class="p-3.5">${statusBadge}</td>
                     <td class="p-3.5 text-center">
                         <div class="flex items-center justify-center gap-1.5">
-                            <input type="password" id="pw_${u.Username}" class="input-field py-1 px-2.5 text-xs w-28" placeholder="새 비번" />
-                            <button class="btn-primary py-1 px-2.5 text-xs whitespace-nowrap rounded font-bold" style="width: auto;" onclick="updateUserPassword('${u.Username}')">
+                            <input type="password" class="input-field py-1 px-2.5 text-xs w-28 input-user-pw" placeholder="새 비번" />
+                            <button type="button" class="btn-primary py-1 px-2.5 text-xs whitespace-nowrap rounded font-bold btn-update-pw" style="width: auto;">
                                 ${isInitial ? '비번 설정' : '재설정'}
                             </button>
                         </div>
@@ -5879,26 +5905,56 @@ async function renderUserManagementScreen(schoolName) {
                     <td class="p-3.5 text-center">
                         ${isMasterAdmin
                         ? '<span class="text-xs text-slate-600 font-bold">해당 없음</span>'
-                        : `<button class="text-xs text-indigo-200 hover:text-white font-bold px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/30 transition-colors" onclick="createDistributionPackage('${u.Username}')">배포 자료 만들기</button>`
+                        : `<button type="button" class="text-xs text-indigo-200 hover:text-white font-bold px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-400/30 transition-colors btn-dist-pkg">배포 자료 만들기</button>`
                     }
                     </td>
                     <td class="p-3.5 text-center">
                         ${isMasterAdmin
                         ? '<span class="text-xs text-slate-600 font-bold">보호됨</span>'
-                        : `<button class="text-xs text-danger hover:underline font-bold px-2 py-1 rounded bg-danger/10 hover:bg-danger/20 border border-danger/30 transition-colors" onclick="deleteUserAccount('${u.Username}')">삭제</button>`
+                        : `<button type="button" class="text-xs text-danger hover:underline font-bold px-2 py-1 rounded bg-danger/10 hover:bg-danger/20 border border-danger/30 transition-colors btn-delete-user">삭제</button>`
                     }
                     </td>
                 `;
+
+                // 안전한 이벤트 리스너 바인딩 (인라인 onclick 제거)
+                const pwInput = tr.querySelector('.input-user-pw');
+                const btnPw = tr.querySelector('.btn-update-pw');
+                if (btnPw && pwInput) {
+                    btnPw.addEventListener('click', () => {
+                        window.updateUserPassword(u.Username, pwInput.value);
+                    });
+                    pwInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            window.updateUserPassword(u.Username, pwInput.value);
+                        }
+                    });
+                }
+                const btnDist = tr.querySelector('.btn-dist-pkg');
+                if (btnDist) {
+                    btnDist.addEventListener('click', () => {
+                        window.createDistributionPackage(u.Username);
+                    });
+                }
+                const btnDel = tr.querySelector('.btn-delete-user');
+                if (btnDel) {
+                    btnDel.addEventListener('click', () => {
+                        window.deleteUserAccount(u.Username);
+                    });
+                }
+
                 tbody.appendChild(tr);
             });
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-danger font-bold">${error}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-danger font-bold">${escapeHtml(String(error))}</td></tr>`;
         }
     }
 
-    window.updateUserPassword = async (username) => {
-        const input = document.getElementById(`pw_${username}`);
-        const pw = input.value;
+    window.updateUserPassword = async (username, directPw) => {
+        let pw = directPw;
+        if (typeof pw !== 'string' || !pw) {
+            const input = document.getElementById(`pw_${username}`);
+            pw = input ? input.value : '';
+        }
         if (!pw) {
             alert('새 비밀번호를 입력하세요.');
             return;
