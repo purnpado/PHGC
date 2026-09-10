@@ -1,9 +1,9 @@
-# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
+﻿# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
-    [string]$Notes = "Bug fixes and UI cleanup",
-    [string]$Version = "1.2.5",
+    [string]$Notes = "원서대장 한 페이지 자동 맞춤(Auto-Fit) 및 입력 보안 강화, 사용설명서 현행화",
+    [string]$Version = "1.3.0",
     [switch]$SkipBindings,
     [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
     [switch]$UploadGiteaRelease  # Gitea에도 바이너리 릴리즈 업로드할 때 사용
@@ -84,10 +84,25 @@ $versionedExePath = "build\bin\$versionedExeName"
 Copy-Item $exePath $versionedExePath -Force
 Write-Host ">>> 버전 명시 파일 생성: $versionedExePath" -ForegroundColor Green
 
+# 압축 배포 파일 생성 (PHGC_v1.3.0.zip 및 PHGC.zip)
+$versionedZipName = "PHGC_v$newVer.zip"
+$versionedZipPath = "build\bin\$versionedZipName"
+$standardZipName = "PHGC.zip"
+$standardZipPath = "build\bin\$standardZipName"
+
+if (Test-Path $versionedZipPath) { Remove-Item $versionedZipPath -Force }
+if (Test-Path $standardZipPath) { Remove-Item $standardZipPath -Force }
+
+Compress-Archive -Path $exePath -DestinationPath $versionedZipPath -Force
+Copy-Item $versionedZipPath $standardZipPath -Force
+Write-Host ">>> 압축 배포 파일 생성 완료 ($versionedZipName, $standardZipName)" -ForegroundColor Green
+
 # server-data 폴더에도 복사
 Copy-Item $exePath "server-data\PHGC.exe" -Force
 Copy-Item $versionedExePath "server-data\$versionedExeName" -Force
-Write-Host ">>> server-data 폴더 복사 완료 (PHGC.exe & $versionedExeName)" -ForegroundColor Green
+Copy-Item $versionedZipPath "server-data\$versionedZipName" -Force
+Copy-Item $standardZipPath "server-data\$standardZipName" -Force
+Write-Host ">>> server-data 폴더 복사 완료 (EXE & ZIP)" -ForegroundColor Green
 
 # ===== 4. Git 커밋 & 태그 & 푸시 =====
 Write-Host ">>> Git 커밋 및 GitHub/Gitea 양방향 푸시 중..." -ForegroundColor Cyan
@@ -100,7 +115,8 @@ $commonReleaseBody = @"
 $Notes
 
 ### 다운로드 안내
-- **공식 실행 파일**: 아래 Assets 항목의 **$versionedExeName** (또는 `PHGC.exe`)를 다운로드하여 실행하시면 됩니다.
+- **단일 실행 파일**: 아래 Assets 항목의 **$versionedExeName** (또는 `PHGC.exe`)를 다운로드하여 바로 실행하실 수 있습니다.
+- **압축 배포 파일**: 압축 해제 후 사용하실 경우 **$versionedZipName** (또는 `PHGC.zip`)를 다운로드하시면 됩니다.
 - 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
 "@
 
@@ -193,7 +209,7 @@ if (-not $SkipGitHubRelease) {
             $newRel = Invoke-RestMethod -Uri "https://api.github.com/repos/$ghOwner/$ghRepo/releases" -Headers $headers -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($payload)) -ContentType "application/json; charset=utf-8"
             $relId = $newRel.id
 
-            # 1. 버전 명시 파일 업로드 (예: PHGC_v1.2.2.exe)
+            # 1. 버전 명시 파일 업로드 (예: PHGC_v1.3.0.exe)
             $uploadUrlVersioned = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=$versionedExeName"
             $absVersionedExe = (Resolve-Path $versionedExePath).Path
             & curl.exe -s -S -X POST "$uploadUrlVersioned" `
@@ -213,6 +229,26 @@ if (-not $SkipGitHubRelease) {
                 --data-binary "@$absExe" > $null
             Write-Host ">>> GitHub Releases (PHGC.exe) 업로드 완료!" -ForegroundColor Green
 
+            # 3. 버전 명시 압축 파일 업로드 (예: PHGC_v1.3.0.zip)
+            $uploadUrlVersionedZip = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=$versionedZipName"
+            $absVersionedZip = (Resolve-Path $versionedZipPath).Path
+            & curl.exe -s -S -X POST "$uploadUrlVersionedZip" `
+                -H "Authorization: Bearer $ghToken" `
+                -H "Accept: application/vnd.github+json" `
+                -H "Content-Type: application/zip" `
+                --data-binary "@$absVersionedZip" > $null
+            Write-Host ">>> GitHub Releases ($versionedZipName) 업로드 완료!" -ForegroundColor Green
+
+            # 4. 표준 PHGC.zip 파일 업로드
+            $uploadUrlStandardZip = "https://uploads.github.com/repos/$ghOwner/$ghRepo/releases/$relId/assets?name=$standardZipName"
+            $absStandardZip = (Resolve-Path $standardZipPath).Path
+            & curl.exe -s -S -X POST "$uploadUrlStandardZip" `
+                -H "Authorization: Bearer $ghToken" `
+                -H "Accept: application/vnd.github+json" `
+                -H "Content-Type: application/zip" `
+                --data-binary "@$absStandardZip" > $null
+            Write-Host ">>> GitHub Releases ($standardZipName) 업로드 완료!" -ForegroundColor Green
+
             Write-Host ">>> GitHub 릴리즈 링크: https://github.com/$ghOwner/$ghRepo/releases/tag/v$newVer" -ForegroundColor Green
         } else {
             Write-Host ">>> [안내] GitHub 자격 증명을 찾을 수 없어 릴리즈 바이너리 업로드는 건너뛰었습니다." -ForegroundColor Yellow
@@ -222,7 +258,7 @@ if (-not $SkipGitHubRelease) {
     }
 }
 
-# ===== 6. Gitea Release 릴리즈 노트 동기화 (GitHub 양식과 100% 일치) =====
+# ===== 6. Gitea Release 릴리즈 노트 동기화 및 바이너리/압축 에셋 업로드 =====
 try {
     Write-Host ">>> Gitea [$giteaRepo] 릴리즈 정보 동기화 중..." -ForegroundColor Cyan
     $procInfoG = New-Object System.Diagnostics.ProcessStartInfo
@@ -262,17 +298,41 @@ try {
             body = $commonReleaseBody
         } | ConvertTo-Json -Depth 5 -Compress
 
+        $gRelId = $null
         if ($gRelease -and $gRelease.id) {
+            $gRelId = $gRelease.id
             Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$($gRelease.id)" -Headers $gHeaders -Method Patch -Body ([System.Text.Encoding]::UTF8.GetBytes($gPayload)) > $null
-            Write-Host ">>> Gitea 릴리즈 노트 업데이트 완료! (ID: $($gRelease.id))" -ForegroundColor Green
+            Write-Host ">>> Gitea 릴리즈 노트 업데이트 완료! (ID: $gRelId)" -ForegroundColor Green
         } else {
             $gCreatePayload = @{
                 tag_name = "v$newVer"
                 name     = $releaseTitle
                 body     = $commonReleaseBody
             } | ConvertTo-Json -Depth 5 -Compress
-            Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $gHeaders -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($gCreatePayload)) > $null
-            Write-Host ">>> Gitea 릴리즈 신규 생성 완료!" -ForegroundColor Green
+            $createdRel = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases" -Headers $gHeaders -Method Post -Body ([System.Text.Encoding]::UTF8.GetBytes($gCreatePayload))
+            $gRelId = $createdRel.id
+            Write-Host ">>> Gitea 릴리즈 신규 생성 완료! (ID: $gRelId)" -ForegroundColor Green
+        }
+
+        if ($gRelId) {
+            # 기존 동일 에셋 삭제 후 신규 업로드
+            try {
+                $existingAssets = Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets" -Headers $gHeaders -Method Get -ErrorAction SilentlyContinue
+                foreach ($asset in $existingAssets) {
+                    Invoke-RestMethod -Uri "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets/$($asset.id)" -Headers $gHeaders -Method Delete -ErrorAction SilentlyContinue
+                }
+            } catch {}
+
+            $absVersionedExe = (Resolve-Path $versionedExePath).Path
+            $absExe = (Resolve-Path $exePath).Path
+            $absVersionedZip = (Resolve-Path $versionedZipPath).Path
+            $absStandardZip = (Resolve-Path $standardZipPath).Path
+
+            & curl.exe -s -S -X POST "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets?name=$versionedExeName" -u "$($gUser):$($gPass)" -F "attachment=@$absVersionedExe" > $null
+            & curl.exe -s -S -X POST "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets?name=PHGC.exe" -u "$($gUser):$($gPass)" -F "attachment=@$absExe" > $null
+            & curl.exe -s -S -X POST "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets?name=$versionedZipName" -u "$($gUser):$($gPass)" -F "attachment=@$absVersionedZip" > $null
+            & curl.exe -s -S -X POST "$giteaURL/api/v1/repos/$giteaOwner/$giteaRepo/releases/$gRelId/assets?name=$standardZipName" -u "$($gUser):$($gPass)" -F "attachment=@$absStandardZip" > $null
+            Write-Host ">>> Gitea 바이너리 및 압축 파일 에셋 ($versionedExeName, PHGC.exe, $versionedZipName, $standardZipName) 업로드 완료!" -ForegroundColor Green
         }
     }
 } catch {
