@@ -302,7 +302,7 @@ function showModalPrompt(optionsOrMessage, defaultVal = '', titleText = '입력'
                 </div>
                 <div class="mb-6">
                     <input id="modalPromptInput" type="${isPassword ? 'password' : 'text'}"
-                           class="w-full px-4 py-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl text-white placeholder:text-slate-500 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                           class="w-full px-4 py-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl text-white placeholder-slate-500 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
                            placeholder="${escapeAttr(placeholder || '내용을 입력하세요')}" value="${escapeAttr(String(defaultValue || ''))}" />
                 </div>
                 <div class="flex items-center justify-center gap-3">
@@ -2452,7 +2452,7 @@ async function renderStudentList(students, classNum) {
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </span>
                     <input id="dashboardStudentSearchInput" type="text"
-                           class="w-full pl-9 pr-7 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
+                           class="w-full pl-9 pr-7 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
                            placeholder="번호(1, 15) 또는 이름 검색..." />
                     <button id="clearDashboardSearchBtn" class="absolute inset-y-0 right-0 items-center pr-2.5 text-slate-400 hover:text-white cursor-pointer text-xs font-bold hidden" title="검색 지우기">✕</button>
                 </div>
@@ -6103,7 +6103,7 @@ async function openMatrixModal(classNum = null) {
                         <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-xl border border-slate-700 text-xs shadow-xs">
                             <span class="text-slate-400">🔍</span>
                             <input type="text" id="matrixSearchInput" placeholder="학생 성명 또는 학번 검색 (예: 강감찬, 1, 101)" 
-                                   class="bg-transparent text-white placeholder:text-slate-500 font-medium text-xs outline-none w-44 sm:w-64" />
+                                   class="bg-transparent text-white placeholder-slate-500 font-medium text-xs outline-none w-44 sm:w-64" />
                             <button id="clearMatrixSearchBtn" class="text-slate-400 hover:text-white text-xs cursor-pointer hidden">✕</button>
                         </div>
 
