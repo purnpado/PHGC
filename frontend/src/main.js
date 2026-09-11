@@ -375,6 +375,10 @@ function renderFirstRunScreen() {
                     <div class="font-bold text-white text-base">📦 학년부장 배포자료 가져오기</div>
                     <p class="text-xs text-slate-300 mt-2">담임·진로부장이 받은 <strong>.phgcpkg</strong> 파일을 적용합니다. 적용 후 본인 초기 비밀번호로 로그인합니다.</p>
                 </button>
+                <button id="firstRunPasswordResetBtn" type="button" class="rounded-xl border border-sky-500/50 bg-sky-500/10 p-5 text-left hover:bg-sky-500/20 transition-colors">
+                    <div class="font-bold text-white text-base">🔑 비밀번호 재설정 파일 가져오기</div>
+                    <p class="text-xs text-slate-300 mt-2">학년부장에게 받은 <strong>.phgcreset</strong> 파일을 적용합니다. 기존 학급 작업 데이터는 그대로 보존됩니다.</p>
+                </button>
                 <button id="firstRunArchiveImportBtn" type="button" class="rounded-xl border border-amber-500/50 bg-amber-500/10 p-5 text-left hover:bg-amber-500/20 transition-colors">
                     <div class="font-bold text-white text-base">🗄️ 암호화 최종 보관본 복원</div>
                     <p class="text-xs text-slate-300 mt-2">학년부장이 보관한 <strong>.phgcarchive</strong>를 새 프로그램 폴더에 복원합니다.</p>
@@ -392,13 +396,29 @@ function renderFirstRunScreen() {
             button.textContent = '배포자료 적용 중...';
             const username = await window.go.main.App.OpenDistributionPackage();
             if (!username) return;
-            alert(`'${username}' 계정의 배포자료를 적용했습니다.\n공용 데이터 암호와 학년부장이 정한 초기 비밀번호로 로그인하세요.`);
+            await showModalAlert(`'${username}' 계정의 배포자료를 적용했습니다.\n(기존 학급의 상담 일지와 희망학교 데이터도 안전하게 보존되었습니다)\n\n공용 데이터 암호와 초기 비밀번호로 로그인하세요.`, '배포자료 적용 완료', 'success');
             window.location.reload();
         } catch (err) {
-            alert('배포자료 가져오기 실패: ' + err);
+            await showModalAlert('배포자료 가져오기 실패: ' + err, '오류', 'error');
         } finally {
             button.disabled = false;
             button.innerHTML = '<div class="font-bold text-white text-base">📦 학년부장 배포자료 가져오기</div><p class="text-xs text-slate-300 mt-2">담임·진로부장이 받은 <strong>.phgcpkg</strong> 파일을 적용합니다. 적용 후 본인 초기 비밀번호로 로그인합니다.</p>';
+        }
+    });
+    document.getElementById('firstRunPasswordResetBtn')?.addEventListener('click', async () => {
+        const button = document.getElementById('firstRunPasswordResetBtn');
+        try {
+            button.disabled = true;
+            button.textContent = '재설정 파일 적용 중...';
+            const username = await window.go.main.App.OpenPasswordResetPackage();
+            if (!username) return;
+            await showModalAlert(`'${username}' 계정의 비밀번호 재설정 파일을 적용했습니다.\n기존 학급 상담 데이터는 안전하게 보존되며, 새 비밀번호로 로그인하세요.`, '비밀번호 재설정 완료', 'success');
+            window.location.reload();
+        } catch (err) {
+            await showModalAlert('비밀번호 재설정 파일 적용 실패: ' + err, '오류', 'error');
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<div class="font-bold text-white text-base">🔑 비밀번호 재설정 파일 가져오기</div><p class="text-xs text-slate-300 mt-2">학년부장에게 받은 <strong>.phgcreset</strong> 파일을 적용합니다. 기존 학급 작업 데이터는 그대로 보존됩니다.</p>';
         }
     });
     document.getElementById('firstRunArchiveImportBtn').addEventListener('click', async () => {
@@ -416,10 +436,10 @@ function renderFirstRunScreen() {
             const path = await window.go.main.App.OpenFinalArchive();
             if (!path) return;
             const school = await window.go.main.App.ImportFinalArchive(path, password);
-            alert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`);
+            await showModalAlert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`, '복원 완료', 'success');
             window.location.reload();
         } catch (err) {
-            alert('최종 보관본 복원 실패: ' + err);
+            await showModalAlert('최종 보관본 복원 실패: ' + err, '오류', 'error');
         } finally {
             button.disabled = false;
             button.innerHTML = '<div class="font-bold text-white text-base">🗄️ 암호화 최종 보관본 복원</div><p class="text-xs text-slate-300 mt-2">학년부장이 보관한 <strong>.phgcarchive</strong>를 새 프로그램 폴더에 복원합니다.</p>';
@@ -2405,7 +2425,7 @@ async function renderStudentList(students, classNum) {
                 if (!confirmed) return;
 
                 try {
-                    await window.go.main.App.DeleteApplication(cNum, sNum, sName, cat, school, track);
+                    await window.go.main.App.DeleteStudentApplication(cNum, sNum, sName, cat, school, track);
                     await showModalAlert(`'${sName}' 학생의 [${school}] 지원 기록이 삭제되었습니다.`, '삭제 완료', 'success');
                     if (window.refreshCurrentClass) {
                         window.refreshCurrentClass();
@@ -6941,7 +6961,12 @@ async function renderLoginScreen(schoolName) {
                         <button type="button" id="distributionPackageImportBtn" 
                                 class="group w-full py-2.5 px-4 rounded-xl border border-emerald-500/40 bg-emerald-950/25 hover:bg-emerald-900/40 hover:border-emerald-400/70 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
                             <span class="text-base group-hover:scale-110 transition-transform">📦</span>
-                            <span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기</span>
+                            <span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기 (.phgcpkg)</span>
+                        </button>
+                        <button type="button" id="passwordResetImportBtn" 
+                                class="group w-full py-2.5 px-4 rounded-xl border border-sky-500/40 bg-sky-950/25 hover:bg-sky-900/40 hover:border-sky-400/70 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
+                            <span class="text-base group-hover:scale-110 transition-transform">🔑</span>
+                            <span class="font-bold text-sky-300 text-xs tracking-wide">비밀번호 재설정 파일 가져오기 (.phgcreset)</span>
                         </button>
                         <button type="button" id="finalArchiveImportBtn" 
                                 class="group w-full py-2.5 px-4 rounded-xl border border-amber-500/30 bg-amber-950/15 hover:bg-amber-900/30 hover:border-amber-400/60 transition-all duration-200 flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-[0.99]">
@@ -6985,12 +7010,29 @@ async function renderLoginScreen(schoolName) {
                 accountSelect.value = username;
                 await refreshSharedPasswordRequirement();
                 document.getElementById('loginPassword').focus();
-                alert(`'${username}' 계정의 배포 자료를 적용했습니다.\n학년부장에게 받은 공용 데이터 암호와 초기 비밀번호로 처음 로그인하세요.`);
+                await showModalAlert(`'${username}' 계정의 배포 자료를 성공적으로 적용했습니다.\n(기존에 작성하신 상담 일지와 희망학교 데이터도 안전하게 보존되었습니다)\n\n학년부장에게 받은 공용 데이터 암호와 초기 비밀번호로 처음 로그인하세요.`, '배포 자료 적용 완료', 'success');
             } catch (err) {
-                alert('배포 자료 가져오기 실패: ' + err);
+                await showModalAlert('배포 자료 가져오기 실패: ' + err, '오류', 'error');
             } finally {
                 button.disabled = false;
-                button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">📦</span><span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기</span>';
+                button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">📦</span><span class="font-bold text-emerald-300 text-xs tracking-wide">학년부장 배포 자료 가져오기 (.phgcpkg)</span>';
+            }
+        });
+
+        document.getElementById('passwordResetImportBtn')?.addEventListener('click', async () => {
+            const button = document.getElementById('passwordResetImportBtn');
+            try {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner" style="width:12px;height:12px;border-width:1.5px;"></span> <span class="text-xs font-bold text-sky-200">재설정 파일 확인 중...</span>';
+                const username = await window.go.main.App.OpenPasswordResetPackage();
+                if (!username) return;
+                await showModalAlert(`'${username}' 계정의 비밀번호 재설정 파일이 성공적으로 적용되었습니다.\n기존 학급 상담 데이터는 안전하게 보존되며, 학년부장이 설정한 새 비밀번호로 로그인해 주세요.`, '비밀번호 재설정 완료', 'success');
+                window.location.reload();
+            } catch (err) {
+                await showModalAlert('비밀번호 재설정 파일 적용 실패: ' + err, '오류', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">🔑</span><span class="font-bold text-sky-300 text-xs tracking-wide">비밀번호 재설정 파일 가져오기 (.phgcreset)</span>';
             }
         });
 
