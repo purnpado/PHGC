@@ -6745,33 +6745,37 @@ function getTeacherGuideHTML() {
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
                     <span>1️⃣</span> 1단계: 배포 자료(.phgcpkg) 적용 및 안전 로그인
                 </h3>
-                <p class="text-slate-300">
-                    • 학년부장 선생님께 전달받은 학급 패키지 파일(<strong>.phgcpkg</strong>)을 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
-                    • 본인 학급(예: 3반 담임)을 선택하고, 학년부장이 안내한 공용 데이터 암호와 개인 비밀번호를 입력하여 안전하게 접속합니다.
+                <p class="text-slate-300 leading-relaxed">
+                    • <strong>배포 패키지 적용:</strong> 학년부장 선생님께 전달받은 학급 패키지 파일(<strong>.phgcpkg</strong>)을 로그인 화면의 <strong>[📦 학년부장 배포 자료 가져오기]</strong> 버튼을 눌러 적용합니다.<br>
+                    • <strong>상담 이력 자동 보존·병합:</strong> 학기 중 학년부장 배포 자료를 새로 다시 받더라도, <strong>기존에 담임이 입력해 둔 상담일지·희망학교·메모는 100% 안전하게 자동 보존</strong>됩니다.<br>
+                    • <strong>안전 접속 및 초기 비밀번호:</strong> 본인 학급을 선택하고 접속합니다. 초기 비밀번호는 학급번호(예: 3반은 301)로 바로 로그인 가능합니다.<br>
+                    • <strong>비밀번호 재설정 파일(.phgcreset) 지원:</strong> 비밀번호를 분실했을 경우, 학년부장에게 발급받은 재설정 파일을 <strong>[🔑 재설정 파일 가져오기]</strong> 버튼으로 불러와 즉시 복구할 수 있습니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 학급 진학 현황, 신호등 매트릭스 및 스마트 통계
+                    <span>2️⃣</span> 2단계: 학급 진학 현황, 1:1 프라이버시 대시보드 및 통계
                 </h3>
-                <p class="text-slate-300">
-                    • <strong>일반계고 합격 예측:</strong> 전교 석차백분율(%) 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 한눈에 확인합니다.<br>
-                    • <strong>전기 고교 지원가능 신호등:</strong> 마이스터고 및 특성화고의 합격선 대비 지원 가능 여부가 카드별로 자동 계산됩니다.<br>
-                    • <strong>📊 신호등 매트릭스:</strong> [📊 신호등 매트릭스] 버튼으로 우리 반 전체 학생의 관내 전기고교 지원 가능 여부를 한 장의 종합 표로 비교·출력할 수 있습니다.<br>
-                    • <strong>👥 스마트 우리 반 통계:</strong> [우리 반 통계] 버튼을 누르면 학교-전형-학과별로 통합된 <strong>1~5지망 가로 뱃지</strong>가 제공되며, 뱃지 클릭 시 <strong>해당 지원 학생 명단(번호, 이름, 지망, 점수, 상태)이 즉시 팝업</strong>됩니다.
+                <p class="text-slate-300 leading-relaxed">
+                    • <strong>🔒 1:1 프라이버시 상담 모드:</strong> 대시보드 상단 검색창에 학생 번호(예: 1, 15) 또는 이름을 입력하면 해당 학생만 화면에 단독 표시되어, <strong>학부모·학생 대면 상담 중 타 학생의 점수나 지망이 노출되지 않는 안심 상담 환경</strong>을 제공합니다.<br>
+                    • <strong>다차원 실시간 정렬:</strong> 번호순, 성명 가나다순, 일반계고 안정순/위험순, 마이스터고 유망순 등으로 학생 목록을 자유롭게 정렬할 수 있습니다.<br>
+                    • <strong>희망학교 원클릭 즉시 삭제([✕]):</strong> 대시보드 목록의 희망학교 배지 옆 <strong>[✕] 버튼</strong>을 눌러 상담 모달을 열지 않고도 지망 학교를 즉시 취소·삭제할 수 있습니다.<br>
+                    • <strong>전교 석차 스냅샷 기반 일반계고 합격 예측:</strong> 학년부장이 배포한 전교 석차 스냅샷을 기반으로 전교 석차백분율(%) 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 정확하게 제공합니다.<br>
+                    • <strong>📊 신호등 매트릭스 & 👥 우리 반 통계:</strong> [📊 신호등 매트릭스]로 전체 학생의 전기고 합격 가능성을 종합 비교하고, [우리 반 통계]에서 지망별 뱃지를 클릭하여 지원자 명단을 즉시 확인합니다.
                 </p>
             </div>
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
-                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (최신 1/3/5년 평균 입결 및 공식 공개자료 비교)
+                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (다각도 입결 비교 & 학과 중복 방지)
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • 학생 성명 또는 <strong>[🎯 진학 상담]</strong> 버튼을 클릭하여 개인별 심층 상담창을 엽니다.<br>
-                    • <strong>다각도 합격선 비교 탭:</strong> [🎯 직전 1개년], [📊 최근 3년 평균], [📈 최근 5년 평균] 탭과 함께 교육청/고교가 발표한 <strong>공식 최고점·평균점·최저점 3대 합격선</strong>을 비교하며 합격 가능성을 정밀 진단합니다.<br>
-                    • <strong>희망학교 및 학과 지망 등록:</strong> 1~5지망 학과를 선택하고 저장합니다. 합격 발표 후에는 <strong>실제 최종 합격(배정)된 학과를 필수로 지정</strong>하여 원서대장에 정확히 반영되도록 합니다.<br>
-                    • <strong>상담표 인쇄:</strong> 상담창 상단의 [📄 진학 상담 결과표] 버튼으로 학부모 상담용 A4 상담표를 즉시 인쇄/PDF 저장할 수 있습니다.
+                    • <strong>다각도 합격선 비교:</strong> [🎯 직전 1개년], [📊 최근 3년 평균], [📈 최근 5년 평균] 탭과 <strong>공식 최고점·평균점·최저점</strong>을 대조하여 합격 가능성을 정밀 진단합니다.<br>
+                    • <strong>학과 지망 중복 방지 실시간 비활성화:</strong> 1~5지망 선택 시 이미 선택된 학과는 다른 지망 드롭다운에서 자동으로 비활성화(회색)되어 중복 접수 실수를 원천 방지합니다.<br>
+                    • <strong>합격(배정) 학과 최종 지정:</strong> 고교 합격자 발표 후 실제 배정된 학과를 지정하여 원서대장에 정확히 반영합니다.<br>
+                    • <strong>A4 상담표 인쇄:</strong> [📄 진학 상담 결과표] 버튼으로 학부모 상담용 A4 상담표를 즉시 출력하거나 PDF로 저장합니다.
                 </p>
             </div>
 
@@ -6779,7 +6783,7 @@ function getTeacherGuideHTML() {
                 <h3 class="font-bold text-cyan-300 text-base mb-2 flex items-center gap-2">
                     <span>4️⃣</span> 4단계: 우리 반 고입원서대장 검토 & 배정고 입력 & 담임 결재
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • <strong>공식 표준 원서대장 서식:</strong> 상단의 [🖨️ 원서대장] 버튼을 누르면 대한민국 학교 공식 한글(HWP) 양식의 정갈한 A4 대장이 열립니다.<br>
                     • <strong>내신총점(취득점/만점):</strong> 울산마이스터고(/300), 울산에너지고(/230), 현대공업고(/200), 특성화고(/100), 일반고(%) 등 전형별 만점 대비 취득 점수가 정확히 표기됩니다.<br>
                     • <strong>후기 일반고 배정고 인라인 즉시 입력:</strong> 1월 말 일반고 배정 발표 후, 대장 화면에서 배정학교 칸을 클릭하여 학교명(예: 울산고)을 타이핑하면 즉시 DB에 영구 저장됩니다.<br>
@@ -6791,7 +6795,7 @@ function getTeacherGuideHTML() {
                 <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
                     <span>5️⃣</span> 5단계: 변경분 취합자료(.phgcpatch) 학년부장 제출
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • 2학기 출결(미인정 결석/지각)이나 추가 봉사시간, 리더십 가산점을 상담창에서 수기 반영합니다.<br>
                     • 학급 상담이 마무리되면 화면 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 공용 암호로 암호화된 변경분 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 전달합니다.
                 </p>
@@ -6818,7 +6822,7 @@ function getMasterGuideHTML() {
                 <h3 class="font-bold text-indigo-300 text-base mb-2 flex items-center gap-2">
                     <span>1️⃣</span> 1단계: 학교 기초 설정, 입학년도 관리 & 공용 암호 관리
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • 최초 실행 시 학교명, 3학년 전체 학급 수, 고교 입학년도(예: 2026학년도 입학)를 설정합니다.<br>
                     • 담임교사 PC와 안전하게 오프라인 암호화 통신을 수행하기 위한 <strong>[공용 데이터 잠금 암호]</strong>를 지정합니다.
                 </p>
@@ -6828,7 +6832,7 @@ function getMasterGuideHTML() {
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
                     <span>2️⃣</span> 2단계: 나이스 엑셀 연동 및 공식 공개 입결자료 등록
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • 관리자 대시보드에서 나이스 출력 엑셀(<strong>교과성적, 출결, 봉사활동</strong>) 3종을 업로드하여 전교생 데이터를 연동합니다.<br>
                     • <strong>📊 공식 공개 입결자료 등록:</strong> [공식 공개자료 추가] 버튼으로 관내 고교별 <strong>최신 개편 학과명</strong>과 전형(일반/특별), <strong>최고점·평균점·최저점 3대 합격 지표</strong>를 등록하여 상담의 공신력을 극대화합니다.<br>
                     • <strong>타교 커트라인 다중 파일 일괄 병합:</strong> [관내자료 병합] 시 여러 학교의 <strong>.phgcdata</strong> 파일을 한꺼번에 다중 선택하여 1초 만에 일괄 병합할 수 있습니다.
@@ -6837,11 +6841,12 @@ function getMasterGuideHTML() {
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
-                    <span>3️⃣</span> 3단계: 담임교사용 배포 패키지(.phgcpkg) 생성 및 배포
+                    <span>3️⃣</span> 3단계: 담임교사용 배포 패키지(.phgcpkg) 생성 & 비밀번호 관리
                 </h3>
-                <p class="text-slate-300">
-                    • <strong>[사용자 및 권한 관리]</strong> 메뉴에서 각 반 담임선생님의 초기 비밀번호를 설정합니다.<br>
-                    • <strong>[배포 자료 만들기]</strong> 버튼을 눌러 학급별 패키지(<strong>.phgcpkg</strong>)를 생성하여 공용 암호와 함께 담임선생님께 전달합니다.
+                <p class="text-slate-300 leading-relaxed">
+                    • <strong>전교 석차 스냅샷 자동 내장:</strong> 학급 배포 파일(<strong>.phgcpkg</strong>) 생성 시 전교생 석차백분율 스냅샷이 암호화 패키지에 자동 내장되어, 담임 PC에서도 학년부장 화면과 100% 동일한 전교 백분율이 산출됩니다.<br>
+                    • <strong>비밀번호 재설정 파일(.phgcreset) 발급:</strong> 담임선생님이 비밀번호를 분실했을 경우, [사용자 관리]에서 비밀번호를 재설정한 뒤 <strong>[비밀번호 재설정 파일 저장]</strong> 버튼으로 발급하여 안전하게 전달할 수 있습니다.<br>
+                    • <strong>[배포 자료 만들기]:</strong> 학급별 패키지 파일(<strong>.phgcpkg</strong>)을 생성하여 공용 암호와 함께 각 반 담임선생님께 전달합니다.
                 </p>
             </div>
 
@@ -6849,7 +6854,7 @@ function getMasterGuideHTML() {
                 <h3 class="font-bold text-sky-300 text-base mb-2 flex items-center gap-2">
                     <span>4️⃣</span> 4단계: 담임교사 취합 자료 '다중 파일 일괄 병합 (1초 완료)'
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • 담임선생님들이 상담 후 제출한 패치 파일(<strong>.phgcpatch</strong>)들을 수신합니다.<br>
                     • 관리자 도구 바의 <strong>[📥 취합자료병합]</strong> 버튼을 클릭하고 파일 선택 창에서 <strong>Ctrl 또는 Shift 키로 전 학급 파일을 한꺼번에 다중 선택</strong>합니다.<br>
                     • 1초 만에 전 학급의 변경 내역(출결, 봉사, 가산점, 지망학교)이 한 번에 검토 화면으로 로드되어 간편하게 승인·병합됩니다.
@@ -6860,6 +6865,7 @@ function getMasterGuideHTML() {
                 <h3 class="font-bold text-purple-300 text-base mb-2 flex items-center gap-2">
                     <span>5️⃣</span> 5단계: 전교 스마트 통계 분석 및 공식 고입원서대장 반별 분할 출력
                 </h3>
+                <p class="text-slate-300 leading-relaxed">
                     • <strong>[📊 신호등 매트릭스]:</strong> 3학년 전교생 또는 학급별 관내 10대 직업계고 및 후기 일반고 합격 가능성을 한눈에 조회하며, 검색 및 다차원 정렬(내신순, 고교별 점수순 등)을 지원합니다.<br>
                     • <strong>[🏫 우리학교 지원현황]:</strong> 학교-전형-학과별 1줄 요약과 1~5지망 가로 뱃지 통계를 제공하며, 클릭 시 전교 지원 학생 명단이 즉시 팝업됩니다.<br>
                     • <strong>[🖨️ 공식 고입원서대장]:</strong><br>
@@ -6874,7 +6880,7 @@ function getMasterGuideHTML() {
                 <h3 class="font-bold text-rose-300 text-base mb-2 flex items-center gap-2">
                     <span>6️⃣</span> 6단계: 입시 확정, 최종 암호화 보관본 생성 및 차년도 전환
                 </h3>
-                <p class="text-slate-300">
+                <p class="text-slate-300 leading-relaxed">
                     • <strong>[🔒 입시 결과 확정]:</strong> 모든 고입 전형 종료 후 결과를 확정하여 당해 연도 최종 커트라인을 통계에 반영합니다.<br>
                     • <strong>[🗄️ 최종 보관본 생성]:</strong> 감사 및 차후 조회를 위한 100% 암호화 백업 아카이브를 생성합니다.<br>
                     • <strong>[📅 새 학년도 전환]:</strong> 졸업생 개인정보를 안전하게 비우고, 다음 학년도(예: 2027학년도 입학)로 5개년 커트라인 기준을 한 칸씩 자동 시프트(Shift)하여 완벽한 인수인계를 준비합니다.
