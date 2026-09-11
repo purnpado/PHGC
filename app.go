@@ -1677,6 +1677,8 @@ func (a *App) ImportTeacherPatch(password, inputPath string) (int, error) {
 			}
 		}
 	}
+	// 담임 취합자료 병합 후 전교 석차 스냅샷 최신 갱신
+	_ = a.UpdateSchoolRankSnapshots()
 	return len(patch.Changes), nil
 }
 
@@ -1734,6 +1736,8 @@ func (a *App) ImportTeacherPatchSelected(password, inputPath string, selections 
 	if applied == 0 {
 		return 0, fmt.Errorf("병합할 변경 항목을 하나 이상 선택해주세요")
 	}
+	// 취합 항목 병합 후 전교 석차 스냅샷 최신 갱신
+	_ = a.UpdateSchoolRankSnapshots()
 	return applied, nil
 }
 
