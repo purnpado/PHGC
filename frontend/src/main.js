@@ -3437,7 +3437,7 @@ async function openApplicationSummaryModal() {
 }
 
 // ===== 학생별 지원·합격 결과 (학교 내부 암호화 DB 전용) =====
-async function openStudentApplicationModal(classNum, studentNum, name) {
+async function openStudentApplicationModal(classNum, studentNum, name, preset = null) {
     document.getElementById('studentApplicationModal')?.remove();
     const modal = document.createElement('div');
     modal.id = 'studentApplicationModal';
@@ -3575,12 +3575,64 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         const paddedPrefs = Array.from({ length: count }, (_, i) => preferences[i] || '');
         return `<p class="text-sm font-bold mb-2">학과 지망 <span class="text-text-muted font-normal">(다른 지망에 선택된 학과는 비활성화됩니다)</span></p><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${paddedPrefs.map((selected, i) => `<select class="input-field app-pref text-sm">${departmentOptions(schoolName, selected, `${i + 1}지망`, paddedPrefs, i)}</select>`).join('')}</div><label class="text-sm font-bold block mt-3">최종 배정 학과<select id="appAssigned" class="input-field mt-1 w-full text-sm">${departmentOptions(schoolName, assignedDepartment, '최종 배정 학과 선택')}</select></label>`;
     };
+
+    let activePreset = preset; // 1회성 적용용
+
     const render = async (selectedIndex = 0) => {
         const records = await withFallback(
             () => window.go?.main?.App?.GetStudentApplications?.(classNum, studentNum, name),
             [],
         );
-        const record = records[selectedIndex] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '지원희망', preferences: [] };
+
+        let workingRecords = [...records];
+        let activeIdx = selectedIndex;
+
+        // [관심학교 -> 희망원서 자동 등록 연동 프리셋 처리]
+        if (activePreset) {
+            const rawSch = activePreset.schoolName || '';
+            const matchSchool = catalog.find(s => normalizedSchoolName(s.name) === normalizedSchoolName(rawSch));
+            const exactSchoolName = matchSchool ? matchSchool.name : rawSch;
+            let cat = activePreset.category || 'meister';
+            if (matchSchool) {
+                const t = String(matchSchool.type || '').toLowerCase();
+                if (t.includes('meister') || t.includes('마이스터')) cat = 'meister';
+                else if (t.includes('special') || t.includes('특성화')) cat = 'special';
+                else if (t.includes('self_foreign')) cat = 'self_foreign';
+                else if (t.includes('general') || t.includes('일반')) cat = 'general';
+            }
+
+            const rawTrk = activePreset.track || '';
+            const cleanTrack = rawTrk.includes('특별') ? '특별' : (rawTrk.includes('취업') ? '취업희망자' : '일반');
+
+            const presetRecord = {
+                admissionYear: new Date().getFullYear() + 1,
+                category: cat,
+                schoolName: exactSchoolName,
+                track: cleanTrack,
+                status: '지원희망', // 요구사항: 지원상태는 '지원희망'으로 자동화!
+                score: activePreset.score || 0,
+                scoreBasis: activePreset.scoreBasis || (activePreset.score ? `${exactSchoolName} 산출 점수 연동` : ''),
+                preferences: [],
+                assignedDepartment: '',
+                assignedSchool: '',
+                isPresetItem: true
+            };
+
+            // 이미 동일 학교/전형 지원 이력이 있는 경우 해당 탭 선택, 없으면 새 지원 추가
+            const existingIdx = workingRecords.findIndex(r =>
+                normalizedSchoolName(r.schoolName) === normalizedSchoolName(exactSchoolName) &&
+                (r.track === cleanTrack || (!r.track && cleanTrack === '일반'))
+            );
+            if (existingIdx !== -1) {
+                activeIdx = existingIdx;
+            } else {
+                workingRecords.push(presetRecord);
+                activeIdx = workingRecords.length - 1;
+            }
+            activePreset = null; // 1회 적용 후 해제
+        }
+
+        const record = workingRecords[activeIdx] || { admissionYear: new Date().getFullYear() + 1, category: 'meister', status: '지원희망', preferences: [] };
         const isGeneral = record.category === 'general';
         const isNone = record.category === 'none';
         const isOther = record.category === 'other';
@@ -3601,7 +3653,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
         );
         let isLocked = isRecordFinalized;
 
-        const list = records.length ? records.map((r, i) => {
+        const listTabs = workingRecords.map((r, i) => {
             const isRecNone = r.category === 'none';
             const nameLabel = isRecNone ? '미진학' : (r.schoolName || (r.category === 'general' ? (r.assignedSchool ? `일반고[${r.assignedSchool}]` : '후기 일반고') : '기타'));
             const trackPart = ['meister', 'special'].includes(r.category) ? formatTrack(r.track) : '';
@@ -3609,8 +3661,17 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             const isRecPassed = ['합격', '최종 진학', '최종진학'].includes((r.status || '').trim());
             const isRecFin = isRecPassed && ((['meister', 'special'].includes(r.category) && !!r.assignedDepartment) || (r.category === 'general' && !!r.assignedSchool) || (!['meister', 'special', 'general'].includes(r.category)));
             const lockIcon = isRecFin ? '🔒 ' : '';
-            return `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold ${i === selectedIndex ? 'bg-primary text-white' : 'bg-slate-800 text-text-muted'}" data-index="${i}">${lockIcon}${nameLabel}${trackPart} · ${statusPart}</button>`;
-        }).join('') : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
+            const presetBadge = r.isPresetItem ? '✨ ' : '';
+            return `<button class="app-record-tab px-3 py-2 rounded-lg text-xs font-bold transition-all ${i === activeIdx ? 'bg-primary text-white shadow-md' : 'bg-slate-800 text-text-muted hover:text-white'}" data-index="${i}">${presetBadge}${lockIcon}${nameLabel}${trackPart} · ${statusPart}</button>`;
+        }).join('');
+
+        const addNewTabBtn = canEdit ? `
+            <button id="btnAddNewApplication" class="px-3 py-2 rounded-lg text-xs font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-500/40 hover:bg-indigo-900/60 transition-colors flex items-center gap-1">
+                <span>➕</span> 새 지원 추가
+            </button>
+        ` : '';
+
+        const list = workingRecords.length || canEdit ? `<div class="flex flex-wrap gap-2 mb-5">${listTabs}${addNewTabBtn}</div>` : '<span class="text-sm text-text-muted">기록된 지원 이력이 없습니다.</span>';
 
         const statusSelectHTML = isNone
             ? '<option value="미진학" selected>미진학</option>'
@@ -3631,7 +3692,7 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
 
         modal.innerHTML = `
           <div class="glass-card p-7 w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-start gap-4 mb-5"><div><h2 class="text-2xl font-bold text-white">📝 ${escapeHtml(name)} 지원·합격 현황</h2><p class="text-sm text-text-muted mt-1">이 자료는 학급 암호화 DB와 취합자료 파일에만 저장됩니다. 중앙 서버로 전송되지 않습니다.</p></div><button id="closeApplicationModal" class="text-3xl text-text-muted">×</button></div>
-          <div class="flex flex-wrap gap-2 mb-5">${list}</div>
+          ${list}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-slate-700 p-5 bg-slate-900/40">
             ${lockedBannerHTML}
             <label class="text-sm font-bold">입학년도<input id="appYear" type="text" inputmode="numeric" value="${record.admissionYear || ''}" class="input-field mt-1 w-full" ${canEdit && !isLocked ? '' : 'disabled'}></label>
@@ -3656,8 +3717,19 @@ async function openStudentApplicationModal(classNum, studentNum, name) {
             ${canEdit ? `<button id="saveApplication" class="flex-1 btn-primary px-5 py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}" ${isLocked ? 'disabled' : ''}>💾 희망학교 저장</button>` : '<span class="text-sm text-text-muted w-full text-center">진로부장 계정은 조회 전용입니다.</span>'}
           </div></div>`;
         document.getElementById('closeApplicationModal').onclick = closeModal;
-        if (!canEdit || isLocked) modal.querySelectorAll('#appPreferenceArea select').forEach(el => { el.disabled = true; });
         modal.querySelectorAll('.app-record-tab').forEach(btn => btn.onclick = () => render(parseInt(btn.dataset.index)));
+        modal.querySelector('#btnAddNewApplication')?.addEventListener('click', () => {
+            activePreset = {
+                admissionYear: new Date().getFullYear() + 1,
+                category: 'meister',
+                schoolName: '',
+                track: '일반',
+                status: '지원희망',
+                score: 0,
+                scoreBasis: ''
+            };
+            render(workingRecords.length);
+        });
 
         // 잠금 해제 이벤트 리스너
         document.getElementById('unlockApplicationBtn')?.addEventListener('click', () => {
@@ -4164,10 +4236,28 @@ async function openStudentModal(classNum, studentNum, name) {
 // 모달 내용 렌더링
 function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs, officialItems = []) {
     const todayDate = new Date().toISOString().split('T')[0];
+
+    // 학교명 및 학과명 정규화 헬퍼
+    const normalizeSchoolName = (sch) => String(sch || '').replace(/등학교$/, '').replace(/\s+/g, '');
+    const normalizeDept = (dept) => String(dept || '').replace(/\s+/g, '');
+
+    // 학생별 관심학교(장바구니) 목록 로드
+    const wishlistKey = `phgc_wishlist_${classNum}_${studentNum}`;
+    let wishlist = [];
+    try {
+        wishlist = JSON.parse(localStorage.getItem(wishlistKey) || '[]');
+        if (!Array.isArray(wishlist)) wishlist = [];
+    } catch (_) {
+        wishlist = [];
+    }
+
     // 학교별 합격 가능성 카드 목록 생성
     let cardsHTML = '';
 
     data.schoolResults.forEach((r, rIdx) => {
+        const isMeisterSchool = ['울산마이스터', '울산에너지', '현대공업'].some(kw => r.schoolName.includes(kw));
+        const schoolCat = isMeisterSchool ? 'meister' : 'special';
+        const isAlreadyWish = wishlist.some(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(r.schoolName) && w.trackName === r.trackName);
         const officialForSchool = (officialItems || []).filter(item =>
             String(item.schoolName || '').includes(r.schoolName.substring(0, 4)) &&
             (!item.track || String(item.track).includes(r.trackName) || r.trackName.includes(String(item.track)))
@@ -4281,7 +4371,17 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         <span class="font-bold text-white text-base">${r.schoolName}</span>
                         <span class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">${r.trackName}전형</span>
                     </div>
-                    <div id="badge_${rIdx}">${initialBadge}</div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" class="btn-toggle-wishlist px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${isAlreadyWish ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-600 hover:text-white hover:border-slate-500'}"
+                                data-school="${escapeAttr(r.schoolName)}" data-track="${escapeAttr(r.trackName)}" data-score="${r.totalScore}" data-max="${r.totalMax}" data-cat="${schoolCat}" data-card="${rIdx}">
+                            <span>${isAlreadyWish ? '⭐' : '☆'}</span> <span class="wishlist-btn-text">${isAlreadyWish ? '관심 등록됨' : '관심 담기'}</span>
+                        </button>
+                        <button type="button" class="btn-direct-apply px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                                data-school="${escapeAttr(r.schoolName)}" data-track="${escapeAttr(r.trackName)}" data-score="${r.totalScore}" data-cat="${schoolCat}" title="해당 학교로 희망원서 자동 입력">
+                            <span>📝</span> 희망입력
+                        </button>
+                        <div id="badge_${rIdx}">${initialBadge}</div>
+                    </div>
                 </div>
 
                 <!-- 학과별 커트라인 선택 드롭다운 (최신 연도 기준 학과별 깔끔 표기) -->
@@ -4341,6 +4441,53 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     });
 
     const extra = data.extraData || {};
+
+    // 학생 관심학교(장바구니) HTML 생성 헬퍼
+    const renderWishlistHTML = (list) => {
+        if (!list || list.length === 0) {
+            return `
+                <div class="p-3.5 rounded-xl bg-slate-900/60 border border-dashed border-indigo-500/30 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                    <span class="text-base">📌</span>
+                    <span>아직 등록된 관심학교가 없습니다. 아래 학교 목록에서 <strong class="text-amber-300">[⭐ 관심 담기]</strong>를 누르면 여기에 추가되며, <strong class="text-indigo-300">[📝 희망학교 입력]</strong>으로 지원서에 1초 만에 자동 등록됩니다.</span>
+                </div>
+            `;
+        }
+
+        const itemsHTML = list.map(item => `
+            <div class="p-3 rounded-xl bg-slate-800/90 border border-indigo-500/40 shadow-sm flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap hover:border-indigo-400/60 transition-all">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-bold text-white text-sm flex items-center gap-1.5">
+                            <span class="text-amber-300">⭐</span> ${escapeHtml(item.schoolName)}
+                        </span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-500/40 font-semibold">
+                            ${escapeHtml(item.trackName)}전형
+                        </span>
+                        <span class="text-xs">${item.badgeHTML || ''}</span>
+                    </div>
+                    <div class="text-xs text-slate-300 flex items-center gap-2">
+                        <span>내신 환산점: <strong class="text-emerald-300 font-mono">${Number(item.totalScore).toFixed(2)}</strong> <span class="text-slate-500">/ ${item.totalMax}점</span></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0 ml-auto sm:ml-0">
+                    <button type="button" class="btn-primary text-xs px-3 py-1.5 font-bold flex items-center gap-1 shadow-sm btn-wishlist-apply cursor-pointer"
+                            data-school="${escapeAttr(item.schoolName)}" data-track="${escapeAttr(item.trackName)}" data-cat="${escapeAttr(item.category || 'meister')}" data-score="${item.totalScore}" data-max="${item.totalMax}" title="해당 학교 정보로 희망원서 자동 등록창 열기">
+                        <span>📝</span> 희망학교 입력
+                    </button>
+                    <button type="button" class="p-1.5 text-xs text-slate-400 hover:text-danger rounded hover:bg-slate-700/50 transition-colors btn-wishlist-remove cursor-pointer"
+                            data-school="${escapeAttr(item.schoolName)}" data-track="${escapeAttr(item.trackName)}" title="관심학교에서 제거">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                ${itemsHTML}
+            </div>
+        `;
+    };
 
     modalEl.innerHTML = `
         <div class="glass-card print-document p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
@@ -4442,6 +4589,25 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
                 `;
         })()}
+
+            <!-- ⭐ 학생 희망·관심학교 장바구니 영역 -->
+            <div id="studentWishlistSection" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/50 space-y-3 shadow-lg">
+                <div class="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-indigo-500/20">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🛒</span>
+                        <div>
+                            <h3 class="font-black text-sm text-indigo-200 flex items-center gap-1.5">
+                                학생 관심·희망학교 장바구니
+                                <span id="wishlistCountBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold ml-1">${wishlist.length}</span>
+                            </h3>
+                            <p class="text-[11px] text-slate-400 mt-0.5">상담 중 목표하는 고교를 장바구니에 담고, [희망학교 입력]을 누르면 원서 서식에 자동 입력됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="wishlistContainer">
+                    ${renderWishlistHTML(wishlist)}
+                </div>
+            </div>
 
             <!-- 3. 학교별 합격 가능성 리스트 -->
             <div class="space-y-3">
@@ -4913,6 +5079,152 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
     // 초기 목록 자동 로드
     loadCounselRecords();
+
+    // ===== ⭐ 관심학교 장바구니 및 희망학교 입력 원클릭 자동화 컨트롤러 =====
+    const wishlistContainer = document.getElementById('wishlistContainer');
+    const wishlistCountBadge = document.getElementById('wishlistCountBadge');
+
+    const getStoredWishlist = () => {
+        try {
+            return JSON.parse(localStorage.getItem(wishlistKey) || '[]');
+        } catch {
+            return [];
+        }
+    };
+
+    const saveStoredWishlist = (list) => {
+        try {
+            localStorage.setItem(wishlistKey, JSON.stringify(list));
+        } catch (e) {
+            console.warn('관심학교 저장 실패:', e);
+        }
+    };
+
+    const bindWishlistInnerEvents = () => {
+        if (!wishlistContainer) return;
+
+        // 1. 장바구니 내 [📝 희망학교 입력] 버튼 클릭 -> 희망학교 입력창 열고 지원학교/지원희망 자동 세팅
+        wishlistContainer.querySelectorAll('.btn-wishlist-apply').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const schoolName = btn.dataset.school || '';
+                const track = btn.dataset.track || '';
+                const category = btn.dataset.cat || 'meister';
+                const score = parseFloat(btn.dataset.score) || 0;
+
+                openStudentApplicationModal(classNum, studentNum, name, {
+                    schoolName,
+                    track,
+                    category,
+                    score,
+                    status: '지원희망'
+                });
+            });
+        });
+
+        // 2. 장바구니 내 [✕] 삭제 버튼 클릭
+        wishlistContainer.querySelectorAll('.btn-wishlist-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const schoolName = btn.dataset.school || '';
+                const track = btn.dataset.track || '';
+
+                let list = getStoredWishlist();
+                list = list.filter(item => !(item.schoolName === schoolName && item.trackName === track));
+                saveStoredWishlist(list);
+                updateWishlistUI();
+            });
+        });
+    };
+
+    const updateWishlistUI = () => {
+        const currentList = getStoredWishlist();
+        if (wishlistContainer) {
+            wishlistContainer.innerHTML = renderWishlistHTML(currentList);
+            bindWishlistInnerEvents();
+        }
+        if (wishlistCountBadge) {
+            wishlistCountBadge.textContent = currentList.length;
+        }
+
+        // 목표 고교별 카드 목록의 [⭐ 관심 담기 / 관심 등록됨] 버튼 상태 동기화
+        modalEl.querySelectorAll('.btn-toggle-wishlist').forEach(btn => {
+            const sch = btn.dataset.school || '';
+            const trk = btn.dataset.track || '';
+            const isWish = currentList.some(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(sch) && w.trackName === trk);
+            const textSpan = btn.querySelector('.wishlist-btn-text');
+            const iconSpan = btn.querySelector('span');
+
+            if (isWish) {
+                btn.className = 'btn-toggle-wishlist px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm';
+                if (iconSpan) iconSpan.textContent = '⭐';
+                if (textSpan) textSpan.textContent = '관심 등록됨';
+            } else {
+                btn.className = 'btn-toggle-wishlist px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer bg-slate-800 text-slate-300 border-slate-600 hover:text-white hover:border-slate-500';
+                if (iconSpan) iconSpan.textContent = '☆';
+                if (textSpan) textSpan.textContent = '관심 담기';
+            }
+        });
+    };
+
+    // 학교 카드 목록의 [⭐ 관심 담기 / 관심 해제] 버튼 이벤트 바인딩
+    modalEl.querySelectorAll('.btn-toggle-wishlist').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const schoolName = btn.dataset.school || '';
+            const trackName = btn.dataset.track || '';
+            const totalScore = parseFloat(btn.dataset.score) || 0;
+            const totalMax = parseFloat(btn.dataset.max) || 0;
+            const category = btn.dataset.cat || 'meister';
+            const cardIdx = btn.dataset.card;
+
+            // 현재 카드의 합격 가능성 신호등 뱃지 HTML 추출
+            const badgeEl = document.getElementById(`badge_${cardIdx}`);
+            const badgeHTML = badgeEl ? badgeEl.innerHTML : '';
+
+            let list = getStoredWishlist();
+            const existingIdx = list.findIndex(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(schoolName) && w.trackName === trackName);
+
+            if (existingIdx !== -1) {
+                list.splice(existingIdx, 1);
+            } else {
+                list.push({
+                    schoolName,
+                    trackName,
+                    totalScore,
+                    totalMax,
+                    category,
+                    badgeHTML,
+                    addedAt: new Date().toISOString()
+                });
+            }
+            saveStoredWishlist(list);
+            updateWishlistUI();
+        });
+    });
+
+    // 학교 카드 목록의 [📝 희망입력] 직행 버튼 이벤트 바인딩
+    modalEl.querySelectorAll('.btn-direct-apply').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const schoolName = btn.dataset.school || '';
+            const track = btn.dataset.track || '';
+            const category = btn.dataset.cat || 'meister';
+            const score = parseFloat(btn.dataset.score) || 0;
+
+            // 희망원서 자동 등록 모달 즉시 실행
+            openStudentApplicationModal(classNum, studentNum, name, {
+                schoolName,
+                track,
+                category,
+                score,
+                status: '지원희망'
+            });
+        });
+    });
+
+    // 장바구니 초기 내부 이벤트 바인딩
+    bindWishlistInnerEvents();
 }
 
 // ===== 전체 고교 신호등 매트릭스 모달 (단일 학급 및 전교생 종합 매트릭스 지원, 정렬/검색/학급필터 탑재) =====
