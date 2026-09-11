@@ -144,6 +144,8 @@ export function SaveDistributionPackage(arg1:string):Promise<string>;
 
 export function SaveFinalArchive(arg1:string):Promise<string>;
 
+export function SaveOfficialAdmissionData(arg1:Array<Record<string, any>>):Promise<void>;
+
 export function SavePasswordResetPackage(arg1:string):Promise<string>;
 
 export function SaveStudentApplication(arg1:main.ApplicationRecord):Promise<void>;

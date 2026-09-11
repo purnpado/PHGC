@@ -2159,10 +2159,18 @@ func (a *App) GetHighSchoolsData() (*HighSchoolData, error) {
 	return data, nil
 }
 
-// GetOfficialAdmissionData returns central operator-published material only.
-// School accounts have no save API for this data.
+// GetOfficialAdmissionData 로컬 공식 고입자료 목록 조회
 func (a *App) GetOfficialAdmissionData() (*OfficialAdmissionData, error) {
 	return a.sync.GetOfficialAdmissionData()
+}
+
+// SaveOfficialAdmissionData 로컬 공식 고입자료 저장
+func (a *App) SaveOfficialAdmissionData(items []map[string]interface{}) error {
+	if items == nil {
+		items = []map[string]interface{}{}
+	}
+	official := &OfficialAdmissionData{Items: items}
+	return a.sync.SaveOfficialAdmissionData(official)
 }
 
 // CreateUser 새 사용자 등록 (관리자, 뷰어, 담임교사 등)

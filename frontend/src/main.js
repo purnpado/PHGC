@@ -7,6 +7,11 @@ import logoUniversal from './assets/images/logo-universal.png';
 
 const app = document.querySelector('#app');
 
+// 구버전 localStorage 캐시 잔재 원천 삭제 (새 폴더 설치 시 오염 방지)
+try {
+    localStorage.removeItem('publicOfficialCutoffData');
+} catch (_) {}
+
 // 현재 로그인한 사용자 세션 (role, classNum, username 등 저장)
 window.currentUser = null;
 
@@ -1888,7 +1893,8 @@ async function renderStudentList(students, classNum) {
         window.go.main.App.GetClassCounselingSummary ? window.go.main.App.GetClassCounselingSummary(classNum).catch(() => ({})) : Promise.resolve({}),
     ]);
 
-    // 공식 공개 자료를 커트라인 형태로 정규화 및 결합
+    // 공식 공개 자료를 커트라인 형태로 정규화 및 결합 (레거시 하드코딩 잔재 배제)
+    const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
     const officialCutoffs = (officialResp?.items || []).map(item => ({
         schoolName: item.schoolName || '',
         department: item.department || '',
@@ -1896,29 +1902,14 @@ async function renderStudentList(students, classNum) {
         minValue: Number(item.minAcceptedScore || item.minValue || 0),
         year: item.admissionYear || item.year || 0,
         isOfficial: true,
-    })).filter(c => c.minValue > 0);
+    })).filter(c => {
+        if (!c.minValue || c.minValue <= 0) return false;
+        if (c.schoolName.includes('청량고')) return false;
+        if (c.schoolName.includes('마이스터') && legacyMeisterScores.includes(Number(c.minValue))) return false;
+        return true;
+    });
 
-    let localOfficials = [];
-    try {
-        const raw = localStorage.getItem('publicOfficialCutoffData');
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                localOfficials = parsed.map(item => ({
-                    schoolName: item.school || item.schoolName || '',
-                    department: item.dept || item.department || '',
-                    track: item.track || '일반전형',
-                    minValue: Number(item.min || item.minValue || 0),
-                    year: item.year || 0,
-                    isOfficial: true,
-                })).filter(c => c.minValue > 0);
-            }
-        }
-    } catch (e) {
-        console.warn(e);
-    }
-
-    const cutoffs = [...(dbCutoffs || []), ...officialCutoffs, ...localOfficials];
+    const cutoffs = [...(dbCutoffs || []), ...officialCutoffs];
     const fullByStudent = new Map((fullStudents || []).map(s => [`${s.studentNum}|${s.name}`, s]));
     const applicationRows = await Promise.all(students.map(async (s) => {
         const records = await window.go.main.App.GetStudentApplications(classNum, s.StudentNum, s.Name).catch(() => []);
@@ -2162,6 +2153,7 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
             String(s.studentNum) === String(studentNum) || s.name === studentName
         );
 
+        const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
         const officialCutoffs = (officialResp?.items || []).map(item => ({
             schoolName: item.schoolName || '',
             department: item.department || '',
@@ -2171,29 +2163,14 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
             maxValue: Number(item.maxFailedScore || item.maxValue || 0),
             year: item.admissionYear || item.year || 0,
             isOfficial: true,
-        })).filter(c => c.minValue > 0);
+        })).filter(c => {
+            if (!c.minValue || c.minValue <= 0) return false;
+            if (c.schoolName.includes('청량고')) return false;
+            if (c.schoolName.includes('마이스터') && legacyMeisterScores.includes(Number(c.minValue))) return false;
+            return true;
+        });
 
-        let localOfficials = [];
-        try {
-            const raw = localStorage.getItem('publicOfficialCutoffData');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    localOfficials = parsed.map(item => ({
-                        schoolName: item.school || item.schoolName || '',
-                        department: item.dept || item.department || '',
-                        track: item.track || '일반전형',
-                        minValue: Number(item.min || item.minValue || 0),
-                        avgValue: Number(item.avg || item.avgValue || 0),
-                        maxValue: Number(item.max || item.maxValue || 0),
-                        year: item.year || 0,
-                        isOfficial: true,
-                    })).filter(c => c.minValue > 0);
-                }
-            }
-        } catch (e) { }
-
-        cutoffs = [...(dbCutoffs || []), ...officialCutoffs, ...localOfficials];
+        cutoffs = [...(dbCutoffs || []), ...officialCutoffs];
     } catch (err) {
         console.error('분석 데이터 로드 실패:', err);
     }
@@ -6837,42 +6814,61 @@ async function renderCutoffScreen(schoolName) {
         return (s === '공통' || s === '전체' || s === '학교 전체') ? '' : s;
     };
 
-    // 공식 공개 입결 데이터 (기본 하드코딩 없이 완전 백지화 상태로 시작)
-    const publicOfficialDefaults = [];
-    let publicOfficialData = [];
+    // 브라우저 캐시 잔재(구버전 localStorage) 완전 삭제
     try {
-        const savedPublicData = localStorage.getItem('publicOfficialCutoffData');
-        if (savedPublicData) {
-            const parsed = JSON.parse(savedPublicData);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                // 이전 구버전의 하드코딩 잔재(노트가 '공식 합격선' 또는 '공식 입결'로만 되어 있던 기본 템플릿 데이터) 제외 필터링
-                publicOfficialData = parsed.filter(item => item && item.school && !item.school.includes('청량고'));
-            }
-        }
-        // 로컬에 저장된 공식데이터가 없으면 서버 파일(official_admission_data.json) 조회
-        if (!publicOfficialData || publicOfficialData.length === 0) {
-            const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
-            if (officialResp?.items && Array.isArray(officialResp.items) && officialResp.items.length > 0) {
-                publicOfficialData = officialResp.items.map(item => ({
-                    year: item.admissionYear || item.year || currentAdmissionYear,
-                    school: item.schoolName || item.school || '',
-                    dept: item.department || '',
-                    track: item.track || '일반',
-                    min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
-                    max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
-                    avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
-                    unit: item.unit || '점',
-                    note: item.source || item.note || '공식자료'
-                })).filter(x => x.school && !x.school.includes('청량고'));
-            } else {
-                publicOfficialData = [];
-            }
-            localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+        localStorage.removeItem('publicOfficialCutoffData');
+    } catch (_) {}
+
+    // 공식 공개 입결 데이터 (하드코딩 없이 백엔드 data/official_admission_data.json 기반 로드)
+    let publicOfficialData = [];
+    const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
+
+    try {
+        const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
+        if (officialResp?.items && Array.isArray(officialResp.items) && officialResp.items.length > 0) {
+            publicOfficialData = officialResp.items.map(item => ({
+                year: Number(item.admissionYear || item.year || currentAdmissionYear),
+                school: item.schoolName || item.school || '',
+                dept: item.department || '',
+                track: item.track || '일반',
+                min: Number(item.minAcceptedScore || item.minValue || item.min || 0) || '',
+                max: Number(item.maxFailedScore || item.maxValue || item.max || 0) || '',
+                avg: Number(item.avgAcceptedScore || item.avgValue || item.avg || 0) || '',
+                unit: item.unit || '점',
+                note: item.source || item.note || '공식자료'
+            })).filter(x => {
+                if (!x.school || x.school.includes('청량고')) return false;
+                // 이전 구버전 하드코딩 샘플 데이터 유입 원천 차단
+                if (x.school.includes('마이스터') && legacyMeisterScores.includes(Number(x.min))) return false;
+                return true;
+            });
         }
     } catch (e) {
-        console.warn('공개 데이터 불러오기 실패:', e);
+        console.warn('공식 공개 데이터 불러오기 실패:', e);
         publicOfficialData = [];
     }
+
+    // 공식 공개자료 백엔드 저장 헬퍼 (data/official_admission_data.json 동기화)
+    const syncPublicOfficialData = async () => {
+        try {
+            if (window.go?.main?.App?.SaveOfficialAdmissionData) {
+                const itemsToSave = publicOfficialData.map(p => ({
+                    admissionYear: Number(p.year) || currentAdmissionYear,
+                    schoolName: p.school || '',
+                    department: p.dept || '',
+                    track: p.track || '일반',
+                    minAcceptedScore: Number(p.min) || 0,
+                    maxFailedScore: Number(p.max) || 0,
+                    avgAcceptedScore: Number(p.avg) || 0,
+                    unit: p.unit || (String(p.school).includes('일반계고') ? '%' : '점'),
+                    source: p.note || '공식자료'
+                }));
+                await window.go.main.App.SaveOfficialAdmissionData(itemsToSave);
+            }
+        } catch (e) {
+            console.error('공식자료 저장 실패:', e);
+        }
+    };
 
 
     let currentTab = 'all'; // 'all', 'meister', 'special', 'general', 'public'
@@ -7544,14 +7540,14 @@ async function renderCutoffScreen(schoolName) {
                     if (window.go?.main?.App?.ResetCutoffs) {
                         await window.go.main.App.ResetCutoffs(0);
                     }
-                    localStorage.removeItem('publicOfficialCutoffData');
                     publicOfficialData = [];
+                    await syncPublicOfficialData();
                 } else {
                     if (window.go?.main?.App?.ResetCutoffs) {
                         await window.go.main.App.ResetCutoffs(currentAdmissionYear);
                     }
                     publicOfficialData = publicOfficialData.filter(item => Number(item.year) !== currentAdmissionYear);
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    await syncPublicOfficialData();
                 }
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                 window.dispatchEvent(new CustomEvent('cutoffs-updated', { detail: allSavedCutoffs }));
@@ -7634,7 +7630,7 @@ async function renderCutoffScreen(schoolName) {
                             publicOfficialData.splice(idx, 1);
                         }
                     });
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    await syncPublicOfficialData();
                     if (toDelete.length > 0 && window.go?.main?.App?.DeleteCutoffs) {
                         try {
                             await window.go.main.App.DeleteCutoffs(toDelete);
@@ -7650,7 +7646,7 @@ async function renderCutoffScreen(schoolName) {
 
             // 테이블 학교명 셀 변경 동기화
             app.querySelectorAll('.public-school-select').forEach(sel => {
-                sel.addEventListener('change', (e) => {
+                sel.addEventListener('change', async (e) => {
                     const newSchool = e.target.value;
                     const oldSchool = sel.dataset.groupSchool;
                     const gYear = Number(sel.dataset.groupYear);
@@ -7660,18 +7656,18 @@ async function renderCutoffScreen(schoolName) {
                             item.unit = newSchool.includes('일반계고') ? '%' : '점';
                         }
                     });
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    await syncPublicOfficialData();
                     renderMainScreen();
                 });
             });
 
             // 인풋 실시간 동기화
-            const updateField = (input, field, isNum = false) => {
+            const updateField = async (input, field, isNum = false) => {
                 const idx = Number(input.dataset.index);
                 if (publicOfficialData[idx]) {
                     const val = input.value.trim();
                     publicOfficialData[idx][field] = isNum ? (parseFloat(val) || '') : val;
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    await syncPublicOfficialData();
                 }
             };
             app.querySelectorAll('.public-dept').forEach(inp => inp.addEventListener('change', () => updateField(inp, 'dept')));
@@ -7684,9 +7680,9 @@ async function renderCutoffScreen(schoolName) {
 
             // 공식 공개자료 추가 버튼
             document.getElementById('addPublicDataBtn')?.addEventListener('click', async () => {
-                await renderAddPublicDataModal(currentAdmissionYear, admissionYears, (newEntry) => {
+                await renderAddPublicDataModal(currentAdmissionYear, admissionYears, async (newEntry) => {
                     publicOfficialData.unshift(newEntry);
-                    localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                    await syncPublicOfficialData();
                     renderMainScreen();
                 });
             });
@@ -7712,7 +7708,7 @@ async function renderCutoffScreen(schoolName) {
                             }
                         }
                         publicOfficialData.splice(index, 1);
-                        localStorage.setItem('publicOfficialCutoffData', JSON.stringify(publicOfficialData));
+                        await syncPublicOfficialData();
                         renderMainScreen();
                     }
                 });
@@ -7767,25 +7763,6 @@ async function renderCutoffScreen(schoolName) {
                         schoolName: school,
                         department: normalizeDept(dept),
                         track: normalizeTrack(track)
-                    });
-                }
-            });
-
-            // 고교 공식 공개자료(참고자료)도 함께 영구 저장하여 서버 전송에 포함
-            publicOfficialData.forEach(p => {
-                const minVal = parseFloat(p.min);
-                if (p.school && !isNaN(minVal) && minVal > 0) {
-                    const maxVal = parseFloat(p.max);
-                    const avgVal = parseFloat(p.avg);
-                    cutoffs.push({
-                        year: p.year || currentAdmissionYear,
-                        schoolName: p.school,
-                        department: p.dept === '공통' ? '' : (p.dept || ''),
-                        track: p.track || '공식 합격선',
-                        scoreType: p.unit === '%' ? 'percentile' : 'total_score',
-                        minValue: minVal,
-                        maxValue: !isNaN(maxVal) && maxVal > 0 ? maxVal : minVal,
-                        avgValue: !isNaN(avgVal) && avgVal > 0 ? avgVal : 0
                     });
                 }
             });

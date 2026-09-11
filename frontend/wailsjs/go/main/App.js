@@ -286,6 +286,10 @@ export function SaveFinalArchive(arg1) {
   return window['go']['main']['App']['SaveFinalArchive'](arg1);
 }
 
+export function SaveOfficialAdmissionData(arg1) {
+  return window['go']['main']['App']['SaveOfficialAdmissionData'](arg1);
+}
+
 export function SavePasswordResetPackage(arg1) {
   return window['go']['main']['App']['SavePasswordResetPackage'](arg1);
 }

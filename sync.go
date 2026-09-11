@@ -305,6 +305,22 @@ func (sm *SyncManager) GetOfficialAdmissionData() (*OfficialAdmissionData, error
 	return &OfficialAdmissionData{Items: []map[string]interface{}{}}, nil
 }
 
+// SaveOfficialAdmissionData 로컬 공식자료 저장
+func (sm *SyncManager) SaveOfficialAdmissionData(official *OfficialAdmissionData) error {
+	filePath := filepath.Join(sm.dataDir, "official_admission_data.json")
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return fmt.Errorf("공식자료 폴더 생성 실패: %w", err)
+	}
+	if official == nil || official.Items == nil {
+		official = &OfficialAdmissionData{Items: []map[string]interface{}{}}
+	}
+	data, err := json.MarshalIndent(official, "", "  ")
+	if err != nil {
+		return fmt.Errorf("공식자료 JSON 변환 실패: %w", err)
+	}
+	return os.WriteFile(filePath, data, 0644)
+}
+
 // NoticeItem 공지사항 구조체
 type NoticeItem struct {
 	Title       string `json:"title"`
