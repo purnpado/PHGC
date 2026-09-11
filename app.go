@@ -1173,6 +1173,18 @@ func (a *App) SaveCutoffs(cutoffs []CutoffInfo) error {
 	return a.db.SaveCutoffs(cutoffs)
 }
 
+func (a *App) DeleteCutoff(year int, schoolName, department, track string) error {
+	return a.db.DeleteCutoff(year, schoolName, department, track)
+}
+
+func (a *App) DeleteCutoffs(cutoffs []CutoffInfo) error {
+	return a.db.DeleteCutoffs(cutoffs)
+}
+
+func (a *App) ResetCutoffs(year int) error {
+	return a.db.ResetCutoffs(year)
+}
+
 func (a *App) PurgeOldCutoffs(baseAdmissionYear, keepYears int) (int64, error) {
 	return a.db.PurgeOldCutoffs(baseAdmissionYear, keepYears)
 }

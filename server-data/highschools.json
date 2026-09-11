@@ -1,65 +1,75 @@
 {
-  "updatedAt": "2026-09-06",
+  "updatedAt": "2026-09-11",
   "description": "울산 소재 특성화고 및 마이스터고 학과 정보",
   "schools": [
     {
       "name": "울산공업고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "남구",
+      "note": "특성화고",
       "departments": ["스마트기계과", "스마트전기전자과", "스마트건설과", "화공에너지과"]
     },
     {
       "name": "울산상업고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "중구",
+      "note": "특성화고",
       "departments": ["군사경영과", "물류경영과", "IT콘텐츠과"]
     },
     {
       "name": "울산여자상업고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "남구",
+      "note": "특성화고",
       "departments": ["관광경영과", "SNS마케팅과", "AI금융회계과", "스마트공공행정과"]
     },
     {
       "name": "울산미용예술고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "울주군",
+      "note": "특성화고",
       "departments": ["미용예술과"]
     },
     {
       "name": "울산산업고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "울주군",
+      "note": "특성화고",
       "departments": ["그린스마트팜과", "원예디자인과", "반려동물과", "식품가공과", "보건간호과"]
     },
     {
       "name": "울산기술공업고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "북구",
+      "note": "특성화고",
       "departments": ["산업설비기계과", "드론공간정보과", "융합디자인과", "전기과"]
     },
     {
       "name": "울산마이스터고등학교",
-      "type": "마이스터고",
+      "type": "meister",
       "area": "북구",
+      "note": "마이스터고",
       "departments": ["전기시스템제어과", "자동화시스템과", "정밀기계과"]
     },
     {
       "name": "울산에너지고등학교",
-      "type": "마이스터고",
+      "type": "meister",
       "area": "북구",
+      "note": "마이스터고",
       "departments": ["전기에너지과", "신재생에너지과"]
     },
     {
       "name": "현대공업고등학교",
-      "type": "마이스터고",
+      "type": "meister",
       "area": "동구",
+      "note": "마이스터고",
       "departments": ["정밀기계과", "산업설비과", "전기제어과"]
     },
     {
       "name": "울산생활과학고등학교",
-      "type": "특성화고",
+      "type": "special",
       "area": "동구",
+      "note": "특성화고",
       "departments": ["보건간호과", "사무행정과", "조리과"]
     }
   ]

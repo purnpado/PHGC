@@ -5,12 +5,13 @@ build/bin/
 node_modules/
 frontend/dist/
 
-# Go 바이너리
+# Go 바이너리 및 압축 배포 파일
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.zip
 
 # 임시 및 테스트 데이터 (보안/개인정보 유출 원천 차단)
 test-data/

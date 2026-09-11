@@ -338,23 +338,6 @@ func (dm *DBManager) InitConfigDB() error {
 	_, _ = db.Exec("ALTER TABLE highschool_cutoffs ADD COLUMN avg_value REAL DEFAULT 0")
 	_, _ = db.Exec("ALTER TABLE school_config ADD COLUMN expected_support_token TEXT NOT NULL DEFAULT ''")
 
-	// 기본 커트라인 실데이터 시드 (울산마이스터고 2024-2026 공식 공개 실데이터 & 후기일반고 기본값)
-	_, _ = db.Exec(`
-		INSERT OR IGNORE INTO highschool_cutoffs (year, school_name, department, track, score_type, min_value, max_value, avg_value) VALUES
-		-- 울산마이스터고등학교 (300점 만점 공식 입결 데이터)
-		(2024, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 215.82, 291.69, 253.75),
-		(2024, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 212.85, 287.15, 250.00),
-		(2024, '울산마이스터고등학교', '', '일반', 'total_score', 215.82, 291.69, 253.75),
-		(2024, '울산마이스터고등학교', '', '특별', 'total_score', 212.85, 287.15, 250.00),
-		(2025, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 218.04, 299.09, 258.50),
-		(2025, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 206.33, 285.59, 245.90),
-		(2025, '울산마이스터고등학교', '', '일반', 'total_score', 218.04, 299.09, 258.50),
-		(2025, '울산마이스터고등학교', '', '특별', 'total_score', 206.33, 285.59, 245.90),
-		(2026, '울산마이스터고등학교', '공통', '일반전형', 'total_score', 245.22, 300.00, 272.60),
-		(2026, '울산마이스터고등학교', '공통', '특별전형', 'total_score', 241.03, 260.37, 250.70),
-		(2026, '울산마이스터고등학교', '', '일반', 'total_score', 245.22, 300.00, 272.60),
-		(2026, '울산마이스터고등학교', '', '특별', 'total_score', 241.03, 260.37, 250.70);
-	`)
 	return nil
 }
 
@@ -516,6 +499,79 @@ func (dm *DBManager) SaveCutoffs(cutoffs []CutoffInfo) error {
 	}
 
 	return tx.Commit()
+}
+
+// DeleteCutoff 특정 커트라인 항목 삭제 (학교명 접미사 및 학과/전형 유연 매칭)
+func (dm *DBManager) DeleteCutoff(year int, schoolName, department, track string) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	normSchool := strings.TrimSuffix(strings.TrimSpace(schoolName), "고등학교")
+	normSchool = strings.TrimSuffix(normSchool, "고")
+
+	_, err = db.Exec(`
+		DELETE FROM highschool_cutoffs 
+		WHERE year = ? 
+		  AND (school_name = ? OR school_name LIKE ? OR school_name LIKE ?)
+		  AND (department = ? OR (department = '' AND ? = '공통') OR (department = '공통' AND ? = ''))
+		  AND (track = ? OR track = ? OR track LIKE ?)
+	`, year, schoolName, normSchool+"고%", normSchool+"고등학교%", department, department, department, track, track+"전형", track+"%")
+	return err
+}
+
+// DeleteCutoffs 복수 커트라인 항목 일괄 삭제
+func (dm *DBManager) DeleteCutoffs(cutoffs []CutoffInfo) error {
+	if len(cutoffs) == 0 {
+		return nil
+	}
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+
+	for _, c := range cutoffs {
+		normSchool := strings.TrimSuffix(strings.TrimSpace(c.SchoolName), "고등학교")
+		normSchool = strings.TrimSuffix(normSchool, "고")
+
+		_, err = tx.Exec(`
+			DELETE FROM highschool_cutoffs 
+			WHERE year = ? 
+			  AND (school_name = ? OR school_name LIKE ? OR school_name LIKE ?)
+			  AND (department = ? OR (department = '' AND ? = '공통') OR (department = '공통' AND ? = ''))
+			  AND (track = ? OR track = ? OR track LIKE ?)
+		`, c.Year, c.SchoolName, normSchool+"고%", normSchool+"고등학교%", c.Department, c.Department, c.Department, c.Track, c.Track+"전형", c.Track+"%")
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// ResetCutoffs 커트라인 초기화 (year > 0 이면 해당 연도만, year == 0 이면 전체 삭제)
+func (dm *DBManager) ResetCutoffs(year int) error {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	if year > 0 {
+		_, err = db.Exec("DELETE FROM highschool_cutoffs WHERE year = ?", year)
+	} else {
+		_, err = db.Exec("DELETE FROM highschool_cutoffs")
+	}
+	return err
 }
 
 // GetCutoffs 커트라인 정보 반환

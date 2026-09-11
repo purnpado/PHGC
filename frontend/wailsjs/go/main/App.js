@@ -30,6 +30,14 @@ export function CreateUser(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateUser'](arg1, arg2, arg3, arg4);
 }
 
+export function DeleteCutoff(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['DeleteCutoff'](arg1, arg2, arg3, arg4);
+}
+
+export function DeleteCutoffs(arg1) {
+  return window['go']['main']['App']['DeleteCutoffs'](arg1);
+}
+
 export function DeleteStudentApplication(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['DeleteStudentApplication'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
@@ -256,6 +264,10 @@ export function ResetAcademicYear(arg1) {
 
 export function ResetAllData() {
   return window['go']['main']['App']['ResetAllData']();
+}
+
+export function ResetCutoffs(arg1) {
+  return window['go']['main']['App']['ResetCutoffs'](arg1);
 }
 
 export function SaveCurrentClassPatch(arg1) {

@@ -16,6 +16,10 @@ export function CloseAdmissionYear(arg1:number,arg2:string):Promise<main.Admissi
 
 export function CreateUser(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
 
+export function DeleteCutoff(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
+
+export function DeleteCutoffs(arg1:Array<main.CutoffInfo>):Promise<void>;
+
 export function DeleteStudentApplication(arg1:number,arg2:string,arg3:string,arg4:string,arg5:string,arg6:string):Promise<void>;
 
 export function DeleteStudentCounselingRecord(arg1:number,arg2:number):Promise<void>;
@@ -129,6 +133,8 @@ export function ReopenAdmissionYear(arg1:number):Promise<void>;
 export function ResetAcademicYear(arg1:number):Promise<void>;
 
 export function ResetAllData():Promise<void>;
+
+export function ResetCutoffs(arg1:number):Promise<void>;
 
 export function SaveCurrentClassPatch(arg1:string):Promise<string>;
 
