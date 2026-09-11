@@ -300,7 +300,7 @@ func (a *App) UnlockSharedAndLogin(username, password, sharedPassword string) (*
 		if getErr == nil {
 			for _, u := range users {
 				if u.Username == username {
-					if u.PasswordHash == "" || password == sharedPassword {
+					if u.PasswordHash == "" || password == sharedPassword || password == username || u.MustChangePassword {
 						if changeErr := a.db.ChangeUserPassword(username, password); changeErr == nil {
 							user = &u
 							user.MustChangePassword = true
@@ -653,10 +653,14 @@ func (a *App) ExportDistributionPackage(username, outputPath string) error {
 	if err == nil && target.Role == "homeroom" {
 		_, err = copyDB.Exec("DELETE FROM school_rank_snapshots WHERE class_num <> ?", target.ClassNum)
 	}
-	// 만약 target의 비밀번호가 설정되어 있지 않다면(빈 문자열), 안전하게 기본 비밀번호(계정 아이디)를 설정하여 배포
-	if err == nil && target.PasswordHash == "" {
-		defaultHash, _ := bcrypt.GenerateFromPassword([]byte(target.Username), bcrypt.DefaultCost)
-		_, err = copyDB.Exec("UPDATE users SET password_hash = ?, must_change_password = 1 WHERE username = ?", string(defaultHash), target.Username)
+	// 만약 target의 비밀번호가 설정되어 있지 않다면 기본 비밀번호(계정 아이디)를 설정하고, 이미 있어도 새 패키지에서는 must_change_password 활성화
+	if err == nil {
+		if target.PasswordHash == "" {
+			defaultHash, _ := bcrypt.GenerateFromPassword([]byte(target.Username), bcrypt.DefaultCost)
+			_, err = copyDB.Exec("UPDATE users SET password_hash = ?, must_change_password = 1 WHERE username = ?", string(defaultHash), target.Username)
+		} else {
+			_, err = copyDB.Exec("UPDATE users SET must_change_password = 1 WHERE username = ?", target.Username)
+		}
 	}
 	// WAL 변경사항을 본체 DB 파일로 완벽하게 체크포인트하고 저널 모드를 DELETE로 정리
 	if err == nil {
@@ -775,6 +779,12 @@ func (a *App) ImportDistributionPackage(inputPath string) (string, error) {
 	cleanFiles, _ := filepath.Glob(filepath.Join(a.db.dataDir, "*.db*"))
 	for _, f := range cleanFiles {
 		_ = os.Remove(f)
+	}
+	cleanEnvelopes, _ := filepath.Glob(filepath.Join(a.db.dataDir, "*-key.json"))
+	for _, f := range cleanEnvelopes {
+		if filepath.Base(f) != "shared-key.json" {
+			_ = os.Remove(f)
+		}
 	}
 	for _, name := range manifest.Files {
 		file := entries[name]

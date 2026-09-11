@@ -60,8 +60,29 @@ function updateAppWindowTitle(role = '', detail = '') {
 window.updateAppWindowTitle = updateAppWindowTitle;
 
 // ===== SweetAlert2 스타일 커스텀 모달 알림창 =====
-function showModalAlert({ title = '알림', message = '', type = 'info', confirmText = '확인' } = {}) {
+function showModalAlert(optionsOrMessage, defaultTitle = '알림', defaultType = 'info', confirmText = '확인') {
     return new Promise((resolve) => {
+        let title = defaultTitle;
+        let message = '';
+        let type = defaultType;
+        let cText = confirmText;
+
+        if (typeof optionsOrMessage === 'object' && optionsOrMessage !== null) {
+            title = optionsOrMessage.title || defaultTitle;
+            message = optionsOrMessage.message || '';
+            type = optionsOrMessage.type || defaultType;
+            cText = optionsOrMessage.confirmText || confirmText;
+        } else {
+            message = String(optionsOrMessage || '');
+            if (message.includes('실패') || message.includes('오류') || message.includes('에러') || message.includes('Error')) {
+                type = 'error';
+                title = '오류';
+            } else if (message.includes('완료') || message.includes('성공') || message.includes('저장했습니다') || message.includes('복원했습니다')) {
+                type = 'success';
+                title = '완료';
+            }
+        }
+
         document.getElementById('phgcCustomAlertModal')?.remove();
         const modal = document.createElement('div');
         modal.id = 'phgcCustomAlertModal';
@@ -94,17 +115,21 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
             btnBg: 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30',
         };
 
+        const formattedMsg = typeof message === 'string' && !message.includes('<')
+            ? `<p class="text-slate-200 text-sm whitespace-pre-wrap">${escapeHtml(message)}</p>`
+            : message;
+
         modal.innerHTML = `
             <div class="glass-card max-w-md w-full p-6 text-center shadow-2xl border border-slate-700/80 rounded-2xl animate-in zoom-in-95 duration-200">
                 <div class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center border-2 ${iconConfig.bg} shadow-lg">
                     ${iconConfig.icon}
                 </div>
-                <h3 class="text-xl font-bold text-white mb-2">${title}</h3>
+                <h3 class="text-xl font-bold text-white mb-2">${escapeHtml(title)}</h3>
                 <div class="text-sm text-slate-300 mb-6 leading-relaxed text-left max-h-[60vh] overflow-y-auto">
-                    ${typeof message === 'string' && !message.includes('<') ? `<p class="text-center text-slate-200">${message}</p>` : message}
+                    ${formattedMsg}
                 </div>
                 <button id="modalAlertConfirmBtn" class="w-full py-2.5 px-5 rounded-xl text-white font-bold text-sm ${iconConfig.btnBg} shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
-                    ${confirmText}
+                    ${cText}
                 </button>
             </div>
         `;
@@ -113,6 +138,7 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
 
         const confirmBtn = modal.querySelector('#modalAlertConfirmBtn');
         const handleClose = () => {
+            window.removeEventListener('keydown', onKeyDown);
             modal.remove();
             resolve(true);
         };
@@ -124,7 +150,6 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
 
         const onKeyDown = (e) => {
             if (e.key === 'Enter' || e.key === 'Escape') {
-                window.removeEventListener('keydown', onKeyDown);
                 handleClose();
             }
         };
@@ -132,10 +157,28 @@ function showModalAlert({ title = '알림', message = '', type = 'info', confirm
     });
 }
 window.showModalAlert = showModalAlert;
+// 브라우저 기본 alert를 전역 모달로 자연스럽게 오버라이드
+window.alert = (msg) => showModalAlert(msg);
 
 // ===== SweetAlert2 스타일 커스텀 모달 확인창 (브라우저 confirm 대체) =====
-function showModalConfirm({ title = '확인', message = '', type = 'warning', confirmText = '확인', cancelText = '취소' } = {}) {
+function showModalConfirm(optionsOrMessage, defaultTitle = '확인', defaultType = 'warning', confirmText = '확인', cancelText = '취소') {
     return new Promise((resolve) => {
+        let title = defaultTitle;
+        let message = '';
+        let type = defaultType;
+        let cText = confirmText;
+        let canText = cancelText;
+
+        if (typeof optionsOrMessage === 'object' && optionsOrMessage !== null) {
+            title = optionsOrMessage.title || defaultTitle;
+            message = optionsOrMessage.message || '';
+            type = optionsOrMessage.type || defaultType;
+            cText = optionsOrMessage.confirmText || confirmText;
+            canText = optionsOrMessage.cancelText || cancelText;
+        } else {
+            message = String(optionsOrMessage || '');
+        }
+
         document.getElementById('phgcCustomConfirmModal')?.remove();
         const modal = document.createElement('div');
         modal.id = 'phgcCustomConfirmModal';
@@ -168,21 +211,25 @@ function showModalConfirm({ title = '확인', message = '', type = 'warning', co
             btnBg: 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30',
         };
 
+        const formattedMsg = typeof message === 'string' && !message.includes('<')
+            ? `<p class="text-slate-200 text-sm whitespace-pre-wrap">${escapeHtml(message)}</p>`
+            : message;
+
         modal.innerHTML = `
             <div class="glass-card max-w-md w-full p-6 text-center shadow-2xl border border-slate-700/80 rounded-2xl animate-in zoom-in-95 duration-200">
                 <div class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center border-2 ${iconConfig.bg} shadow-lg">
                     ${iconConfig.icon}
                 </div>
-                <h3 class="text-xl font-bold text-white mb-2">${title}</h3>
+                <h3 class="text-xl font-bold text-white mb-2">${escapeHtml(title)}</h3>
                 <div class="text-sm text-slate-300 mb-6 leading-relaxed text-left max-h-[60vh] overflow-y-auto">
-                    ${typeof message === 'string' && !message.includes('<') ? `<p class="text-center text-slate-200">${message}</p>` : message}
+                    ${formattedMsg}
                 </div>
                 <div class="flex items-center justify-center gap-3">
                     <button id="modalConfirmCancelBtn" class="flex-1 py-2.5 px-4 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold text-sm transition-all cursor-pointer">
-                        ${cancelText}
+                        ${canText}
                     </button>
                     <button id="modalConfirmOkBtn" class="flex-1 py-2.5 px-4 rounded-xl text-white font-bold text-sm ${iconConfig.btnBg} shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
-                        ${confirmText}
+                        ${cText}
                     </button>
                 </div>
             </div>
@@ -216,6 +263,90 @@ function showModalConfirm({ title = '확인', message = '', type = 'warning', co
     });
 }
 window.showModalConfirm = showModalConfirm;
+
+// ===== SweetAlert2 스타일 커스텀 모달 입력창 (브라우저 prompt 대체) =====
+function showModalPrompt(optionsOrMessage, defaultVal = '', titleText = '입력') {
+    let title = titleText;
+    let message = '';
+    let defaultValue = defaultVal;
+    let placeholder = '';
+    let isPassword = false;
+
+    if (typeof optionsOrMessage === 'object' && optionsOrMessage !== null) {
+        title = optionsOrMessage.title || titleText;
+        message = optionsOrMessage.message || '';
+        defaultValue = optionsOrMessage.defaultValue !== undefined ? optionsOrMessage.defaultValue : defaultVal;
+        placeholder = optionsOrMessage.placeholder || '';
+        isPassword = !!optionsOrMessage.isPassword;
+    } else {
+        message = String(optionsOrMessage || '');
+        if (message.includes('암호') || message.includes('비밀번호')) {
+            isPassword = true;
+        }
+    }
+
+    return new Promise((resolve) => {
+        document.getElementById('phgcCustomPromptModal')?.remove();
+        const modal = document.createElement('div');
+        modal.id = 'phgcCustomPromptModal';
+        modal.className = 'fixed inset-0 bg-black/80 backdrop-blur-md z-[999999] flex items-center justify-center p-4 animate-in fade-in duration-200';
+
+        modal.innerHTML = `
+            <div class="glass-card max-w-md w-full p-6 text-center shadow-2xl border border-slate-700/80 rounded-2xl animate-in zoom-in-95 duration-200">
+                <div class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center border-2 bg-indigo-500/20 border-indigo-500/50 text-indigo-400 shadow-lg">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">${escapeHtml(title)}</h3>
+                <div class="text-sm text-slate-300 mb-4 leading-relaxed text-left max-h-[40vh] overflow-y-auto">
+                    ${message ? `<p class="text-center text-slate-200">${escapeHtml(message).replace(/\\n/g, '<br>')}</p>` : ''}
+                </div>
+                <div class="mb-6">
+                    <input id="modalPromptInput" type="${isPassword ? 'password' : 'text'}"
+                           class="w-full px-4 py-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl text-white placeholder-slate-500 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                           placeholder="${escapeAttr(placeholder || '내용을 입력하세요')}" value="${escapeAttr(String(defaultValue || ''))}" />
+                </div>
+                <div class="flex items-center justify-center gap-3">
+                    <button id="modalPromptCancelBtn" class="flex-1 py-2.5 px-4 rounded-xl text-slate-300 bg-slate-800 hover:bg-slate-700 border border-slate-600 font-bold text-sm transition-all cursor-pointer">
+                        취소
+                    </button>
+                    <button id="modalPromptOkBtn" class="flex-1 py-2.5 px-4 rounded-xl text-white font-bold text-sm bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer">
+                        확인
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const input = modal.querySelector('#modalPromptInput');
+        const okBtn = modal.querySelector('#modalPromptOkBtn');
+        const cancelBtn = modal.querySelector('#modalPromptCancelBtn');
+
+        input.focus();
+        input.select();
+
+        const closeWith = (val) => {
+            window.removeEventListener('keydown', onKeyDown);
+            modal.remove();
+            resolve(val);
+        };
+
+        okBtn.onclick = () => closeWith(input.value);
+        cancelBtn.onclick = () => closeWith(null);
+        modal.onclick = (e) => {
+            if (e.target === modal) closeWith(null);
+        };
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                closeWith(null);
+            } else if (e.key === 'Enter') {
+                closeWith(input.value);
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+    });
+}
+window.showModalPrompt = showModalPrompt;
 
 
 
@@ -271,7 +402,12 @@ function renderFirstRunScreen() {
         }
     });
     document.getElementById('firstRunArchiveImportBtn').addEventListener('click', async () => {
-        const password = prompt('최종 보관본 암호를 입력하세요.');
+        const password = await showModalPrompt({
+            title: '최종 보관본 복원',
+            message: '최종 보관본 암호를 입력하세요.',
+            placeholder: '보관본 암호',
+            isPassword: true
+        });
         if (!password) return;
         const button = document.getElementById('firstRunArchiveImportBtn');
         try {
@@ -1036,28 +1172,45 @@ async function renderAdminScreen(schoolName) {
     });
 
     document.getElementById('resetYearBtn')?.addEventListener('click', async () => {
-        const nextYear = prompt("새 입시학년도를 입력하세요 (예: 2028):", new Date().getFullYear() + 1);
+        const nextYear = await showModalPrompt({
+            title: '새 입시학년도 전환',
+            message: '전환할 새 입시학년도를 입력하세요 (예: 2028):',
+            defaultValue: String(new Date().getFullYear() + 1),
+            placeholder: '2028'
+        });
         if (!nextYear) return;
 
-        if (confirm(`입시년도를 [${nextYear}학년도]로 전환하시겠습니까?\n\n※ 고교별 커트라인 데이터는 안전하게 보존되며, 학생들의 성적/출결/봉사 데이터만 깔끔하게 초기화됩니다.`)) {
+        const confirmed = await showModalConfirm({
+            title: '입시학년도 전환 확인',
+            message: `입시년도를 [${nextYear}학년도]로 전환하시겠습니까?\n\n※ 고교별 커트라인 데이터는 안전하게 보존되며, 학생들의 성적/출결/봉사 데이터만 깔끔하게 초기화됩니다.`,
+            confirmText: '전환하기',
+            type: 'warning'
+        });
+        if (confirmed) {
             try {
                 await window.go.main.App.ResetAcademicYear(parseInt(nextYear));
-                alert(`${nextYear}학년도로 성공적으로 전환되었습니다!`);
+                await showModalAlert(`${nextYear}학년도로 성공적으로 전환되었습니다!`, '전환 완료', 'success');
                 renderAdminScreen(schoolName);
             } catch (err) {
-                alert("입시년도 전환 실패: " + err);
+                await showModalAlert("입시년도 전환 실패: " + err, '오류', 'error');
             }
         }
     });
 
     document.getElementById('resetDataBtn')?.addEventListener('click', async () => {
-        if (confirm("정말 모든 데이터를 완전 초기화하시겠습니까?\n학교 설정과 업로드된 모든 성적 파일이 삭제되며 되돌릴 수 없습니다.")) {
+        const confirmed = await showModalConfirm({
+            title: '전체 데이터 초기화',
+            message: "정말 모든 데이터를 완전 초기화하시겠습니까?\n학교 설정과 업로드된 모든 성적 파일이 삭제되며 되돌릴 수 없습니다.",
+            confirmText: '완전 초기화',
+            type: 'error'
+        });
+        if (confirmed) {
             try {
                 await window.go.main.App.ResetAllData();
-                alert("모든 데이터가 초기화되었습니다. 프로그램이 재시작됩니다.");
+                await showModalAlert("모든 데이터가 초기화되었습니다. 프로그램이 재시작됩니다.", '초기화 완료', 'success');
                 window.location.reload();
             } catch (err) {
-                alert("데이터 초기화 실패: " + err);
+                await showModalAlert("데이터 초기화 실패: " + err, '오류', 'error');
             }
         }
     });
@@ -1071,14 +1224,28 @@ async function renderAdminScreen(schoolName) {
     document.getElementById('openAdminRegisterBtn')?.addEventListener('click', openApplicationRegisterModal);
 
     document.getElementById('finalArchiveBtn')?.addEventListener('click', async () => {
-        const password = prompt('최종 보관본을 보호할 새 암호를 입력하세요.\n이 암호는 복원할 때 반드시 필요하며 공용 데이터 암호와 별도로 보관하세요.');
+        const password = await showModalPrompt({
+            title: '최종 보관본 생성',
+            message: '최종 보관본을 보호할 새 암호를 입력하세요.\n이 암호는 복원할 때 반드시 필요하며 공용 데이터 암호와 별도로 안전하게 보관하세요.',
+            isPassword: true
+        });
         if (!password) return;
-        const confirmPassword = prompt('보관본 암호를 한 번 더 입력하세요.');
-        if (password !== confirmPassword) return alert('보관본 암호가 일치하지 않습니다.');
+        const confirmPassword = await showModalPrompt({
+            title: '암호 재확인',
+            message: '보관본 암호를 한 번 더 입력하세요.',
+            isPassword: true
+        });
+        if (password !== confirmPassword) {
+            return await showModalAlert('보관본 암호가 일치하지 않습니다.', '입력 불일치', 'warning');
+        }
         try {
             const path = await window.go.main.App.SaveFinalArchive(password);
-            if (path) alert(`암호화된 최종 보관본을 만들었습니다.\n${path}\n\n새 프로그램 폴더의 로그인 화면에서 복원할 수 있습니다.`);
-        } catch (err) { alert('최종 보관본 생성 실패: ' + err); }
+            if (path) {
+                await showModalAlert(`암호화된 최종 보관본을 만들었습니다.\n${path}\n\n새 프로그램 폴더의 로그인 화면에서 복원할 수 있습니다.`, '보관본 생성 완료', 'success');
+            }
+        } catch (err) {
+            await showModalAlert('최종 보관본 생성 실패: ' + err, '오류', 'error');
+        }
     });
 
     document.getElementById('uploadExcelBtn').addEventListener('click', async () => {
@@ -1291,7 +1458,11 @@ function openPatchImportModal(schoolName) {
 
     // 1. 여러 반 일괄 병합 핸들러
     document.getElementById('btnBatchPatchMerge')?.addEventListener('click', async () => {
-        const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
+        const password = await showModalPrompt({
+            title: '공용 데이터 암호 확인',
+            message: '취합자료를 복호화할 공용 데이터 잠금 비밀번호를 입력하세요.',
+            isPassword: true
+        });
         if (!password) return;
         closeModal();
 
@@ -1316,7 +1487,11 @@ function openPatchImportModal(schoolName) {
 
     // 2. 1개 반 상세 검토 병합 핸들러
     document.getElementById('btnSinglePatchMerge')?.addEventListener('click', async () => {
-        const password = prompt('공용 데이터 잠금 비밀번호를 입력하세요.');
+        const password = await showModalPrompt({
+            title: '공용 데이터 암호 확인',
+            message: '취합자료를 복호화할 공용 데이터 잠금 비밀번호를 입력하세요.',
+            isPassword: true
+        });
         if (!password) return;
         closeModal();
 
@@ -1814,8 +1989,8 @@ function getPredictionAnalysisList(results, cutoffs, schoolGroup) {
 
 
 
-// ===== 희망학교 세로 1열 스택(Vertical Stack) 렌더러 =====
-function renderApplicationSummary(applications) {
+// ===== 희망학교 세로 1열 스택(Vertical Stack) 렌더러 (개별 즉시 삭제 X 버튼 탑재) =====
+function renderApplicationSummary(applications, classNum, studentNum, studentName) {
     const completed = (applications || []).filter(a => a.status && a.status !== '미입력');
     if (!completed.length) {
         return '<span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-800/90 text-slate-400 text-xs border border-slate-700 font-semibold shadow-xs">미입력</span>';
@@ -1865,9 +2040,17 @@ function renderApplicationSummary(applications) {
             school = `${school} (${a.assignedDepartment})`;
         }
         return `
-            <div class="inline-flex items-center justify-between w-full max-w-56 px-3 py-1.5 rounded-xl text-[11px] border ${theme.border} shadow-sm">
-                <span class="truncate max-w-36 font-bold" title="${school}">${school}</span>
-                <span class="ml-1.5 text-[10px] px-2 py-0.5 rounded-full ${theme.badge} whitespace-nowrap">${a.status}</span>
+            <div class="inline-flex items-center justify-between w-full max-w-56 px-3 py-1.5 rounded-xl text-[11px] border ${theme.border} shadow-sm group/app-badge transition-all">
+                <span class="truncate max-w-28 font-bold" title="${escapeAttr(school)}">${escapeHtml(school)}</span>
+                <div class="inline-flex items-center gap-1 shrink-0">
+                    <span class="text-[10px] px-2 py-0.5 rounded-full ${theme.badge} whitespace-nowrap">${escapeHtml(a.status)}</span>
+                    <button type="button" class="btn-delete-app-item inline-flex items-center justify-center w-4 h-4 rounded-full text-slate-400 hover:text-white hover:bg-rose-600 transition-all cursor-pointer font-black text-[11px] ml-0.5 active:scale-90"
+                            data-class="${classNum || ''}" data-num="${studentNum || ''}" data-name="${escapeAttr(studentName || '')}"
+                            data-cat="${escapeAttr(a.category || '')}" data-school="${escapeAttr(a.schoolName || '')}" data-track="${escapeAttr(a.track || '')}"
+                            title="${escapeAttr(school)} 진로희망 삭제">
+                        ✕
+                    </button>
+                </div>
             </div>
         `;
     });
@@ -1917,139 +2100,375 @@ async function renderStudentList(students, classNum) {
     }));
     const applicationsByStudent = new Map(applicationRows);
 
-    let tbody = '';
-    students.forEach((s) => {
-        let generalBadge = getGeneralGuideBadge(s.Percentile);
+    // 검색 및 정렬 상태 변수
+    let currentSearchQuery = '';
+    let currentSortMode = 'num_asc';
+
+    // 학생별 가공 데이터 캐싱
+    const processedStudents = students.map(s => {
         const full = fullByStudent.get(`${s.StudentNum}|${s.Name}`);
-        
-        // 마이스터고 및 특성화고 합격 예측 분석
         const meisterList = getPredictionAnalysisList(full?.schoolResults, cutoffs, 'meister');
         const specialList = getPredictionAnalysisList(full?.schoolResults, cutoffs, 'special');
         const meisterPassCount = new Set(meisterList.filter(x => x.isPass).map(x => normalizeSchoolName(x.schoolName))).size;
         const specialPassCount = new Set(specialList.filter(x => x.isPass).map(x => normalizeSchoolName(x.schoolName))).size;
-
         const applications = applicationsByStudent.get(`${s.StudentNum}|${s.Name}`) || [];
-        const applicationSummary = renderApplicationSummary(applications);
-        const isPassed = (st) => ['합격', '최종 진학', '최종진학'].includes((st || '').trim());
-        const isFinalizedStudent = applications.some(a => {
-            if (!isPassed(a.status)) return false;
-            if (['meister', 'special'].includes(a.category)) {
-                return !!(a.assignedDepartment && a.assignedDepartment.trim());
-            }
-            if (a.category === 'general') {
-                return !!(a.assignedSchool && a.assignedSchool.trim());
-            }
-            return true;
-        });
 
-        let appCellHTML = '';
-        if (!applications.length || applications.every(a => !a.status || a.status === '미입력')) {
-            appCellHTML = `
-                <button class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/25 hover:border-indigo-400 text-indigo-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
-                        data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="클릭하여 희망학교 입력">
-                    <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    <span>희망학교 입력</span>
-                </button>
-            `;
-        } else {
-            appCellHTML = `
-                <div class="flex items-center justify-center gap-2 flex-wrap">
-                    <div class="flex-1 min-w-36">
-                        ${applicationSummary}
-                    </div>
-                    ${isFinalizedStudent ? `
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-xs whitespace-nowrap" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
-                            <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                            <span>확정</span>
-                        </span>
-                    ` : `
-                        <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:border-indigo-400 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="희망학교 변경 및 수정">
-                            <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                            <span>변경</span>
-                        </button>
-                    `}
-                </div>
-            `;
-        }
-
-        tbody += `
-            <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
-                <td class="p-3.5 text-center font-mono font-bold text-slate-400">
-                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 shadow-inner">
-                        ${s.StudentNum || '-'}
-                    </span>
-                </td>
-                <td class="p-3.5 font-bold text-white text-center text-lg cursor-pointer hover:text-indigo-300 hover:underline text-student-name transition-colors"
-                    data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" title="클릭하여 진학 상담 시작">
-                    <div class="flex flex-col items-center justify-center">
-                        <span>${s.Name}</span>
-                        ${counselSummary && counselSummary[s.StudentNum] ? `
-                            <span class="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold mt-1 shadow-sm border border-indigo-400" title="최근 상담일: ${counselSummary[s.StudentNum]} (본인 작성)">
-                                <span>💬</span> ${counselSummary[s.StudentNum]}
-                            </span>
-                        ` : `
-                            <span class="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-semibold mt-1">
-                                미상담
-                            </span>
-                        `}
-                    </div>
-                </td>
-                <td class="p-3.5 text-center">${generalBadge}</td>
-                <td class="p-3.5 text-center min-w-60">
-                    <div class="flex items-center justify-center gap-2 flex-wrap">
-                        <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${meisterPassCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" data-category="meister"
-                                data-percentile="${s.Percentile != null ? Number(s.Percentile).toFixed(2) : ''}" data-rank="${s.Rank || ''}" data-total="${students.length}"
-                                title="${s.Name} 학생의 마이스터고 합격 예측 상세 분석 보기 (클릭)">
-                            <span class="text-sm">🏛️</span>
-                            <span>마이스터고</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[11px] font-black ${meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${meisterPassCount}</span>
-                        </button>
-                        <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
-                                data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}" data-category="special"
-                                data-percentile="${s.Percentile != null ? Number(s.Percentile).toFixed(2) : ''}" data-rank="${s.Rank || ''}" data-total="${students.length}"
-                                title="${s.Name} 학생의 특성화고 합격 예측 상세 분석 보기 (클릭)">
-                            <span class="text-sm">🏭</span>
-                            <span>특성화고</span>
-                            <span class="px-1.5 py-0.2 rounded-full text-[11px] font-black ${specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${specialPassCount}</span>
-                        </button>
-                    </div>
-                </td>
-                <td class="p-3.5 text-center min-w-56">${appCellHTML}</td>
-                <td class="p-3.5 text-center w-36">
-                    <button class="btn-primary w-full text-xs px-3.5 py-2 font-bold inline-flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20 cursor-pointer active:scale-95"
-                            data-class="${classNum}" data-num="${s.StudentNum}" data-name="${s.Name}">
-                        <svg class="w-3.5 h-3.5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                        <span class="whitespace-nowrap">진학 상담</span>
-                    </button>
-                </td>
-            </tr>
-        `;
+        return {
+            raw: s,
+            studentNum: s.StudentNum,
+            numInt: parseInt(s.StudentNum, 10) || 0,
+            name: s.Name,
+            percentile: s.Percentile != null ? Number(s.Percentile) : 999,
+            rank: s.Rank || '',
+            meisterPassCount,
+            specialPassCount,
+            applications,
+            generalBadge: getGeneralGuideBadge(s.Percentile)
+        };
     });
 
+    // 테이블 렌더링 함수
+    const updateDashboardTable = () => {
+        let filtered = [...processedStudents];
+
+        // 1. 신호등 매트릭스급 학생 번호/성명 검색 필터링 (프라이버시 모드)
+        if (currentSearchQuery.trim()) {
+            const qRaw = currentSearchQuery.trim();
+            const qLower = qRaw.toLowerCase().replace(/\s+/g, '');
+            const isDigitOnly = /^[0-9]+$/.test(qLower);
+
+            filtered = filtered.filter(s => {
+                const sName = (s.name || '').replace(/\s+/g, '').toLowerCase();
+                const sNum = s.numInt;
+
+                // 이름 검색 (부분 일치)
+                if (sName.includes(qLower)) return true;
+
+                // 순수 숫자 검색 (1~2자리 번호 매칭)
+                if (isDigitOnly) {
+                    const qVal = parseInt(qLower, 10);
+                    if (qLower.length <= 2) {
+                        return sNum === qVal;
+                    }
+                    // 3~4자리 학번 매칭 (예: 101, 3101)
+                    const shortId = parseInt(`${classNum}${String(sNum).padStart(2, '0')}`, 10);
+                    if (shortId === qVal) return true;
+                    const fullId = parseInt(`3${classNum}${String(sNum).padStart(2, '0')}`, 10);
+                    if (fullId === qVal) return true;
+                }
+
+                // 하이픈 학번 (예: 1-1, 1반 1번)
+                if (qLower.includes('-')) {
+                    const parts = qLower.split('-');
+                    if (parts.length === 2 && parseInt(parts[0], 10) === classNum) {
+                        return sNum === parseInt(parts[1], 10);
+                    }
+                }
+                const koreanPattern = `${classNum}반${sNum}번`;
+                if (koreanPattern === qLower) return true;
+
+                return false;
+            });
+        }
+
+        // 2. 정렬 로직
+        filtered.sort((a, b) => {
+            switch (currentSortMode) {
+                case 'num_asc':
+                    return a.numInt - b.numInt;
+                case 'name_asc':
+                    return (a.name || '').localeCompare(b.name || '', 'ko');
+                case 'general_asc':
+                    return a.percentile - b.percentile;
+                case 'general_desc':
+                    return b.percentile - a.percentile;
+                case 'meister_desc':
+                    return b.meisterPassCount - a.meisterPassCount;
+                case 'special_desc':
+                    return b.specialPassCount - a.specialPassCount;
+                default:
+                    return a.numInt - b.numInt;
+            }
+        });
+
+        // 3. tbody HTML 생성
+        let tbody = '';
+        if (!filtered.length) {
+            tbody = `
+                <tr>
+                    <td colspan="6" class="p-12 text-center text-slate-400">
+                        <div class="text-3xl mb-2">🔍</div>
+                        <div class="font-bold text-white mb-1">'${escapeHtml(currentSearchQuery)}' 검색 조건과 일치하는 학생이 없습니다.</div>
+                        <div class="text-xs text-slate-500">학생 번호(예: 1, 15)나 이름을 다시 확인해 주세요.</div>
+                    </td>
+                </tr>
+            `;
+        } else {
+            filtered.forEach(s => {
+                const isPassed = (st) => ['합격', '최종 진학', '최종진학'].includes((st || '').trim());
+                const isFinalizedStudent = s.applications.some(a => {
+                    if (!isPassed(a.status)) return false;
+                    if (['meister', 'special'].includes(a.category)) {
+                        return !!(a.assignedDepartment && a.assignedDepartment.trim());
+                    }
+                    if (a.category === 'general') {
+                        return !!(a.assignedSchool && a.assignedSchool.trim());
+                    }
+                    return true;
+                });
+
+                const applicationSummary = renderApplicationSummary(s.applications, classNum, s.studentNum, s.name);
+
+                let appCellHTML = '';
+                if (!s.applications.length || s.applications.every(a => !a.status || a.status === '미입력')) {
+                    appCellHTML = `
+                        <button class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-500/10 hover:bg-indigo-500/25 hover:border-indigo-400 text-indigo-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
+                                data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" title="클릭하여 희망학교 입력">
+                            <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span>희망학교 입력</span>
+                        </button>
+                    `;
+                } else {
+                    appCellHTML = `
+                        <div class="flex items-center justify-center gap-2 flex-wrap">
+                            <div class="flex-1 min-w-36">
+                                ${applicationSummary}
+                            </div>
+                            ${isFinalizedStudent ? `
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[11px] font-bold shadow-xs whitespace-nowrap" title="합격 및 최종 배정 완료 (희망학교 비활성화 잠금 상태)">
+                                    <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                                    <span>확정</span>
+                                </span>
+                            ` : `
+                                <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:border-indigo-400 text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shadow-xs btn-student-application active:scale-95"
+                                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" title="희망학교 추가 및 수정">
+                                    <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    <span>추가/수정</span>
+                                </button>
+                            `}
+                        </div>
+                    `;
+                }
+
+                tbody += `
+                    <tr class="hover:bg-slate-800/70 transition-colors border-b border-slate-700/50">
+                        <td class="p-3.5 text-center font-mono font-bold text-slate-400">
+                            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-300 shadow-inner">
+                                ${s.studentNum || '-'}
+                            </span>
+                        </td>
+                        <td class="p-3.5 font-bold text-white text-center text-lg cursor-pointer hover:text-indigo-300 hover:underline text-student-name transition-colors"
+                            data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" title="클릭하여 진학 상담 시작">
+                            <div class="flex flex-col items-center justify-center">
+                                <span>${escapeHtml(s.name)}</span>
+                                ${counselSummary && counselSummary[s.studentNum] ? `
+                                    <span class="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full bg-indigo-600 text-white font-bold mt-1 shadow-sm border border-indigo-400" title="최근 상담일: ${counselSummary[s.studentNum]} (본인 작성)">
+                                        <span>💬</span> ${counselSummary[s.studentNum]}
+                                    </span>
+                                ` : `
+                                    <span class="inline-flex items-center gap-0.5 text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-semibold mt-1">
+                                        미상담
+                                    </span>
+                                `}
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-center">${s.generalBadge}</td>
+                        <td class="p-3.5 text-center min-w-60">
+                            <div class="flex items-center justify-center gap-2 flex-wrap">
+                                <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.meisterPassCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
+                                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="meister"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${students.length}"
+                                        title="${escapeAttr(s.name)} 학생의 마이스터고 합격 예측 상세 분석 보기 (클릭)">
+                                    <span class="text-sm">🏛️</span>
+                                    <span>마이스터고</span>
+                                    <span class="px-1.5 py-0.2 rounded-full text-[11px] font-black ${s.meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.meisterPassCount}</span>
+                                </button>
+                                <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
+                                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="special"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${students.length}"
+                                        title="${escapeAttr(s.name)} 학생의 특성화고 합격 예측 상세 분석 보기 (클릭)">
+                                    <span class="text-sm">🏭</span>
+                                    <span>특성화고</span>
+                                    <span class="px-1.5 py-0.2 rounded-full text-[11px] font-black ${s.specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.specialPassCount}</span>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="p-3.5 text-center min-w-56">${appCellHTML}</td>
+                        <td class="p-3.5 text-center w-36">
+                            <button class="btn-primary w-full text-xs px-3.5 py-2 font-bold inline-flex items-center justify-center gap-1.5 rounded-xl btn-student-counsel transition-all hover:scale-105 shadow-md shadow-indigo-500/20 cursor-pointer active:scale-95"
+                                    data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}">
+                                <svg class="w-3.5 h-3.5 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                                <span class="whitespace-nowrap">진학 상담</span>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        const tbodyEl = document.getElementById('dashboardStudentTableBody');
+        if (tbodyEl) {
+            tbodyEl.innerHTML = tbody;
+            bindTableEventListeners();
+        }
+
+        // 프라이버시 모드 배너 갱신
+        const privacyBannerEl = document.getElementById('dashboardPrivacyBanner');
+        if (privacyBannerEl) {
+            if (currentSearchQuery.trim()) {
+                privacyBannerEl.innerHTML = `
+                    <div class="flex items-center justify-between gap-3 w-full animate-in fade-in">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">🔒</span>
+                            <span class="font-bold text-emerald-300">[1:1 프라이버시 상담 모드 가동 중]:</span>
+                            <span class="text-slate-200">'<strong class="text-white">${escapeHtml(currentSearchQuery.trim())}</strong>' 검색됨 (<strong>${filtered.length}명</strong> 노출) — 상담 중 다른 학생의 점수와 개인정보가 완전히 차단되어 안전합니다.</span>
+                        </div>
+                        <button id="resetPrivacyFilterBtn" class="text-xs px-2.5 py-1 rounded-lg bg-indigo-600/50 hover:bg-indigo-600 text-white font-bold transition-all cursor-pointer shrink-0">
+                            전체 학생 보기
+                        </button>
+                    </div>
+                `;
+                privacyBannerEl.classList.remove('hidden');
+                document.getElementById('resetPrivacyFilterBtn')?.addEventListener('click', () => {
+                    currentSearchQuery = '';
+                    const searchInput = document.getElementById('dashboardStudentSearchInput');
+                    if (searchInput) searchInput.value = '';
+                    updateDashboardTable();
+                });
+            } else {
+                privacyBannerEl.classList.add('hidden');
+                privacyBannerEl.innerHTML = '';
+            }
+        }
+    };
+
+    // 테이블 내부 이벤트 바인딩
+    const bindTableEventListeners = () => {
+        // 진학 상담 버튼
+        document.querySelectorAll('.btn-student-counsel').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                openStudentModal(parseInt(target.dataset.class), target.dataset.num, target.dataset.name);
+            });
+        });
+
+        // 희망학교 입력/수정 버튼
+        document.querySelectorAll('.btn-student-application').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                openStudentApplicationModal(parseInt(target.dataset.class), target.dataset.num, target.dataset.name);
+            });
+        });
+
+        // 학생 이름 클릭 (성적표 모달)
+        document.querySelectorAll('.text-student-name').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                openStudentTranscriptModal(parseInt(target.dataset.class), target.dataset.num, target.dataset.name);
+            });
+        });
+
+        // 마이스터/특성화고 합격 예측 상세 버튼
+        document.querySelectorAll('.btn-prediction-detail').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const target = e.currentTarget;
+                const cNum = parseInt(target.dataset.class, 10);
+                const sNum = target.dataset.num;
+                const sName = target.dataset.name;
+                const cat = target.dataset.category;
+                const extraData = {
+                    percentile: target.dataset.percentile,
+                    rank: target.dataset.rank,
+                    total: target.dataset.total
+                };
+                openPredictionDetailModal(cNum, sNum, sName, cat, extraData);
+            });
+        });
+
+        // 희망학교 개별 [✕] 삭제 버튼 핸들러 (원클릭 삭제)
+        document.querySelectorAll('.btn-delete-app-item').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const cNum = parseInt(btn.dataset.class, 10) || classNum;
+                const sNum = btn.dataset.num;
+                const sName = btn.dataset.name;
+                const cat = btn.dataset.cat;
+                const school = btn.dataset.school;
+                const track = btn.dataset.track;
+
+                const confirmed = await showModalConfirm({
+                    title: '진로희망 학교 삭제',
+                    message: `<strong>${escapeHtml(sName)}</strong> (${sNum}번) 학생의<br><strong class="text-indigo-300">[${escapeHtml(school || '희망학교')}]</strong> 지원 이력을 삭제하시겠습니까?`,
+                    confirmText: '삭제하기',
+                    type: 'warning'
+                });
+                if (!confirmed) return;
+
+                try {
+                    await window.go.main.App.DeleteApplication(cNum, sNum, sName, cat, school, track);
+                    await showModalAlert(`'${sName}' 학생의 [${school}] 지원 기록이 삭제되었습니다.`, '삭제 완료', 'success');
+                    if (window.refreshCurrentClass) {
+                        window.refreshCurrentClass();
+                    }
+                } catch (err) {
+                    await showModalAlert('삭제 실패: ' + err, '오류', 'error');
+                }
+            });
+        });
+    };
+
+    // 전체 대시보드 UI 프레임 구성
     document.getElementById('teacherContent').innerHTML = `
-        <div class="flex items-center justify-between mb-4 flex-wrap gap-3 bg-slate-800/40 p-3 rounded-xl border border-slate-700/50">
-            <div class="text-sm text-text-muted flex-1 min-w-50">
-                <span class="text-white font-semibold">학생 목록</span> (총 <span class="font-bold text-indigo-400">${students.length}</span>명)
-                <div class="text-[11px] mt-1 text-slate-400">개인정보 보호를 위해 상세 점수는 상담창에서만 노출됩니다</div>
+        <!-- 상단 컨트롤 툴바: 정렬, 학생번호/이름 검색, 매트릭스, 반 통계 -->
+        <div class="flex items-center justify-between mb-3 flex-wrap gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/60 shadow-lg backdrop-blur-sm">
+            <div class="flex items-center gap-3 flex-wrap flex-1 min-w-[280px]">
+                <div class="text-sm text-text-muted">
+                    <span class="text-white font-bold text-base">학생 목록</span> (총 <span class="font-bold text-indigo-400">${students.length}</span>명)
+                </div>
+
+                <!-- 학생 검색창 (신호등 매트릭스급 실시간 검색) -->
+                <div class="relative flex-1 max-w-xs min-w-[200px]">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
+                    <input id="dashboardStudentSearchInput" type="text"
+                           class="w-full pl-9 pr-7 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
+                           placeholder="번호(1, 15) 또는 이름 검색..." />
+                    <button id="clearDashboardSearchBtn" class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-white cursor-pointer text-xs font-bold hidden" title="검색 지우기">✕</button>
+                </div>
+
+                <!-- 정렬 드롭다운 -->
+                <select id="dashboardStudentSortSelect" class="rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold cursor-pointer">
+                    <option value="num_asc">🔢 번호순 (오름차순)</option>
+                    <option value="name_asc">🔤 성명순 (가나다)</option>
+                    <option value="general_asc">🟢 일반계고 안정순 (석차백분율↑)</option>
+                    <option value="general_desc">🔴 일반계고 위험순 (석차백분율↓)</option>
+                    <option value="meister_desc">🏛️ 마이스터고 유망순</option>
+                    <option value="special_desc">🏭 특성화고 유망순</option>
+                </select>
             </div>
-            <div class="flex gap-2 flex-wrap">
-                <button id="openMatrixBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 전체 고교별 신호등 매트릭스 보기">
+
+            <!-- 우측 액션 버튼들 -->
+            <div class="flex gap-2 flex-wrap items-center">
+                <button id="openMatrixBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5 hover:border-indigo-400/80 transition-all" title="우리 반 전체 고교별 신호등 매트릭스 보기">
                     <svg class="w-3.5 h-3.5 text-indigo-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                     <span>신호등 매트릭스</span>
                 </button>
-                <button id="openClassApplicationSummaryBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5" title="우리 반 지원희망 통계">
+                <button id="openClassApplicationSummaryBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1.5 hover:border-emerald-400/80 transition-all" title="우리 반 지원희망 통계">
                     <svg class="w-3.5 h-3.5 text-emerald-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 00-2-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
                     <span>우리 반 통계</span>
                 </button>
             </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-800/30">
+        <!-- 1:1 프라이버시 모드 안내 배너 (검색 시 자동 활성화) -->
+        <div id="dashboardPrivacyBanner" class="hidden mb-3 px-4 py-2.5 rounded-xl bg-indigo-950/80 border border-indigo-500/60 shadow-md text-xs text-indigo-200"></div>
+
+        <!-- 학생 목록 메인 테이블 -->
+        <div class="overflow-x-auto rounded-2xl border border-slate-700/60 bg-slate-800/30 shadow-xl">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="bg-slate-800/90 text-text-muted text-sm border-b border-slate-700/70">
+                    <tr class="bg-slate-800/90 text-text-muted text-sm border-b border-slate-700/70 select-none">
                         <th class="p-3.5 font-semibold text-center w-16">번호</th>
                         <th class="p-3.5 font-semibold text-center w-32">성명</th>
                         <th class="p-3.5 font-semibold text-center w-48">일반계고 합격 예측</th>
@@ -2058,77 +2477,77 @@ async function renderStudentList(students, classNum) {
                         <th class="p-3.5 font-semibold text-center w-36">진학 상담</th>
                     </tr>
                 </thead>
-                <tbody>
-                    ${tbody}
+                <tbody id="dashboardStudentTableBody">
                 </tbody>
             </table>
         </div>
-        <div class="mt-4 text-xs text-text-muted text-right">
-            * 일반고 지표는 3학년 1학기 성적 기준 간이 참고치이며, 정식 일반고 내신은 교육청 프로그램을 따릅니다.
+        <div class="mt-3.5 text-xs text-text-muted flex items-center justify-between flex-wrap gap-2">
+            <span class="text-slate-400">💡 <strong>프라이버시 보호 안내:</strong> 상담 시 상단 검색창에 학생 번호나 이름을 입력하면 해당 학생만 화면에 단독 노출되어 다른 학생들의 점수가 완벽히 가려집니다.</span>
+            <span>* 일반고 지표는 3학년 1학기 성적 기준 간이 참고치이며, 정식 일반고 내신은 교육청 프로그램을 따릅니다.</span>
         </div>
     `;
 
+    // 초기 테이블 렌더링
+    updateDashboardTable();
 
-    document.getElementById('openMatrixBtn').addEventListener('click', () => {
+    // 상단 검색창 이벤트 리스너
+    const searchInput = document.getElementById('dashboardStudentSearchInput');
+    const clearSearchBtn = document.getElementById('clearDashboardSearchBtn');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value;
+            if (clearSearchBtn) {
+                if (currentSearchQuery.trim()) {
+                    clearSearchBtn.classList.remove('hidden');
+                } else {
+                    clearSearchBtn.classList.add('hidden');
+                }
+            }
+            updateDashboardTable();
+        });
+    }
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            currentSearchQuery = '';
+            if (searchInput) searchInput.value = '';
+            clearSearchBtn.classList.add('hidden');
+            updateDashboardTable();
+        });
+    }
+
+    // 정렬 드롭다운 이벤트 리스너
+    const sortSelect = document.getElementById('dashboardStudentSortSelect');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            currentSortMode = e.target.value;
+            updateDashboardTable();
+        });
+    }
+
+    // 신호등 매트릭스 버튼
+    document.getElementById('openMatrixBtn')?.addEventListener('click', () => {
         openMatrixModal(classNum);
     });
 
+    // 우리 반 통계 버튼
     document.getElementById('openClassApplicationSummaryBtn')?.addEventListener('click', () => {
         openClassApplicationSummaryModal(classNum);
     });
 
+    // 취합자료 내보내기 버튼 (상단 툴바가 있는 경우)
     document.getElementById('exportCurrentClassPatchBtn')?.addEventListener('click', async () => {
-        const password = prompt('학년부장이 안내한 공용 데이터 암호를 입력하세요.');
+        const password = await showModalPrompt({
+            title: '취합자료 내보내기',
+            message: '학년부장이 안내한 공용 데이터 암호를 입력하세요.',
+            isPassword: true
+        });
         if (!password) return;
         try {
             const path = await window.go.main.App.SaveCurrentClassPatch(password);
-            alert(`취합자료 파일을 저장했습니다.\n${path}\n\n이 파일을 학년부장에게 전달하세요.`);
+            await showModalAlert(`취합자료 파일을 저장했습니다.\n${path}\n\n이 파일을 학년부장에게 전달하세요.`, '취합자료 저장 완료', 'success');
         } catch (err) {
-            alert('취합자료 제출 실패: ' + err);
+            await showModalAlert('취합자료 제출 실패: ' + err, '오류', 'error');
         }
-    });
-
-    document.querySelectorAll('.btn-student-counsel').forEach(el => {
-        el.addEventListener('click', (e) => {
-            const target = e.currentTarget;
-            const cNum = parseInt(target.dataset.class);
-            const sNum = target.dataset.num;
-            const sName = target.dataset.name;
-            openStudentModal(cNum, sNum, sName);
-        });
-    });
-
-    document.querySelectorAll('.btn-student-application').forEach(el => {
-        el.addEventListener('click', (e) => {
-            const target = e.currentTarget;
-            openStudentApplicationModal(parseInt(target.dataset.class), target.dataset.num, target.dataset.name);
-        });
-    });
-
-    document.querySelectorAll('.text-student-name').forEach(el => {
-        el.addEventListener('click', (e) => {
-            const target = e.currentTarget;
-            const cNum = parseInt(target.dataset.class);
-            const sNum = target.dataset.num;
-            const sName = target.dataset.name;
-            openStudentTranscriptModal(cNum, sNum, sName);
-        });
-    });
-
-    document.querySelectorAll('.btn-prediction-detail').forEach(el => {
-        el.addEventListener('click', (e) => {
-            const target = e.currentTarget;
-            const cNum = parseInt(target.dataset.class, 10);
-            const sNum = target.dataset.num;
-            const sName = target.dataset.name;
-            const cat = target.dataset.category;
-            const extraData = {
-                percentile: target.dataset.percentile,
-                rank: target.dataset.rank,
-                total: target.dataset.total
-            };
-            openPredictionDetailModal(cNum, sNum, sName, cat, extraData);
-        });
     });
 }
 
@@ -3396,31 +3815,49 @@ async function openApplicationSummaryModal() {
         });
 
         document.getElementById('applyApplicationCutoffs')?.addEventListener('click', async () => {
-            if (!confirm('합격·최종진학 결과의 최고·최저·평균 점수를 우리 학교 커트라인으로 반영할까요?\n기존 같은 연도·학교·전형·학과의 커트라인은 결과값으로 갱신됩니다.')) return;
+            const confirmed = await showModalConfirm({
+                title: '커트라인 반영 확인',
+                message: '합격·최종진학 결과의 최고·최저·평균 점수를 우리 학교 커트라인으로 반영할까요?\n기존 같은 연도·학교·전형·학과의 커트라인은 결과값으로 갱신됩니다.',
+                confirmText: '반영하기',
+                type: 'info'
+            });
+            if (!confirmed) return;
             try {
                 const count = await window.go.main.App.ApplyApplicationCutoffs();
-                alert(count ? `${count}건의 우리 학교 커트라인을 반영했습니다.` : '반영할 합격 결과가 없습니다.');
-            } catch (err) { alert('커트라인 반영 실패: ' + err); }
+                await showModalAlert(count ? `${count}건의 우리 학교 커트라인을 반영했습니다.` : '반영할 합격 결과가 없습니다.', '반영 완료', 'success');
+            } catch (err) { await showModalAlert('커트라인 반영 실패: ' + err, '오류', 'error'); }
         });
         document.getElementById('closeAdmissionYear')?.addEventListener('click', async () => {
-            if (review.pendingCount) return alert(`진행 중인 기록이 ${review.pendingCount}건 있습니다. 모두 합격·불합격·포기·최종 진학으로 결과를 입력한 뒤 확정해주세요.`);
-            if (!confirm(`${admissionYear}학년도 입시 결과를 확정할까요?\n\n확정하면 해당 연도 지원현황을 수정할 수 없고, 합격 결과의 최고·최저·평균이 우리 학교 커트라인에 자동 반영됩니다.`)) return;
+            if (review.pendingCount) return await showModalAlert(`진행 중인 기록이 ${review.pendingCount}건 있습니다. 모두 합격·불합격·포기·최종 진학으로 결과를 입력한 뒤 확정해주세요.`, '진행 중 기록 존재', 'warning');
+            const confirmed = await showModalConfirm({
+                title: '입시 결과 확정',
+                message: `${admissionYear}학년도 입시 결과를 확정할까요?\n\n확정하면 해당 연도 지원현황을 수정할 수 없고, 합격 결과의 최고·최저·평균이 우리 학교 커트라인에 자동 반영됩니다.`,
+                confirmText: '확정하기',
+                type: 'warning'
+            });
+            if (!confirmed) return;
             try {
                 const note = document.getElementById('admissionClosureNote')?.value?.trim() || '';
                 const result = await window.go.main.App.CloseAdmissionYear(admissionYear, note);
-                alert(`${admissionYear}학년도 입시 결과를 확정했습니다.\n커트라인 ${result.cutoffsApplied || 0}건이 반영되었습니다.`);
+                await showModalAlert(`${admissionYear}학년도 입시 결과를 확정했습니다.\n커트라인 ${result.cutoffsApplied || 0}건이 반영되었습니다.`, '확정 완료', 'success');
                 closeModal();
                 openApplicationSummaryModal();
-            } catch (err) { alert('입시 결과 확정 실패: ' + err); }
+            } catch (err) { await showModalAlert('입시 결과 확정 실패: ' + err, '오류', 'error'); }
         });
         document.getElementById('reopenAdmissionYear')?.addEventListener('click', async () => {
-            if (!confirm(`${admissionYear}학년도 입시 결과 확정을 해제할까요?\n\n지원현황을 다시 수정할 수 있습니다. 이미 반영된 커트라인은 자동으로 지워지지 않으므로 필요하면 커트라인 관리에서 검토해주세요.`)) return;
+            const confirmed = await showModalConfirm({
+                title: '입시 결과 확정 해제',
+                message: `${admissionYear}학년도 입시 결과 확정을 해제할까요?\n\n지원현황을 다시 수정할 수 있습니다. 이미 반영된 커트라인은 자동으로 지워지지 않으므로 필요하면 커트라인 관리에서 검토해주세요.`,
+                confirmText: '확정 해제',
+                type: 'warning'
+            });
+            if (!confirmed) return;
             try {
                 await window.go.main.App.ReopenAdmissionYear(admissionYear);
-                alert('입시 결과 확정을 해제했습니다.');
+                await showModalAlert('입시 결과 확정을 해제했습니다.', '해제 완료', 'success');
                 closeModal();
                 openApplicationSummaryModal();
-            } catch (err) { alert('입시 결과 확정 해제 실패: ' + err); }
+            } catch (err) { await showModalAlert('입시 결과 확정 해제 실패: ' + err, '오류', 'error'); }
         });
     } catch (err) {
         modal.innerHTML = `
@@ -3945,13 +4382,19 @@ async function openStudentApplicationModal(classNum, studentNum, name, preset = 
         });
         document.getElementById('deleteApplication')?.addEventListener('click', async () => {
             const displayName = record.category === 'none' ? '미진학' : (record.schoolName || (record.category === 'general' ? '후기 일반고' : '기타'));
-            if (!confirm(`'${displayName}' 지원 기록을 완전히 삭제하시겠습니까?`)) return;
+            const confirmed = await showModalConfirm({
+                title: '지원 기록 삭제',
+                message: `'${displayName}' 지원 기록을 완전히 삭제하시겠습니까?`,
+                confirmText: '삭제하기',
+                type: 'warning'
+            });
+            if (!confirmed) return;
             try {
                 await window.go.main.App.DeleteStudentApplication(classNum, studentNum, name, record.category, record.schoolName, record.track);
                 await render(0);
                 if (typeof window.refreshCurrentClass === 'function') window.refreshCurrentClass();
             } catch (err) {
-                alert('희망학교 삭제 실패: ' + err);
+                await showModalAlert('희망학교 삭제 실패: ' + err, '오류', 'error');
             }
         });
     };
@@ -4979,12 +5422,18 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             counselRecordsList.querySelectorAll('.btn-delete-counsel').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const id = parseInt(e.currentTarget.dataset.id);
-                    if (!confirm('이 상담 일지를 삭제하시겠습니까? (삭제 후 복구할 수 없습니다)')) return;
+                    const confirmed = await showModalConfirm({
+                        title: '상담 일지 삭제',
+                        message: '이 상담 일지를 삭제하시겠습니까?<br><span class="text-xs text-rose-400">※ 삭제 후에는 복구할 수 없습니다.</span>',
+                        confirmText: '삭제',
+                        type: 'warning'
+                    });
+                    if (!confirmed) return;
                     try {
                         await window.go.main.App.DeleteStudentCounselingRecord(classNum, id);
                         await loadCounselRecords();
                     } catch (err) {
-                        alert('삭제 실패: ' + err);
+                        await showModalAlert('삭제 실패: ' + err, '오류', 'error');
                     }
                 });
             });
@@ -6547,7 +6996,11 @@ async function renderLoginScreen(schoolName) {
 
         document.getElementById('finalArchiveImportBtn').addEventListener('click', async () => {
             const button = document.getElementById('finalArchiveImportBtn');
-            const password = prompt('최종 보관본 암호를 입력하세요. 복원은 새 프로그램 폴더에서만 가능합니다.');
+            const password = await showModalPrompt({
+                title: '최종 보관본 복원',
+                message: '최종 보관본 암호를 입력하세요. 복원은 새 프로그램 폴더에서만 가능합니다.',
+                isPassword: true
+            });
             if (!password) return;
             try {
                 button.disabled = true;
@@ -6555,10 +7008,10 @@ async function renderLoginScreen(schoolName) {
                 const path = await window.go.main.App.OpenFinalArchive();
                 if (!path) return;
                 const school = await window.go.main.App.ImportFinalArchive(path, password);
-                alert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`);
+                await showModalAlert(`${school} 최종 보관본을 복원했습니다.\n학년부장 개인 비밀번호로 로그인하세요.`, '복원 완료', 'success');
                 window.location.reload();
             } catch (err) {
-                alert('최종 보관본 복원 실패: ' + err);
+                await showModalAlert('최종 보관본 복원 실패: ' + err, '오류', 'error');
             } finally {
                 button.disabled = false;
                 button.innerHTML = '<span class="text-base group-hover:scale-110 transition-transform">🗄️</span><span class="font-bold text-amber-300/90 group-hover:text-amber-200 text-xs tracking-wide">암호화 최종 보관본 복원하기</span>';
@@ -6849,7 +7302,13 @@ async function renderUserManagementScreen(schoolName) {
         const btn = document.getElementById('bulkPwBtn');
         const err = document.getElementById('bulkPwError');
 
-        if (!confirm('모든 담임(1반~N반)의 비밀번호를 일괄 설정/초기화 하시겠습니까?')) return;
+        const confirmed = await showModalConfirm({
+            title: '담임 비밀번호 일괄 설정',
+            message: '모든 담임(1반~N반)의 비밀번호를 일괄 설정/초기화 하시겠습니까?',
+            confirmText: '일괄 설정',
+            type: 'warning'
+        });
+        if (!confirmed) return;
 
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span>...';
@@ -6955,16 +7414,22 @@ async function renderUserManagementScreen(schoolName) {
 
     window.updateUserPassword = async (username, directPw) => {
         let pw = directPw;
+        let inputEl = document.getElementById(`pw_${username}`);
         if (typeof pw !== 'string' || !pw) {
-            const input = document.getElementById(`pw_${username}`);
-            pw = input ? input.value : '';
+            pw = inputEl ? inputEl.value : '';
         }
         if (!pw) {
-            alert('새 비밀번호를 입력하세요.');
+            await showModalAlert('새 비밀번호를 입력하세요.', '입력 확인', 'warning');
             return;
         }
 
-        if (confirm(`'${username}' 계정의 비밀번호를 설정하시겠습니까?`)) {
+        const confirmed = await showModalConfirm({
+            title: '비밀번호 설정',
+            message: `'${username}' 계정의 비밀번호를 새로 설정하시겠습니까?`,
+            confirmText: '설정하기',
+            type: 'warning'
+        });
+        if (confirmed) {
             try {
                 await window.go.main.App.SetUserPassword(username, pw);
                 if (username !== 'admin') {
@@ -6972,38 +7437,50 @@ async function renderUserManagementScreen(schoolName) {
                     if (!resetPath) {
                         throw new Error('비밀번호는 설정되었지만 재설정 파일 저장이 취소되었습니다. 다시 재설정해 파일을 전달하세요.');
                     }
-                    alert(`비밀번호가 설정되고 재설정 파일이 만들어졌습니다.\n담임에게 프로그램과 함께 다음 파일을 전달하세요.\n${resetPath}`);
+                    await showModalAlert(`비밀번호가 설정되고 재설정 파일이 만들어졌습니다.\n담임에게 프로그램과 함께 다음 파일을 전달하세요.\n\n${resetPath}`, '재설정 파일 생성 완료', 'success');
                 } else {
-                    alert('관리자 비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.');
+                    await showModalAlert('관리자 비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.', '비밀번호 변경 완료', 'success');
                 }
-                input.value = '';
+                if (inputEl) inputEl.value = '';
                 loadUserList();
             } catch (err) {
-                alert('설정 실패: ' + err);
+                await showModalAlert('설정 실패: ' + err, '오류 발생', 'error');
             }
         }
     };
 
     window.deleteUserAccount = async (username) => {
-        if (confirm(`정말로 '${username}' 계정을 삭제하시겠습니까?`)) {
+        const confirmed = await showModalConfirm({
+            title: '계정 삭제',
+            message: `정말로 '${username}' 계정을 삭제하시겠습니까?`,
+            confirmText: '삭제',
+            type: 'error'
+        });
+        if (confirmed) {
             try {
                 await window.go.main.App.DeleteUser(username);
-                alert('계정이 삭제되었습니다.');
+                await showModalAlert('계정이 삭제되었습니다.', '완료', 'success');
                 loadUserList();
             } catch (err) {
-                alert('삭제 실패: ' + err);
+                await showModalAlert('삭제 실패: ' + err, '오류', 'error');
             }
         }
     };
 
     window.createDistributionPackage = async (username) => {
-        if (!confirm(`'${username}' 계정용 교사용 배포 자료를 만들까요?\n\n담임용 자료에는 해당 반 DB만, 진로부장용 자료에는 조회용 전체 학급 DB가 포함됩니다. 관리자 계정과 다른 담임 계정은 포함되지 않습니다.`)) return;
+        const confirmed = await showModalConfirm({
+            title: '배포 자료 생성',
+            message: `'${username}' 계정용 교사용 배포 자료를 만들까요?\n\n담임용 자료에는 해당 반 DB만, 진로부장용 자료에는 조회용 전체 학급 DB가 포함됩니다. 관리자 계정과 다른 담임 계정은 포함되지 않습니다.`,
+            confirmText: '생성하기',
+            type: 'info'
+        });
+        if (!confirmed) return;
         try {
             const path = await window.go.main.App.SaveDistributionPackage(username);
             if (!path) return;
-            alert(`'${username}' 계정용 배포 자료 생성이 완료되었습니다!\n\n📂 저장 위치:\n${path}\n\n💡 [안내 사항]\n• 담임 선생님께 프로그램 실행 파일과 위 배포 자료(.phgcpkg), 그리고 학년부장의 [공용 데이터 암호]를 함께 전달해 주세요.\n• 담임 선생님은 로그인 화면에서 ‘배포 자료 가져오기’를 누른 후, 공용 데이터 암호를 입력하여 안전하게 최초 로그인하실 수 있습니다.`);
+            await showModalAlert(`'${username}' 계정용 배포 자료 생성이 완료되었습니다!\n\n📂 저장 위치:\n${path}\n\n💡 [안내 사항]\n• 담임 선생님께 프로그램 실행 파일과 위 배포 자료(.phgcpkg), 그리고 학년부장의 [공용 데이터 암호]를 함께 전달해 주세요.\n• 담임 선생님은 로그인 화면에서 ‘배포 자료 가져오기’를 누른 후, 공용 데이터 암호를 입력하여 안전하게 최초 로그인하실 수 있습니다.`, '배포 자료 준비 완료', 'success');
         } catch (err) {
-            alert('배포 자료 생성 실패: ' + err);
+            await showModalAlert('배포 자료 생성 실패: ' + err, '오류', 'error');
         }
     };
 
@@ -7836,16 +8313,21 @@ async function renderCutoffScreen(schoolName) {
 
         // 7-1. 커트라인 초기화 버튼 이벤트 (연도별 선택 또는 전체 초기화)
         document.getElementById('resetCutoffsBtn')?.addEventListener('click', async () => {
-            const confirmed = confirm(
-                `[커트라인 초기화 확인]\n\n` +
-                `현재 선택된 ${currentAdmissionYear}학년도 커트라인을 초기화하시겠습니까?\n\n` +
-                `- [확인]: ${currentAdmissionYear}학년도 커트라인 초기화\n` +
-                `- [취소]: 초기화 취소\n\n` +
-                `(※ 전체 5개년 모든 데이터를 완전 백지화하려면 다음 질문에서 전체 초기화를 선택할 수 있습니다.)`
-            );
+            const confirmed = await showModalConfirm({
+                title: '커트라인 초기화 확인',
+                message: `현재 선택된 <strong>${currentAdmissionYear}학년도</strong> 커트라인을 초기화하시겠습니까?<br><br><span class="text-xs text-slate-400">※ 전체 5개년 모든 데이터를 완전 백지화하려면 다음 질문에서 전체 초기화를 선택할 수 있습니다.</span>`,
+                confirmText: '초기화 진행',
+                type: 'warning'
+            });
             if (!confirmed) return;
 
-            const isAllYears = confirm(`[전체 연도 초기화 선택]\n\n[확인]을 누르면 모든 연도(5개년 전체)의 커트라인과 공개 입결 데이터가 완전 백지화됩니다.\n[취소]를 누르면 현재 ${currentAdmissionYear}학년도 데이터만 초기화됩니다.`);
+            const isAllYears = await showModalConfirm({
+                title: '전체 연도 초기화 선택',
+                message: `모든 연도(5개년 전체)의 커트라인과 공개 입결 데이터를 완전 백지화하시겠습니까?<br><br>- <strong>[전체 백지화]</strong>: 5개년 전체 데이터 삭제<br>- <strong>[해당 연도만]</strong>: 현재 ${currentAdmissionYear}학년도 데이터만 삭제`,
+                confirmText: '전체 백지화',
+                cancelText: '해당 연도만',
+                type: 'error'
+            });
 
             try {
                 if (isAllYears) {
@@ -7902,7 +8384,13 @@ async function renderCutoffScreen(schoolName) {
                     await showModalAlert({ title: '안내', message: '반영할 공개 데이터가 없습니다.', type: 'info' });
                     return;
                 }
-                if (confirm(`현재 화면에 표시된 ${allIndices.length}개 공개 데이터를 각 연도별 고교 커트라인에 일괄 반영하시겠습니까?`)) {
+                const confirmed = await showModalConfirm({
+                    title: '공개 데이터 일괄 반영',
+                    message: `현재 화면에 표시된 <strong>${allIndices.length}개</strong> 공개 데이터를 각 연도별 고교 커트라인에 일괄 반영하시겠습니까?`,
+                    confirmText: '일괄 반영',
+                    type: 'info'
+                });
+                if (confirmed) {
                     await applyPublicDataIndices(allIndices);
                 }
             });
@@ -7926,7 +8414,13 @@ async function renderCutoffScreen(schoolName) {
                     await showModalAlert({ title: '선택 확인', message: '삭제할 항목의 체크박스를 1개 이상 선택해주세요.', type: 'warning' });
                     return;
                 }
-                if (confirm(`선택한 ${selectedIndices.length}개 공개자료 항목을 삭제하시겠습니까?`)) {
+                const confirmed = await showModalConfirm({
+                    title: '공개자료 삭제',
+                    message: `선택한 <strong>${selectedIndices.length}개</strong> 공개자료 항목을 삭제하시겠습니까?`,
+                    confirmText: '삭제',
+                    type: 'warning'
+                });
+                if (confirmed) {
                     const toDelete = [];
                     selectedIndices.forEach(idx => {
                         if (idx >= 0 && idx < publicOfficialData.length) {
@@ -8034,7 +8528,13 @@ async function renderCutoffScreen(schoolName) {
                 const visibleCheckboxes = Array.from(app.querySelectorAll('.public-item-check'));
                 const allIndices = visibleCheckboxes.map(cb => Number(cb.dataset.index));
                 if (allIndices.length > 0) {
-                    if (confirm(`공개자료 탭에 표시된 ${allIndices.length}개 공식 데이터를 현재 입학년도 커트라인으로 일괄 반영 및 저장하시겠습니까?`)) {
+                    const confirmed = await showModalConfirm({
+                        title: '공식 데이터 일괄 반영',
+                        message: `공개자료 탭에 표시된 <strong>${allIndices.length}개</strong> 공식 데이터를 현재 입학년도 커트라인으로 일괄 반영 및 저장하시겠습니까?`,
+                        confirmText: '반영 및 저장',
+                        type: 'info'
+                    });
+                    if (confirmed) {
                         await applyPublicDataIndices(allIndices);
                         return true;
                     }
