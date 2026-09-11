@@ -302,7 +302,7 @@ function showModalPrompt(optionsOrMessage, defaultVal = '', titleText = '입력'
                 </div>
                 <div class="mb-6">
                     <input id="modalPromptInput" type="${isPassword ? 'password' : 'text'}"
-                           class="w-full px-4 py-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl text-white placeholder-slate-500 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+                           class="w-full px-4 py-3 bg-slate-900/90 border border-indigo-500/50 rounded-xl text-white placeholder:text-slate-500 text-center font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
                            placeholder="${escapeAttr(placeholder || '내용을 입력하세요')}" value="${escapeAttr(String(defaultValue || ''))}" />
                 </div>
                 <div class="flex items-center justify-center gap-3">
@@ -2441,20 +2441,20 @@ async function renderStudentList(students, classNum) {
     document.getElementById('teacherContent').innerHTML = `
         <!-- 상단 컨트롤 툴바: 정렬, 학생번호/이름 검색, 매트릭스, 반 통계 -->
         <div class="flex items-center justify-between mb-3 flex-wrap gap-3 bg-slate-800/50 p-3.5 rounded-2xl border border-slate-700/60 shadow-lg backdrop-blur-sm">
-            <div class="flex items-center gap-3 flex-wrap flex-1 min-w-[280px]">
+            <div class="flex items-center gap-3 flex-wrap flex-1 min-w-70">
                 <div class="text-sm text-text-muted">
                     <span class="text-white font-bold text-base">학생 목록</span> (총 <span class="font-bold text-indigo-400">${students.length}</span>명)
                 </div>
 
                 <!-- 학생 검색창 (신호등 매트릭스급 실시간 검색) -->
-                <div class="relative flex-1 max-w-xs min-w-[200px]">
+                <div class="relative flex-1 max-w-xs min-w-50">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </span>
                     <input id="dashboardStudentSearchInput" type="text"
-                           class="w-full pl-9 pr-7 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
+                           class="w-full pl-9 pr-7 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all font-semibold"
                            placeholder="번호(1, 15) 또는 이름 검색..." />
-                    <button id="clearDashboardSearchBtn" class="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-white cursor-pointer text-xs font-bold hidden" title="검색 지우기">✕</button>
+                    <button id="clearDashboardSearchBtn" class="absolute inset-y-0 right-0 items-center pr-2.5 text-slate-400 hover:text-white cursor-pointer text-xs font-bold hidden" title="검색 지우기">✕</button>
                 </div>
 
                 <!-- 정렬 드롭다운 -->
@@ -2517,11 +2517,9 @@ async function renderStudentList(students, classNum) {
         searchInput.addEventListener('input', (e) => {
             currentSearchQuery = e.target.value;
             if (clearSearchBtn) {
-                if (currentSearchQuery.trim()) {
-                    clearSearchBtn.classList.remove('hidden');
-                } else {
-                    clearSearchBtn.classList.add('hidden');
-                }
+                const hasQuery = Boolean(currentSearchQuery.trim());
+                clearSearchBtn.classList.toggle('hidden', !hasQuery);
+                clearSearchBtn.classList.toggle('flex', hasQuery);
             }
             updateDashboardTable();
         });
@@ -2531,6 +2529,7 @@ async function renderStudentList(students, classNum) {
             currentSearchQuery = '';
             if (searchInput) searchInput.value = '';
             clearSearchBtn.classList.add('hidden');
+            clearSearchBtn.classList.remove('flex');
             updateDashboardTable();
         });
     }
@@ -2811,7 +2810,7 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                         * 합격 예측은 각 고교 공식 산출 공식 및 과거 입결을 바탕으로 산정된 참고 지표입니다.
                     </div>
                     <div class="flex items-center gap-2.5">
-                        <button id="goToCounselFromPredictionBtn" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black px-6 py-2.5 text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/30 cursor-pointer active:scale-95 transition-all">
+                        <button id="goToCounselFromPredictionBtn" class="bg-linear-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-black px-6 py-2.5 text-xs rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/30 cursor-pointer active:scale-95 transition-all">
                             <span class="text-sm">💬</span> 1:1 진학 상담 시작
                         </button>
                         <button id="closePredictionModalFooterBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold px-5 py-2.5 text-xs rounded-xl cursor-pointer active:scale-95 transition-all">
@@ -3208,7 +3207,7 @@ async function openApplicationRegisterModal() {
                             </select>
                         </div>
 
-                        <button id="printRegisterBtn" class="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs px-4 py-2 font-black flex items-center gap-1.5 rounded-xl shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
+                        <button id="printRegisterBtn" class="bg-linear-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs px-4 py-2 font-black flex items-center gap-1.5 rounded-xl shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer">
                             <span>🖨️</span> 인쇄 / PDF 저장
                         </button>
                         <button id="closeRegisterBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-3.5 py-2 font-bold rounded-xl border border-slate-700 transition-colors cursor-pointer">
@@ -6104,7 +6103,7 @@ async function openMatrixModal(classNum = null) {
                         <div class="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-xl border border-slate-700 text-xs shadow-xs">
                             <span class="text-slate-400">🔍</span>
                             <input type="text" id="matrixSearchInput" placeholder="학생 성명 또는 학번 검색 (예: 강감찬, 1, 101)" 
-                                   class="bg-transparent text-white placeholder-slate-500 font-medium text-xs outline-none w-44 sm:w-64" />
+                                   class="bg-transparent text-white placeholder:text-slate-500 font-medium text-xs outline-none w-44 sm:w-64" />
                             <button id="clearMatrixSearchBtn" class="text-slate-400 hover:text-white text-xs cursor-pointer hidden">✕</button>
                         </div>
 
@@ -7974,10 +7973,10 @@ async function renderCutoffScreen(schoolName) {
                                             <input type="hidden" class="public-year" data-index="${p.originalIndex}" value="${group.year}" />
                                         </div>
                                     </td>
-                                    <td class="p-3 align-middle text-left pl-3 bg-slate-900/40 border-r border-slate-700/50 min-w-[160px]" rowspan="${rowSpan}">
+                                    <td class="p-3 align-middle text-left pl-3 bg-slate-900/40 border-r border-slate-700/50 min-w-40" rowspan="${rowSpan}">
                                         <div class="flex items-center gap-1.5 w-full">
                                             <span class="text-base shrink-0">🏫</span>
-                                            <select class="input-field py-1 px-2.5 text-xs font-bold text-white bg-slate-800 border-slate-600 rounded-lg public-school-select w-full min-w-[130px]" data-group-year="${group.year}" data-group-school="${group.school}">
+                                            <select class="input-field py-1 px-2.5 text-xs font-bold text-white bg-slate-800 border-slate-600 rounded-lg public-school-select w-full min-w-32.5" data-group-year="${group.year}" data-group-school="${group.school}">
                                                 ${[
                                                     "울산마이스터고", "울산에너지고", "현대공업고",
                                                     "울산공업고", "울산기술공업고", "울산미용예술고", "울산산업고", "울산생활과학고", "울산여자상업고", "울산상업고", "울산애니원고",
@@ -8062,7 +8061,7 @@ async function renderCutoffScreen(schoolName) {
                         </div>
                         <div class="flex items-center gap-2.5 flex-wrap">
                             <!-- 연도 필터 토글 -->
-                            <div class="inline-flex rounded-xl bg-slate-900/80 p-1 border border-slate-700/60 shadow-inner text-xs h-[34px] items-center">
+                            <div class="inline-flex rounded-xl bg-slate-900/80 p-1 border border-slate-700/60 shadow-inner text-xs h-8.5 items-center">
                                 <button id="btnFilterPublicCurrentYear" class="px-3 py-1 rounded-lg font-bold transition-all ${publicYearFilterMode === 'current' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}">
                                     📅 ${currentAdmissionYear}학년도만 보기
                                 </button>
@@ -8070,7 +8069,7 @@ async function renderCutoffScreen(schoolName) {
                                     전체 연도 모아보기
                                 </button>
                             </div>
-                            <button id="addPublicDataBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-[34px]" title="새 공식 공개자료를 등록합니다">
+                            <button id="addPublicDataBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 py-1 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-8.5" title="새 공식 공개자료를 등록합니다">
                                 <span>➕</span> 공개자료 추가
                             </button>
                         </div>
@@ -8080,15 +8079,15 @@ async function renderCutoffScreen(schoolName) {
                     <div class="flex items-center justify-between gap-3 flex-wrap bg-slate-900/60 p-2.5 rounded-xl border border-slate-700/50 text-xs shadow-xs">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="text-indigo-300 font-bold ml-1 flex items-center gap-1">☑️ 체크 항목 관리:</span>
-                            <button id="btnApplySelectedPublic" class="bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer h-[30px]" title="체크된 항목들을 커트라인에 일괄 반영합니다">
+                            <button id="btnApplySelectedPublic" class="bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer h-7.5" title="체크된 항목들을 커트라인에 일괄 반영합니다">
                                 <span>📥</span> 선택 반영
                             </button>
-                            <button id="btnDeleteSelectedPublic" class="bg-rose-950/60 hover:bg-rose-900/70 border border-rose-500/50 text-rose-300 font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer h-[30px]" title="체크된 항목들을 삭제합니다">
+                            <button id="btnDeleteSelectedPublic" class="bg-rose-950/60 hover:bg-rose-900/70 border border-rose-500/50 text-rose-300 font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer h-7.5" title="체크된 항목들을 삭제합니다">
                                 <span>🗑️</span> 선택 삭제
                             </button>
                         </div>
                         <div>
-                            <button id="btnApplyAllPublic" class="bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold px-3.5 py-1 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer h-[30px]" title="현재 보이는 모든 공개 데이터를 커트라인에 일괄 반영합니다">
+                            <button id="btnApplyAllPublic" class="bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold px-3.5 py-1 rounded-lg flex items-center gap-1.5 shadow-xs transition-all cursor-pointer h-7.5" title="현재 보이는 모든 공개 데이터를 커트라인에 일괄 반영합니다">
                                 <span>⚡</span> 현재 목록 전체 일괄 반영
                             </button>
                         </div>
@@ -8142,27 +8141,27 @@ async function renderCutoffScreen(schoolName) {
                     </div>
 
                     <div class="flex items-center gap-2 flex-wrap">
-                        <!-- 입학년도(입시년도) 선택기: 선택 즉시 자동 전환 (높이 h-[36px] 일치) -->
-                        <div class="flex items-center gap-2 bg-slate-900/80 px-3 rounded-xl border border-indigo-500/40 shadow-inner h-[36px]">
+                        <!-- 입학년도(입시년도) 선택기: 선택 즉시 자동 전환 (높이 h-9 일치) -->
+                        <div class="flex items-center gap-2 bg-slate-900/80 px-3 rounded-xl border border-indigo-500/40 shadow-inner h-9">
                             <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도:</label>
                             <select id="admissionYearSelect" class="bg-slate-800 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg border border-slate-700 outline-none cursor-pointer">
                                 ${admissionYears.map(year => `<option value="${year}" ${currentAdmissionYear === year ? 'selected' : ''}>${year}학년도 (${year - 1}학년도 중3${year - 1 === currentMiddleSchoolYear ? ' - 현재' : ''})</option>`).join('')}
                             </select>
                         </div>
 
-                        <button id="saveAllCutoffsBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-[36px]" title="현재 커트라인 데이터를 데이터베이스에 영구 저장합니다">
+                        <button id="saveAllCutoffsBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-9" title="현재 커트라인 데이터를 데이터베이스에 영구 저장합니다">
                             <span>💾</span> 커트라인 저장
                         </button>
-                        <button id="resetCutoffsBtn" class="text-xs bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:bg-rose-900/70 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-[36px]" title="입력된 커트라인 데이터를 초기화합니다">
+                        <button id="resetCutoffsBtn" class="text-xs bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:bg-rose-900/70 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9" title="입력된 커트라인 데이터를 초기화합니다">
                             <span>🗑️</span> 커트라인 초기화
                         </button>
-                        <button id="exportJointDataBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-[36px]">
+                        <button id="exportJointDataBtn" class="text-xs bg-indigo-600/30 border border-indigo-500/50 text-indigo-200 hover:bg-indigo-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9">
                             <span>📤</span> 자료 내보내기
                         </button>
-                        <button id="importJointDataBtn" class="text-xs bg-emerald-600/30 border border-emerald-500/50 text-emerald-200 hover:bg-emerald-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-[36px]">
+                        <button id="importJointDataBtn" class="text-xs bg-emerald-600/30 border border-emerald-500/50 text-emerald-200 hover:bg-emerald-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9">
                             <span>📥</span> 타교자료 병합
                         </button>
-                        <button id="backToAdminBtn" class="text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 px-3.5 rounded-xl font-bold flex items-center justify-center transition-colors cursor-pointer h-[36px]">
+                        <button id="backToAdminBtn" class="text-xs bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 px-3.5 rounded-xl font-bold flex items-center justify-center transition-colors cursor-pointer h-9">
                             ← 대시보드
                         </button>
                     </div>
