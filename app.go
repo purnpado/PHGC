@@ -633,6 +633,9 @@ func (a *App) ExportDistributionPackage(username, outputPath string) error {
 	keyPassword := hex.EncodeToString(a.dataKey)
 	files := []string{"config.db.phgc", "shared-key.json", "manifest.json", "login-index.json"}
 
+	// 배포 패키지 생성 직전 최신 전교생 석차 스냅샷을 갱신하여 config.db에 보관
+	_ = a.UpdateSchoolRankSnapshots()
+
 	// Create a temporary config snapshot that contains only the target account.
 	configCopy := filepath.Join(tmpDir, "config.db")
 	if err := snapshotDatabase(a.db, a.db.getConfigDBPath(), configCopy); err != nil {
@@ -645,6 +648,10 @@ func (a *App) ExportDistributionPackage(username, outputPath string) error {
 	_, err = copyDB.Exec("DELETE FROM users WHERE username <> ?", target.Username)
 	if err == nil {
 		_, err = copyDB.Exec("UPDATE school_config SET admin_password = '' WHERE id = 1")
+	}
+	// 담임교사 배포 패키지인 경우: 타 학급의 학생 개인정보를 완벽히 보호하기 위해 해당 학급의 전교 석차 스냅샷만 남기고 삭제
+	if err == nil && target.Role == "homeroom" {
+		_, err = copyDB.Exec("DELETE FROM school_rank_snapshots WHERE class_num <> ?", target.ClassNum)
 	}
 	// 만약 target의 비밀번호가 설정되어 있지 않다면(빈 문자열), 안전하게 기본 비밀번호(계정 아이디)를 설정하여 배포
 	if err == nil && target.PasswordHash == "" {
@@ -1103,6 +1110,9 @@ func (a *App) ProcessExcel(filePath string) (map[int]int, error) {
 		result[classNum] = len(students)
 	}
 
+	// 엑셀 성적 업로드 완료 후 전교생 기준 석차 및 백분율 스냅샷 자동 갱신
+	_ = a.UpdateSchoolRankSnapshots()
+
 	return result, nil
 }
 
@@ -1129,6 +1139,9 @@ func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
 		result[classNum] = updatedCount
 	}
 
+	// 출결 변동 반영 전교생 성적 스냅샷 갱신
+	_ = a.UpdateSchoolRankSnapshots()
+
 	return result, nil
 }
 
@@ -1154,6 +1167,9 @@ func (a *App) ProcessVolunteerExcel(filePath string) (map[int]int, error) {
 		}
 		result[classNum] = updatedCount
 	}
+
+	// 봉사시간 변동 반영 전교생 성적 스냅샷 갱신
+	_ = a.UpdateSchoolRankSnapshots()
 
 	return result, nil
 }
@@ -1196,6 +1212,23 @@ func (a *App) GetCutoffs() ([]CutoffInfo, error) {
 	return a.db.GetCutoffs()
 }
 
+// UpdateSchoolRankSnapshots 전교생 기준 석차 및 백분율을 일괄 산출하여 스냅샷으로 보관
+func (a *App) UpdateSchoolRankSnapshots() error {
+	config, err := a.db.GetSchoolConfig()
+	if err != nil || config == nil {
+		return err
+	}
+	allStudents, err := a.db.GetAllStudents(config.ClassCount)
+	if err != nil || len(allStudents) == 0 {
+		return err
+	}
+	calcResults, err := CalculateGrades(allStudents, config.IsSmallSchool)
+	if err != nil {
+		return err
+	}
+	return a.db.SaveRankSnapshots(calcResults)
+}
+
 // GetClassGrades 특정 반의 내신 성적 가산출 결과 반환
 func (a *App) GetClassGrades(classNum int) ([]StudentCalcResult, error) {
 	config, err := a.db.GetSchoolConfig()
@@ -1215,10 +1248,29 @@ func (a *App) GetClassGrades(classNum int) ([]StudentCalcResult, error) {
 		return nil, fmt.Errorf("성적 산출 중 오류 발생: %w", err)
 	}
 
+	// 2-1. 학년부장 권한이거나 학생 데이터가 여러 반 이상 있는 경우 스냅샷을 최신으로 갱신
+	if (a.user != nil && a.user.Role == "master") || len(allStudents) > 1 {
+		_ = a.db.SaveRankSnapshots(calcResults)
+	}
+
+	// 2-2. 전교 석차 스냅샷 조회 (담임 배포본 등 로컬 DB 학생수가 전교생보다 적을 때 전교 기준 석차 유지)
+	snapshots, _ := a.db.GetRankSnapshots(classNum)
+
 	// 3. 요청한 반의 학생들만 필터링하여 반환
 	var classResults []StudentCalcResult
 	for _, res := range calcResults {
 		if res.ClassNum == classNum {
+			// 만약 전교 석차 스냅샷이 존재하고, 스냅샷의 전교 학생수가 현재 계산된 학생수보다 크다면 스냅샷 우선 적용!
+			if snapshots != nil {
+				key := fmt.Sprintf("%s_%s", strings.TrimSpace(res.StudentNum), strings.TrimSpace(res.Name))
+				if snap, ok := snapshots[key]; ok && snap.TotalStudents > res.TotalStudents {
+					res.TotalStudents = snap.TotalStudents
+					res.Rank = snap.Rank
+					res.Percentile = snap.Percentile
+					res.FinalScore = snap.FinalScore
+					res.GeneralTotalScore = res.FinalScore + res.NonAcademicScore
+				}
+			}
 			classResults = append(classResults, res)
 		}
 	}
@@ -2009,18 +2061,24 @@ func (a *App) GetStudentTranscript(classNum int, studentNum, name string) (*Stud
 		res.AllAverage = fullData.AllAverage
 	}
 
-	// 전교 석차 및 백분율 정보 산출
-	config, _ := a.db.GetSchoolConfig()
-	if config != nil {
-		allStudents, _ := a.db.GetAllStudents(config.ClassCount)
-		if len(allStudents) > 0 {
-			calcResults, _ := CalculateGrades(allStudents, config.IsSmallSchool)
-			res.TotalStudents = len(calcResults)
-			for _, cg := range calcResults {
-				if cg.ClassNum == classNum && matchStudent(cg.StudentNum, cg.Name, studentNum, name) {
-					res.Rank = cg.Rank
-					res.Percentile = cg.Percentile
-					break
+	// 전교 석차 및 백분율 정보 산출 (스냅샷 우선)
+	if snap, err := a.db.GetStudentRankSnapshot(classNum, studentNum, name); err == nil && snap != nil && snap.TotalStudents > 0 {
+		res.TotalStudents = snap.TotalStudents
+		res.Rank = snap.Rank
+		res.Percentile = snap.Percentile
+	} else {
+		config, _ := a.db.GetSchoolConfig()
+		if config != nil {
+			allStudents, _ := a.db.GetAllStudents(config.ClassCount)
+			if len(allStudents) > 0 {
+				calcResults, _ := CalculateGrades(allStudents, config.IsSmallSchool)
+				res.TotalStudents = len(calcResults)
+				for _, cg := range calcResults {
+					if cg.ClassNum == classNum && matchStudent(cg.StudentNum, cg.Name, studentNum, name) {
+						res.Rank = cg.Rank
+						res.Percentile = cg.Percentile
+						break
+					}
 				}
 			}
 		}

@@ -329,6 +329,22 @@ func (dm *DBManager) InitConfigDB() error {
 			note TEXT NOT NULL DEFAULT '',
 			cutoffs_applied INTEGER NOT NULL DEFAULT 0
 		);
+		CREATE TABLE IF NOT EXISTS school_rank_snapshots (
+			class_num INTEGER NOT NULL,
+			student_num TEXT NOT NULL,
+			student_name TEXT NOT NULL,
+			total_students INTEGER NOT NULL,
+			rank INTEGER NOT NULL,
+			percentile REAL NOT NULL,
+			final_score REAL NOT NULL,
+			non_academic_score REAL DEFAULT 0,
+			general_total_score REAL DEFAULT 0,
+			total_subject_score REAL DEFAULT 0,
+			general_data_complete BOOLEAN DEFAULT 1,
+			general_projected BOOLEAN DEFAULT 0,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (class_num, student_num, student_name)
+		);
 	`)
 	if err != nil {
 		return fmt.Errorf("config 테이블 생성 실패: %w", err)
@@ -337,6 +353,22 @@ func (dm *DBManager) InitConfigDB() error {
 	// 기존 DB 마이그레이션 (avg_value 컬럼 추가)
 	_, _ = db.Exec("ALTER TABLE highschool_cutoffs ADD COLUMN avg_value REAL DEFAULT 0")
 	_, _ = db.Exec("ALTER TABLE school_config ADD COLUMN expected_support_token TEXT NOT NULL DEFAULT ''")
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS school_rank_snapshots (
+		class_num INTEGER NOT NULL,
+		student_num TEXT NOT NULL,
+		student_name TEXT NOT NULL,
+		total_students INTEGER NOT NULL,
+		rank INTEGER NOT NULL,
+		percentile REAL NOT NULL,
+		final_score REAL NOT NULL,
+		non_academic_score REAL DEFAULT 0,
+		general_total_score REAL DEFAULT 0,
+		total_subject_score REAL DEFAULT 0,
+		general_data_complete BOOLEAN DEFAULT 1,
+		general_projected BOOLEAN DEFAULT 0,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (class_num, student_num, student_name)
+	)`)
 
 	return nil
 }
@@ -2106,3 +2138,140 @@ func (dm *DBManager) DeleteStudentCounselingRecord(classNum int, id int64, autho
 	}
 	return nil
 }
+
+// RankSnapshot 전교 기준 학생 석차 및 백분율 스냅샷 모델
+type RankSnapshot struct {
+	ClassNum            int     `json:"classNum"`
+	StudentNum          string  `json:"studentNum"`
+	StudentName         string  `json:"studentName"`
+	TotalStudents       int     `json:"totalStudents"`
+	Rank                int     `json:"rank"`
+	Percentile          float64 `json:"percentile"`
+	FinalScore          float64 `json:"finalScore"`
+	NonAcademicScore    float64 `json:"nonAcademicScore"`
+	GeneralTotalScore   float64 `json:"generalTotalScore"`
+	TotalSubjectScore   float64 `json:"totalSubjectScore"`
+	GeneralDataComplete bool    `json:"generalDataComplete"`
+	GeneralProjected    bool    `json:"generalProjected"`
+}
+
+// SaveRankSnapshots 전교 석차 및 백분율 스냅샷을 config.db에 저장 (배포 및 조회 동기화용)
+func (dm *DBManager) SaveRankSnapshots(records []StudentCalcResult) error {
+	if len(records) == 0 {
+		return nil
+	}
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+		INSERT INTO school_rank_snapshots (
+			class_num, student_num, student_name, total_students, rank, percentile,
+			final_score, non_academic_score, general_total_score, total_subject_score,
+			general_data_complete, general_projected, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(class_num, student_num, student_name) DO UPDATE SET
+			total_students = excluded.total_students,
+			rank = excluded.rank,
+			percentile = excluded.percentile,
+			final_score = excluded.final_score,
+			non_academic_score = excluded.non_academic_score,
+			general_total_score = excluded.general_total_score,
+			total_subject_score = excluded.total_subject_score,
+			general_data_complete = excluded.general_data_complete,
+			general_projected = excluded.general_projected,
+			updated_at = CURRENT_TIMESTAMP
+	`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, r := range records {
+		_, err := stmt.Exec(
+			r.ClassNum, r.StudentNum, r.Name, r.TotalStudents, r.Rank, r.Percentile,
+			r.FinalScore, r.NonAcademicScore, r.GeneralTotalScore, r.TotalSubjectScore,
+			r.GeneralDataComplete, r.GeneralProjected,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetRankSnapshots 특정 반의 학생별 전교 석차 스냅샷 목록을 맵(키: studentNum + "_" + studentName)으로 반환
+func (dm *DBManager) GetRankSnapshots(classNum int) (map[string]RankSnapshot, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query(`
+		SELECT class_num, student_num, student_name, total_students, rank, percentile,
+		       final_score, non_academic_score, general_total_score, total_subject_score,
+		       general_data_complete, general_projected
+		FROM school_rank_snapshots
+		WHERE class_num = ?
+	`, classNum)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := make(map[string]RankSnapshot)
+	for rows.Next() {
+		var s RankSnapshot
+		if err := rows.Scan(
+			&s.ClassNum, &s.StudentNum, &s.StudentName, &s.TotalStudents, &s.Rank, &s.Percentile,
+			&s.FinalScore, &s.NonAcademicScore, &s.GeneralTotalScore, &s.TotalSubjectScore,
+			&s.GeneralDataComplete, &s.GeneralProjected,
+		); err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("%s_%s", strings.TrimSpace(s.StudentNum), strings.TrimSpace(s.StudentName))
+		results[key] = s
+	}
+
+	return results, nil
+}
+
+// GetStudentRankSnapshot 단일 학생의 전교 석차 스냅샷 조회
+func (dm *DBManager) GetStudentRankSnapshot(classNum int, studentNum, studentName string) (*RankSnapshot, error) {
+	db, err := dm.openDB(dm.getConfigDBPath())
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var s RankSnapshot
+	err = db.QueryRow(`
+		SELECT class_num, student_num, student_name, total_students, rank, percentile,
+		       final_score, non_academic_score, general_total_score, total_subject_score,
+		       general_data_complete, general_projected
+		FROM school_rank_snapshots
+		WHERE class_num = ? AND student_num = ? AND student_name = ?
+	`, classNum, studentNum, studentName).Scan(
+		&s.ClassNum, &s.StudentNum, &s.StudentName, &s.TotalStudents, &s.Rank, &s.Percentile,
+		&s.FinalScore, &s.NonAcademicScore, &s.GeneralTotalScore, &s.TotalSubjectScore,
+		&s.GeneralDataComplete, &s.GeneralProjected,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+

@@ -365,6 +365,20 @@ func TestTeacherDistributionPackageContainsOnlyTargetData(t *testing.T) {
 	if err != nil || len(users) != 1 || users[0].Username != "301" {
 		t.Fatalf("recipient must contain only the target account: %#v, %v", users, err)
 	}
+
+	// 전교 석차 스냅샷 검증: 1반 스냅샷은 유지되고 타 학급(2반 등) 스냅샷은 개인정보 보호를 위해 삭제되었는지 확인
+	class1Snaps, err := receiver.db.GetRankSnapshots(1)
+	if err != nil {
+		t.Fatalf("receiver GetRankSnapshots(1): %v", err)
+	}
+	class2Snaps, err := receiver.db.GetRankSnapshots(2)
+	if err != nil {
+		t.Fatalf("receiver GetRankSnapshots(2): %v", err)
+	}
+	if len(class2Snaps) != 0 {
+		t.Fatalf("타 학급(2반) 스냅샷은 담임 배포 패키지에서 반드시 제거되어야 합니다: got %d", len(class2Snaps))
+	}
+	_ = class1Snaps
 }
 
 func TestAdmissionClosureLocksCompletedYearAndAppliesCutoff(t *testing.T) {

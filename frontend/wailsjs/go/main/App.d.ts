@@ -174,6 +174,8 @@ export function UpdateAdmissionYear(arg1:number):Promise<void>;
 
 export function UpdateAssignedSchool(arg1:number,arg2:string,arg3:string,arg4:string):Promise<void>;
 
+export function UpdateSchoolRankSnapshots():Promise<void>;
+
 export function VerifyAdminPassword(arg1:string):Promise<boolean>;
 
 export function VerifyUserLogin(arg1:string,arg2:string):Promise<main.User>;

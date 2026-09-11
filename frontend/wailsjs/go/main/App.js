@@ -346,6 +346,10 @@ export function UpdateAssignedSchool(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UpdateAssignedSchool'](arg1, arg2, arg3, arg4);
 }
 
+export function UpdateSchoolRankSnapshots() {
+  return window['go']['main']['App']['UpdateSchoolRankSnapshots']();
+}
+
 export function VerifyAdminPassword(arg1) {
   return window['go']['main']['App']['VerifyAdminPassword'](arg1);
 }
