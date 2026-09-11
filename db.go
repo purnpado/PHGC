@@ -60,15 +60,16 @@ func (dm *DBManager) UnsealAllDatabases() error {
 	password := hex.EncodeToString(dm.dataKey)
 	for _, encryptedPath := range files {
 		workingPath := strings.TrimSuffix(encryptedPath, ".phgc")
-		if _, err := os.Stat(workingPath); err == nil {
-			// A prior version could create an empty config.db before login.
-			// The encrypted package remains the source of truth in that case.
-			if filepath.Base(workingPath) == "config.db" && !hasSchoolConfigTable(workingPath) {
-				removePlainDatabaseArtifacts(workingPath)
-			} else {
-				// A usable plaintext DB can only be left by abnormal termination.
-				// Keep it for recovery rather than silently discarding newer work.
-				continue
+		if encStat, statErr := os.Stat(encryptedPath); statErr == nil {
+			if workStat, workErr := os.Stat(workingPath); workErr == nil {
+				// 최신 배포 패키지(.phgc)가 기존 평문 DB보다 최신이면 새 배포본을 우선 복원
+				if encStat.ModTime().After(workStat.ModTime()) {
+					removePlainDatabaseArtifacts(workingPath)
+				} else if filepath.Base(workingPath) == "config.db" && !hasSchoolConfigTable(workingPath) {
+					removePlainDatabaseArtifacts(workingPath)
+				} else {
+					continue
+				}
 			}
 		} else if !os.IsNotExist(err) {
 			return err

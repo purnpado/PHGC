@@ -733,16 +733,6 @@ func (a *App) OpenDistributionPackage() (string, error) {
 }
 
 func (a *App) ImportDistributionPackage(inputPath string) (string, error) {
-	if a.db.hasEncryptedConfigDB() {
-		return "", fmt.Errorf("기존 학교 자료가 있습니다. 새 프로그램 폴더에서 배포 자료를 가져오거나 기존 data 폴더를 백업하세요")
-	}
-	if _, err := os.Stat(a.db.getConfigDBPath()); err == nil {
-		config, configErr := a.db.GetSchoolConfig()
-		if configErr != nil || config != nil {
-			return "", fmt.Errorf("기존 학교 설정이 있습니다. 새 프로그램 폴더에서 배포 자료를 가져오세요")
-		}
-		removePlainDatabaseArtifacts(a.db.getConfigDBPath())
-	}
 	reader, err := zip.OpenReader(inputPath)
 	if err != nil {
 		return "", fmt.Errorf("배포 자료를 열 수 없습니다: %w", err)
@@ -769,6 +759,22 @@ func (a *App) ImportDistributionPackage(inputPath string) (string, error) {
 	}
 	if manifest.Format != "PHGC-DEPLOYMENT-1" || manifest.Username == "" || (manifest.Role != "homeroom" && manifest.Role != "viewer") {
 		return "", fmt.Errorf("지원하지 않는 배포 자료입니다")
+	}
+
+	// 안전장치: 현재 프로그램이 학년부장(master) 원본 관리자 데이터인 경우 실수로 덮어쓰는 것 방지
+	if a.db.hasEncryptedConfigDB() || hasSchoolConfigTable(a.db.getConfigDBPath()) {
+		users, _ := a.db.GetUsers()
+		for _, u := range users {
+			if u.Role == "master" {
+				return "", fmt.Errorf("현재 프로그램은 학년부장 원본 데이터가 보관된 폴더입니다. 학년부장 자료는 담임 배포 패키지로 덮어쓸 수 없습니다. 담임 교사용 폴더에서 실행해주세요")
+			}
+		}
+	}
+
+	// 기존 평문 DB 파일들 및 이전 캐시 정리 (새 배포 패키지로 완전히 깨끗하게 대체)
+	cleanFiles, _ := filepath.Glob(filepath.Join(a.db.dataDir, "*.db*"))
+	for _, f := range cleanFiles {
+		_ = os.Remove(f)
 	}
 	for _, name := range manifest.Files {
 		file := entries[name]
