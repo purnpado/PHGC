@@ -52,10 +52,10 @@ body {
 }
 
 /* ===== 플레이스홀더 색상 클래스 (LSP 린터 동일 CSS 속성 충돌 방지) ===== */
-.placeholder-slate-400::placeholder {
+.ph-subtle::placeholder {
     color: #94a3b8;
 }
-.placeholder-slate-500::placeholder {
+.ph-muted::placeholder {
     color: #64748b;
 }
 
