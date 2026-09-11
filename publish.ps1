@@ -2,7 +2,13 @@
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
-    [string]$Notes = "진학상담 대시보드 1:1 프라이버시 상담 모드 및 희망학교 원클릭 삭제 기능 추가, 학과 지망 중복 방지 실시간 비활성화 복구, 배포자료 재수신 시 상담일지·희망학교 자동 보존 및 병합, 비밀번호 재설정 파일(.phgcreset) 가져오기 버튼 탑재, 모달창 전면 전환",
+    [string]$Notes = @"
+- 진학상담 대시보드 1:1 프라이버시 상담 모드 및 희망학교 원클릭 삭제 기능 추가
+- 학과 지망 중복 방지 실시간 비활성화 복구
+- 배포자료 재수신 시 상담일지·희망학교 자동 보존 및 병합
+- 비밀번호 재설정 파일(.phgcreset) 가져오기 버튼 탑재
+- 모달창 전면 전환
+"@.Trim(),
     [string]$Version = "1.5.0",
     [switch]$SkipBindings,
     [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
@@ -106,14 +112,15 @@ Write-Host ">>> server-data 및 로컬 배포 폴더 복사 완료" -ForegroundC
 # ===== 4. Git 커밋 & 태그 & 푸시 =====
 Write-Host ">>> Git 커밋 및 GitHub/Gitea 양방향 푸시 중..." -ForegroundColor Cyan
 
-$releaseTitle = "v$newVer - $Notes"
+$firstLineSummary = ($Notes -split "\r?\n")[0].TrimStart('-* ').Trim()
+$releaseTitle = "v$newVer - $firstLineSummary 등 주요 기능 개선"
 $commonReleaseBody = @"
 ## 🌟 v$newVer 릴리즈 안내
 
-### 주요 개선 사항
+### 📋 주요 개선 사항
 $Notes
 
-### 다운로드 안내
+### 📥 다운로드 안내
 - **단독 실행 파일**: 아래 Assets 항목의 **PHGC.exe**를 다운로드하여 바로 실행하시면 됩니다.
 - **압축 배포 파일**: 압축 해제 후 사용하실 경우 아래 Assets 항목의 **$zipName**을 다운로드하시면 됩니다.
 - 본 프로그램은 학생 개인정보 보호 및 학교 정보보안 지침을 철저히 준수하는 100% 로컬 독립형 소프트웨어입니다.
@@ -121,7 +128,9 @@ $Notes
 
 $commitMsgFile = Join-Path $PWD ".git\temp_commit_msg.txt"
 $commitText = @"
-release: v$newVer - $Notes
+release: v$newVer
+
+$Notes
 
 GitHub 공식 릴리즈: https://github.com/$ghOwner/$ghRepo/releases/tag/v$newVer
 "@
