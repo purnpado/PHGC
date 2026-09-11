@@ -2243,6 +2243,12 @@ async function renderStudentList(students, classNum) {
         const specialPassCount = new Set(specialList.filter(x => x.isPass).map(x => normalizeSchoolName(x.schoolName))).size;
         const applications = applicationsByStudent.get(`${s.StudentNum}|${s.Name}`) || [];
 
+        // 전교 학생수: s.TotalStudents 우선, 백분율/석차 기반 유추, 학급 학생수
+        let totalStudents = s.TotalStudents || full?.totalStudents || full?.TotalStudents || 0;
+        if ((!totalStudents || totalStudents <= 0) && s.Percentile > 0 && s.Rank > 0) {
+            totalStudents = Math.round(Number(s.Rank) / (Number(s.Percentile) / 100));
+        }
+
         return {
             raw: s,
             studentNum: s.StudentNum,
@@ -2250,6 +2256,7 @@ async function renderStudentList(students, classNum) {
             name: s.Name,
             percentile: s.Percentile != null ? Number(s.Percentile) : 999,
             rank: s.Rank || '',
+            totalStudents: totalStudents || students.length,
             meisterPassCount,
             specialPassCount,
             applications,
@@ -2407,7 +2414,7 @@ async function renderStudentList(students, classNum) {
                             <div class="flex items-center justify-center gap-2 flex-wrap">
                                 <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.meisterPassCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
                                         data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="meister"
-                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${students.length}"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
                                         title="${escapeAttr(s.name)} 학생의 마이스터고 합격 예측 상세 분석 보기 (클릭)">
                                     <span class="text-sm">🏛️</span>
                                     <span>마이스터고</span>
@@ -2415,7 +2422,7 @@ async function renderStudentList(students, classNum) {
                                 </button>
                                 <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
                                         data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="special"
-                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${students.length}"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
                                         title="${escapeAttr(s.name)} 학생의 특성화고 합격 예측 상세 분석 보기 (클릭)">
                                     <span class="text-sm">🏭</span>
                                     <span>특성화고</span>
@@ -2743,7 +2750,18 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
         ? Number(fullStudent.generalHSPercentile).toFixed(2) + '%'
         : (extraData.percentile ? extraData.percentile + '%' : '-');
     const displayRank = extraData.rank || fullStudent?.rank || '-';
-    const displayTotal = extraData.total || fullStudent?.totalStudents || '-';
+    let displayTotal = extraData.total || fullStudent?.totalStudents || fullStudent?.TotalStudents || 0;
+
+    // 만약 전달받은 displayTotal이 displayRank보다 작거나 비정상적인 경우 (예: 전교 49등인데 반 학생수 10명이 전달된 경우)
+    const rankNum = parseInt(displayRank, 10);
+    const totalNum = parseInt(displayTotal, 10);
+    if ((!totalNum || (rankNum && totalNum < rankNum)) && (extraData.percentile || fullStudent?.generalHSPercentile)) {
+        const pct = parseFloat(extraData.percentile || fullStudent?.generalHSPercentile);
+        if (pct > 0 && rankNum > 0) {
+            displayTotal = Math.round(rankNum / (pct / 100));
+        }
+    }
+    if (!displayTotal || displayTotal === 0) displayTotal = '-';
 
     // 모달 DOM 생성
     const modal = document.createElement('div');
