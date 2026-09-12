@@ -5663,25 +5663,25 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     };
 
     modalEl.innerHTML = `
-        <div class="glass-card print-document p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
-            <!-- 모달 헤더 (인쇄 제외 버튼 포함) -->
-            <div class="flex items-center justify-between border-b border-slate-700/50 pb-4 gap-4 flex-wrap sm:flex-nowrap">
+        <div class="glass-card print-document p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal relative" id="printReportArea">
+            <!-- 모달 헤더 (스크롤 시에도 우측 상단에 고정되어 창 닫기 버튼이 항상 보임) -->
+            <div class="sticky -top-6 md:-top-8 -mx-6 md:-mx-8 px-6 md:px-8 py-3.5 bg-slate-900/95 backdrop-blur-md z-40 border-b border-slate-700/80 flex items-center justify-between gap-4 flex-wrap sm:flex-nowrap shadow-lg">
                 <div class="min-w-0">
                     <h2 class="text-2xl font-black text-white flex items-center gap-2 truncate">
                         👨‍🎓 ${escapeHtml(name)} <span class="text-base text-slate-400 font-normal">(${escapeHtml(classNum)}반 ${escapeHtml(studentNum)}번)</span>
                     </h2>
-                    <p class="text-xs text-text-muted mt-1">울산 특목·마이스터·특성화고 진학 상담 분석표 (3-1 누적)</p>
+                    <p class="text-xs text-text-muted mt-0.5">울산 특목·마이스터·특성화고 진학 상담 분석표 (3-1 누적)</p>
                 </div>
                 <div class="flex items-center gap-2.5 no-print shrink-0 flex-nowrap">
-                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 select-none transition-all h-9 whitespace-nowrap">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 select-none transition-all h-9 whitespace-nowrap" title="체크 시 상담 일지 메모 내용도 함께 인쇄됩니다">
                         <input type="checkbox" id="printIncludeCounselCheck" class="rounded accent-indigo-500 cursor-pointer w-4 h-4" />
                         <span class="font-medium">상담 메모 포함</span>
                     </label>
                     <button id="printReportBtn" class="px-4 h-9 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer whitespace-nowrap active:scale-95">
                         <span>🖨️</span> <span>인쇄 / PDF</span>
                     </button>
-                    <button id="closeModalBtn" class="px-3 h-9 rounded-xl font-bold text-xs bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer flex items-center justify-center whitespace-nowrap active:scale-95" title="닫기">
-                        <span class="text-sm">✕</span> <span class="ml-1 font-semibold">닫기</span>
+                    <button id="closeModalBtn" class="px-3.5 h-9 rounded-xl font-bold text-xs bg-rose-950/80 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/50 shadow-md shadow-rose-950/40 transition-all cursor-pointer flex items-center justify-center whitespace-nowrap active:scale-95" title="상담 모달 닫기 (단축키: ESC)">
+                        <span class="text-base font-black">✕</span> <span class="ml-1 font-bold">창 닫기</span>
                     </button>
                 </div>
             </div>
@@ -5927,7 +5927,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     </div>
                 </div>
 
-                <!-- 인쇄 전용 프라이버시 안심 요약 배너 -->
+                <!-- 인쇄 전용 프라이버시 안심 요약 배너 (상담 메모 포함 시 사용) -->
                 <div class="counsel-print-summary hidden border-t border-slate-300 pt-3 mt-4 text-xs text-slate-700">
                     <div class="flex items-center justify-between">
                         <span><strong>📅 진학 상담 일자:</strong> ${todayDate}</span>
@@ -5935,19 +5935,47 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     </div>
                 </div>
             </div>
+
+            <!-- 인쇄 전용 공식 상담 확인 푸터 (학부모·학생 배부용 표준 서식) -->
+            <div class="counsel-official-footer hidden pt-3 border-t border-slate-400 text-xs text-slate-800">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                    <span><strong>📅 진학 상담 일자:</strong> ${todayDate}</span>
+                    <span><strong>상담 교사 확인:</strong> 3학년 ${escapeHtml(classNum)}반 담임 (인)</span>
+                    <span><strong>학생·학부모 확인:</strong> ________________ (인)</span>
+                </div>
+            </div>
+
+            <!-- 화면용 모달 하단 닫기 바 (스크롤 끝에서도 즉시 닫기 지원) -->
+            <div class="pt-4 border-t border-slate-700/60 flex items-center justify-between flex-wrap gap-3 no-print">
+                <div class="text-xs text-slate-400 flex items-center gap-1.5">
+                    <span>💡</span> <span>키보드 <strong>ESC</strong> 키를 누르시거나 바깥 어두운 배경을 클릭하셔도 창이 닫힙니다.</span>
+                </div>
+                <button type="button" id="bottomCloseModalBtn" class="px-5 py-2.5 rounded-xl font-bold text-xs bg-rose-950/70 hover:bg-rose-600 text-rose-200 hover:text-white border border-rose-500/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95">
+                    <span class="text-sm font-black">✕</span> <span>상담 모달 닫기 (ESC)</span>
+                </button>
+            </div>
         </div>
     `;
 
     // 상담 모달 안전 닫기 및 대시보드 자동 동기화
     const closeStudentCounselModal = () => {
+        window.removeEventListener('keydown', handleEscKey);
         modalEl.remove();
         if (typeof window.refreshCurrentClass === 'function') {
             window.refreshCurrentClass();
         }
     };
 
-    // 닫기 이벤트
+    const handleEscKey = (e) => {
+        if (e.key === 'Escape') {
+            closeStudentCounselModal();
+        }
+    };
+    window.addEventListener('keydown', handleEscKey);
+
+    // 닫기 이벤트 (상단 헤더 + 하단 바)
     document.getElementById('closeModalBtn')?.addEventListener('click', closeStudentCounselModal);
+    document.getElementById('bottomCloseModalBtn')?.addEventListener('click', closeStudentCounselModal);
 
     // 배경 클릭 시 닫기
     modalEl.addEventListener('click', (e) => {

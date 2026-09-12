@@ -642,14 +642,29 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing[data-print-kind="report"] .btn-direct-apply {
         display: none !important;
     }
-    /* 4. 진학상담 상세 메모 및 입력창 프라이버시 보호 (기본 인쇄 배제) */
-    body.printing[data-print-kind="report"] .counsel-private-content {
+    /* 4. 진학상담 일지 영역 인쇄 최적화:
+       - 기본 배부용(상담 메모 미포함): 어색한 빈 일지 박스를 100% 숨기고 정갈한 1줄 공식 확인 서명 푸터 출력
+       - 상담 메모 포함 체크 시: 일지 박스와 작성된 누적 상담 메모를 단정하게 출력 */
+    body.printing[data-print-kind="report"] .counsel-section-container {
         display: none !important;
+    }
+    body.printing[data-print-kind="report"] .counsel-official-footer {
+        display: block !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    body.printing[data-print-kind="report"] .include-private-counsel .counsel-section-container {
+        display: block !important;
+        background: white !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
     body.printing[data-print-kind="report"] .include-private-counsel .counsel-private-content {
         display: block !important;
     }
-    body.printing[data-print-kind="report"] .counsel-print-summary {
+    body.printing[data-print-kind="report"] .include-private-counsel .counsel-print-summary {
         display: block !important;
     }
 
