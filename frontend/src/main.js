@@ -1990,7 +1990,8 @@ function printOnly(kind, orientation = 'portrait') {
 
     const pageStyle = document.createElement('style');
     pageStyle.id = 'runtimePrintPageStyle';
-    pageStyle.textContent = `@page { size: A4 ${safeOrientation}; margin: 10mm; }`;
+    const printMargin = safeKind === 'transcript' ? '6mm 8mm' : '10mm';
+    pageStyle.textContent = `@page { size: A4 ${safeOrientation}; margin: ${printMargin}; }`;
     document.head.appendChild(pageStyle);
     document.body.classList.add('printing');
     document.body.dataset.printKind = safeKind;

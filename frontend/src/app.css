@@ -653,19 +653,82 @@ input[type="number"]::-webkit-inner-spin-button {
         display: block !important;
     }
 
-    /* ===== 종합성적표(transcript) 나이스 표준 매트릭스 A4 1장 인쇄 최적화 ===== */
+    /* ===== 종합성적표(transcript) 나이스 표준 매트릭스 A4 1장 완벽 맞춤 스타일 ===== */
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+    }
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal .glass-card {
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        max-width: 100% !important;
+        max-height: none !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    /* 섹션 간의 여백을 24px(space-y-6)에서 2.5mm로 대폭 압축 */
+    body.printing[data-print-kind="transcript"] .print-document.space-y-6 > * + * {
+        margin-top: 2.5mm !important;
+    }
+    /* 1. 상단 헤더 영역 */
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal .border-b {
+        padding-bottom: 1.5mm !important;
+        margin-bottom: 1.5mm !important;
+        border-bottom: 1.5px solid #0f172a !important;
+    }
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal h2 {
+        font-size: 13pt !important;
+        font-weight: 900 !important;
+        color: #0f172a !important;
+        line-height: 1.2 !important;
+    }
+    body.printing[data-print-kind="transcript"] #studentTranscriptModal p {
+        font-size: 7.5pt !important;
+        color: #475569 !important;
+        margin-top: 0.5mm !important;
+    }
+    /* 2. 종합 내신 지표 카드 (4개 가로 정렬) */
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-2.sm\:grid-cols-4 {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 2mm !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-2.sm\:grid-cols-4 > div {
+        padding: 1.5mm 1mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 4px !important;
+        background: #f8fafc !important;
+        text-align: center !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-2.sm\:grid-cols-4 .text-xs {
+        font-size: 7pt !important;
+        color: #475569 !important;
+        margin-bottom: 0.5mm !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-2.sm\:grid-cols-4 .text-xl,
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-2.sm\:grid-cols-4 .text-sm {
+        font-size: 10pt !important;
+        font-weight: 900 !important;
+        line-height: 1.2 !important;
+    }
+    /* 3. 교과 성적표 테이블 */
     body.printing[data-print-kind="transcript"] table {
         border-collapse: collapse !important;
         width: 100% !important;
-        border: 1.5px solid #475569 !important;
+        border: 1.5px solid #334155 !important;
+        margin-top: 1mm !important;
     }
     body.printing[data-print-kind="transcript"] th,
     body.printing[data-print-kind="transcript"] td {
         border: 1px solid #94a3b8 !important;
         color: #0f172a !important;
         background: white !important;
-        padding: 1.5mm 1mm !important;
-        font-size: 8pt !important;
+        padding: 0.9mm 0.5mm !important;
+        font-size: 7.5pt !important;
+        line-height: 1.15 !important;
         vertical-align: middle !important;
     }
     body.printing[data-print-kind="transcript"] th {
@@ -678,6 +741,77 @@ input[type="number"]::-webkit-inner-spin-button {
         color: #334155 !important;
         font-weight: 800 !important;
         text-align: center !important;
+    }
+    /* 자유학기제 안내 배너는 인쇄 시 불필요하므로 숨김 (공간 절약) */
+    body.printing[data-print-kind="transcript"] .bg-indigo-950\/20 {
+        display: none !important;
+    }
+    /* 4. 출결 및 봉사활동 요약 (A4 하단 가로 2열 강제 분할) */
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-1.md\:grid-cols-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 2.5mm !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-1.md\:grid-cols-2 > div {
+        padding: 2mm !important;
+        border: 1px solid #94a3b8 !important;
+        border-radius: 4px !important;
+        background: #f8fafc !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-1.md\:grid-cols-2 h4 {
+        font-size: 8pt !important;
+        font-weight: 800 !important;
+        margin-bottom: 1mm !important;
+        color: #0f172a !important;
+    }
+    /* 출결 4분할 박스 */
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-4 {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 1.5mm !important;
+        padding-top: 0 !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-4 > div {
+        padding: 1mm 0.5mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 3px !important;
+        background: white !important;
+        text-align: center !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-4 .text-\[10px\] {
+        font-size: 6.5pt !important;
+        color: #475569 !important;
+    }
+    body.printing[data-print-kind="transcript"] .grid.grid-cols-4 .text-sm {
+        font-size: 8.5pt !important;
+        font-weight: 800 !important;
+        margin-top: 0.5mm !important;
+    }
+    /* 봉사활동 박스 */
+    body.printing[data-print-kind="transcript"] .flex.items-center.justify-between.p-3 {
+        padding: 2mm 3mm !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 3px !important;
+        background: white !important;
+        margin-top: 1mm !important;
+    }
+    body.printing[data-print-kind="transcript"] .flex.items-center.justify-between.p-3 .text-xs {
+        font-size: 7.5pt !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="transcript"] .flex.items-center.justify-between.p-3 .text-\[10px\] {
+        font-size: 6.5pt !important;
+        color: #64748b !important;
+    }
+    body.printing[data-print-kind="transcript"] .flex.items-center.justify-between.p-3 .text-xl {
+        font-size: 13pt !important;
+        font-weight: 900 !important;
+        color: #047857 !important;
     }
 }
 
