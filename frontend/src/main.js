@@ -4786,13 +4786,23 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         const data = await window.go.main.App.GetStudentTranscript(classNum, studentNum, name);
 
         // 1. 교과 성적 맵 생성 (과목별 행, 학기별 열 - 나이스 표준 매트릭스)
+        // 1. 교과 성적 맵 생성 (과목별 행, 학기별 열 - 나이스 표준 매트릭스)
+        // 나이스 생활기록부 공식 편제 순서: 기본교과 -> 선택교과 -> 체육/예술(예체능 교과는 맨 마지막)
         const subjectOrder = [
-            '국어', '사회', '역사', '도덕', '수학', '과학',
-            '기술·가정', '기술가정', '체육', '음악', '미술', '영어', '정보', '한문'
+            '국어', '도덕', '사회', '역사', '수학', '과학',
+            '기술·가정', '기술가정', '정보', '영어',
+            '한문', '제2외국어', '중국어', '일본어',
+            '체육', '음악', '미술'
         ];
         const getSubjectPriority = (name) => {
-            const idx = subjectOrder.findIndex(s => name.includes(s) || s.includes(name));
-            return idx !== -1 ? idx : 999;
+            const clean = name.replace(/\s+/g, '');
+            // 예체능 교과(체육, 음악, 미술)는 무조건 가장 마지막 순위(800번대)로 배치
+            if (clean.includes('체육')) return 801;
+            if (clean.includes('음악')) return 802;
+            if (clean.includes('미술')) return 803;
+
+            const idx = subjectOrder.findIndex(s => clean.includes(s) || s.includes(clean));
+            return idx !== -1 ? idx : 500; // 정의되지 않은 기타 선택과목은 일반교과 뒤, 예체능 앞에 배치
         };
 
         const subjectMap = new Map(); // normSubject -> { displayName, scores: {} }
@@ -8079,10 +8089,24 @@ async function renderCutoffScreen(schoolName) {
         console.error(e);
     }
 
-    // 최근 5개년 자료 구성 (올해 제외하고 직전 학년도부터 5개년, 5년 초과 자료는 DB에서 자동 정리)
-    const baseAdmissionYear = currentAdmissionYear - 1;
-    currentAdmissionYear = baseAdmissionYear; // 기본 선택 연도를 직전 학년도로 설정
-    const admissionYears = Array.from({ length: 5 }, (_, index) => baseAdmissionYear - index);
+    // 각 연도별 저장된 유효 커트라인 건수 집계 헬퍼
+    const getCutoffCountByYear = (yr) => {
+        return (allSavedCutoffs || []).filter(c => Number(c.year) === Number(yr) && Number(c.minValue) > 0).length;
+    };
+
+    // DB에 존재하는 모든 연도 및 기준 5개년 포함 후보 연도 산출
+    const existingYears = (allSavedCutoffs || []).map(c => Number(c.year)).filter(y => !isNaN(y) && y > 2000);
+    const candidateYears = new Set([currentAdmissionYear, currentMiddleSchoolYear + 1, currentMiddleSchoolYear, ...existingYears]);
+    for (let i = 0; i < 5; i++) {
+        candidateYears.add((currentMiddleSchoolYear + 1) - i);
+    }
+    const admissionYears = Array.from(candidateYears).sort((a, b) => b - a);
+
+    // 데이터가 가장 많이 등록된 연도가 있다면 기본 선택 우선 배정 (등록된 연도 바로 보여주기)
+    const yearWithMostData = admissionYears.find(y => getCutoffCountByYear(y) > 0);
+    if (getCutoffCountByYear(currentAdmissionYear) === 0 && yearWithMostData) {
+        currentAdmissionYear = yearWithMostData;
+    }
 
     // 기본 등록 고교 및 학과 목록 (동적 로드 전 빈 배열, 서버 데이터로 채워짐)
     let defaultSchoolSpecs = [];
@@ -8235,7 +8259,7 @@ async function renderCutoffScreen(schoolName) {
     const renderMainScreen = () => {
         // 현재 선택된 입학년도의 커트라인 매핑 (다양한 학과명/전형명 표기 완벽 호환)
         const savedMap = {};
-        allSavedCutoffs.filter(c => c.year === currentAdmissionYear).forEach(c => {
+        allSavedCutoffs.filter(c => Number(c.year) === Number(currentAdmissionYear)).forEach(c => {
             const schKey = normalizeSchoolName(c.schoolName);
             const deptNorm = normalizeDept(c.department);
             const trackNorm = normalizeTrack(c.track);
@@ -8296,7 +8320,7 @@ async function renderCutoffScreen(schoolName) {
                     });
 
                     // DB에 저장된 해당 연도 해당 고교의 커트라인 항목 병합 (공통/학교전체 포함!)
-                    allSavedCutoffs.filter(c => c.year === currentAdmissionYear && normalizeSchoolName(c.schoolName) === schKey).forEach(c => {
+                    allSavedCutoffs.filter(c => Number(c.year) === Number(currentAdmissionYear) && normalizeSchoolName(c.schoolName) === schKey).forEach(c => {
                         const dNorm = normalizeDept(c.department);
                         const tNorm = normalizeTrack(c.track);
                         const exists = itemsToRender.some(it => normalizeDept(it.dept) === dNorm && normalizeTrack(it.track) === tNorm);
@@ -8632,15 +8656,25 @@ async function renderCutoffScreen(schoolName) {
                     </div>
 
                     <div class="flex items-center gap-2 flex-wrap">
-                        <!-- 입학년도(입시년도) 선택기: 선택 즉시 자동 전환 (높이 h-9 일치) -->
+                        <!-- 입학년도(입시년도) 선택기: 선택 즉시 자동 전환 및 건수 현황 표시 -->
                         <div class="flex items-center gap-2 bg-slate-900/80 px-3 rounded-xl border border-indigo-500/40 shadow-inner h-9">
                             <label class="text-xs font-bold text-indigo-300 whitespace-nowrap">📅 고교 입학년도:</label>
                             <select id="admissionYearSelect" class="bg-slate-800 text-white font-bold text-xs px-2.5 py-0.5 rounded-lg border border-slate-700 outline-none cursor-pointer">
-                                ${admissionYears.map(year => `<option value="${year}" ${currentAdmissionYear === year ? 'selected' : ''}>${year}학년도 (${year - 1}학년도 중3${year - 1 === currentMiddleSchoolYear ? ' - 현재' : ''})</option>`).join('')}
+                                ${admissionYears.map(year => {
+                                    const count = getCutoffCountByYear(year);
+                                    const badge = count > 0 ? `(${count}건 등록)` : `(미등록)`;
+                                    return `<option value="${year}" ${Number(currentAdmissionYear) === Number(year) ? 'selected' : ''}>${year}학년도 ${badge}</option>`;
+                                }).join('')}
                             </select>
                         </div>
 
-                        <button id="saveAllCutoffsBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-9" title="현재 커트라인 데이터를 데이터베이스에 영구 저장합니다">
+                        <button id="copyFromOtherYearBtn" class="text-xs bg-purple-600/30 border border-purple-500/50 text-purple-200 hover:bg-purple-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9" title="다른 학년도의 커트라인을 현재 선택된 학년도로 그대로 복사해옵니다">
+                            <span>📋</span> 다른 연도 복사
+                        </button>
+                        <button id="saveAllYearsCutoffsBtn" class="text-xs bg-emerald-600/30 border border-emerald-500/60 text-emerald-200 hover:bg-emerald-600/50 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9 shadow-sm" title="현재 입력된 커트라인을 5개년 전체 연도에 한 번에 일괄 복제 저장합니다">
+                            <span>🌐</span> 전체연도 일괄 저장
+                        </button>
+                        <button id="saveAllCutoffsBtn" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3.5 rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer h-9" title="현재 선택된 학년도의 커트라인만 데이터베이스에 영구 저장합니다">
                             <span>💾</span> 커트라인 저장
                         </button>
                         <button id="resetCutoffsBtn" class="text-xs bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:bg-rose-900/70 px-3.5 rounded-xl font-bold flex items-center gap-1.5 transition-colors cursor-pointer h-9" title="입력된 커트라인 데이터를 초기화합니다">
@@ -8657,6 +8691,29 @@ async function renderCutoffScreen(schoolName) {
                         </button>
                     </div>
                 </div>
+
+                ${(() => {
+                    const curCount = getCutoffCountByYear(currentAdmissionYear);
+                    const sourceYears = admissionYears.filter(y => Number(y) !== Number(currentAdmissionYear) && getCutoffCountByYear(y) > 0);
+                    if (curCount === 0 && sourceYears.length > 0) {
+                        const topYear = sourceYears[0];
+                        return `
+                            <div class="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-slate-900/80 border border-indigo-500/50 flex items-center justify-between flex-wrap gap-3 shadow-lg">
+                                <div class="flex items-center gap-3">
+                                    <span class="text-2xl">💡</span>
+                                    <div>
+                                        <div class="text-xs font-bold text-indigo-200">현재 <strong>${currentAdmissionYear}학년도</strong>에는 등록된 커트라인 점수가 없습니다.</div>
+                                        <div class="text-[11px] text-slate-400 mt-0.5">이미 등록된 <strong>${topYear}학년도</strong>(${getCutoffCountByYear(topYear)}건)의 커트라인을 한 번의 클릭으로 그대로 가져와 사용하실 수 있습니다.</div>
+                                    </div>
+                                </div>
+                                <button id="quickCopyYearBtn" data-year="${topYear}" class="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer">
+                                    <span>📋</span> ${topYear}학년도 커트라인 바로 채우기
+                                </button>
+                            </div>
+                        `;
+                    }
+                    return '';
+                })()}
 
                 <!-- 2. 카테고리 네비게이션 탭 바 & 스마트 실시간 검색 -->
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/60 pb-3">
@@ -8695,6 +8752,86 @@ async function renderCutoffScreen(schoolName) {
     };
 
     const bindEvents = () => {
+        // 다른 학년도 커트라인 복사 공통 함수
+        const executeCopyFromYear = async (sourceYear) => {
+            const sourceData = (allSavedCutoffs || []).filter(c => Number(c.year) === Number(sourceYear) && Number(c.minValue) > 0);
+            if (sourceData.length === 0) {
+                await showModalAlert({
+                    title: '복사 불가',
+                    message: `<strong>${sourceYear}학년도</strong>에는 저장된 유효 커트라인 점수가 없습니다.`,
+                    type: 'warning'
+                });
+                return;
+            }
+
+            const confirmed = await showModalConfirm({
+                title: '커트라인 데이터 복사',
+                message: `<strong>${sourceYear}학년도</strong>의 커트라인(총 <strong>${sourceData.length}건</strong>)을 현재 <strong>${currentAdmissionYear}학년도</strong>로 복사해 오시겠습니까?<br><br><span class="text-xs text-amber-300">※ 복사 후 상단의 <strong>[💾 커트라인 저장]</strong> 버튼을 누르시면 ${currentAdmissionYear}학년도 데이터로 DB에 최종 저장됩니다.</span>`,
+                confirmText: '복사하기',
+                type: 'info'
+            });
+
+            if (!confirmed) return;
+
+            const rows = app.querySelectorAll('.cutoff-item-row');
+            let filledCount = 0;
+            rows.forEach(tr => {
+                const schName = normalizeSchoolName(tr.dataset.school || '');
+                const dept = normalizeDept(tr.querySelector('.row-dept-name')?.value || tr.dataset.dept || '');
+                const track = normalizeTrack(tr.querySelector('.row-track-name')?.value || tr.dataset.track || '일반');
+
+                const match = sourceData.find(c =>
+                    normalizeSchoolName(c.schoolName) === schName &&
+                    normalizeDept(c.department) === dept &&
+                    normalizeTrack(c.track) === track
+                );
+
+                if (match) {
+                    const minInput = tr.querySelector('.row-min-score');
+                    const maxInput = tr.querySelector('.row-max-score');
+                    const avgInput = tr.querySelector('.row-avg-score');
+                    if (minInput) minInput.value = match.minValue || '';
+                    if (maxInput) maxInput.value = match.maxValue || '';
+                    if (avgInput) avgInput.value = match.avgValue || '';
+                    filledCount++;
+                }
+            });
+
+            await showModalAlert({
+                title: '복사 완료',
+                message: `<strong>${sourceYear}학년도</strong> 커트라인 중 <strong>${filledCount}개</strong> 항목이 현재 화면에 채워졌습니다!<br><br>내용을 확인하신 후 상단의 <strong>[💾 커트라인 저장]</strong> 버튼을 꼭 눌러주세요.`,
+                type: 'success'
+            });
+        };
+
+        // 0-1. 다른 학년도 복사 버튼 클릭 시
+        document.getElementById('copyFromOtherYearBtn')?.addEventListener('click', async () => {
+            const availableYears = admissionYears.filter(y => Number(y) !== Number(currentAdmissionYear) && getCutoffCountByYear(y) > 0);
+            if (availableYears.length === 0) {
+                await showModalAlert({
+                    title: '복사 가능한 연도 없음',
+                    message: '다른 학년도에 저장된 커트라인 데이터가 없습니다.<br>타교자료를 병합하거나 직접 커트라인을 먼저 입력해 주세요.',
+                    type: 'info'
+                });
+                return;
+            }
+
+            if (availableYears.length === 1) {
+                await executeCopyFromYear(availableYears[0]);
+            } else {
+                // 여러 연도가 있을 경우 가장 최근 등록 연도로 복사 확인
+                await executeCopyFromYear(availableYears[0]);
+            }
+        });
+
+        // 0-2. 배너의 바로 복사 버튼
+        document.getElementById('quickCopyYearBtn')?.addEventListener('click', async (e) => {
+            const yr = e.currentTarget.dataset.year;
+            if (yr) {
+                await executeCopyFromYear(yr);
+            }
+        });
+
         // 1. 입학년도 변경 이벤트: 선택 즉시 해당 연도 데이터 로드
         document.getElementById('admissionYearSelect')?.addEventListener('change', (e) => {
             currentAdmissionYear = parseInt(e.target.value, 10);
@@ -9160,9 +9297,10 @@ async function renderCutoffScreen(schoolName) {
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                 window.dispatchEvent(new CustomEvent('cutoffs-updated', { detail: allSavedCutoffs }));
                 if (!silent) {
+                    const totalAllYears = (allSavedCutoffs || []).length;
                     await showModalAlert({
                         title: '커트라인 저장 완료',
-                        message: '삭제된 항목이 데이터베이스에 정상 반영되었습니다. (저장된 유효 점수 없음)',
+                        message: `<strong>${currentAdmissionYear}학년도</strong>에는 입력된 커트라인 점수가 없어 해당 학년도 커트라인이 빈 상태(초기화)로 저장되었습니다.<br><span class="text-xs text-slate-400 mt-1.5 block">※ 다른 학년도(2024, 2026 등)의 커트라인은 안전하게 보존됩니다. (전체 누적: 총 <strong>${totalAllYears}건</strong> 유지 중)</span>`,
                         type: 'info'
                     });
                 }
@@ -9175,9 +9313,10 @@ async function renderCutoffScreen(schoolName) {
                 allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
                 window.dispatchEvent(new CustomEvent('cutoffs-updated', { detail: allSavedCutoffs }));
                 if (!silent) {
+                    const totalAllYears = (allSavedCutoffs || []).length;
                     await showModalAlert({
                         title: '커트라인 저장 완료',
-                        message: `<strong>${currentAdmissionYear}학년도</strong> 총 <strong>${cutoffs.length}건</strong>의 고교·학과별 커트라인 및 공식 공개 입결 자료가 안전하게 저장되었습니다!`,
+                        message: `<strong>${currentAdmissionYear}학년도</strong> 총 <strong>${cutoffs.length}건</strong>의 고교·학과별 커트라인 및 공식 공개 입결 자료가 안전하게 저장되었습니다!<br><span class="text-xs text-slate-400 mt-1.5 block">※ 전체 학년도 누적 커트라인은 총 <strong>${totalAllYears}건</strong>이 안전하게 보관 중입니다.</span>`,
                         type: 'success'
                     });
                 }
@@ -9188,6 +9327,90 @@ async function renderCutoffScreen(schoolName) {
                 return false;
             }
         };
+
+        // 8-1. 전체 연도 일괄 저장 함수 (현재 화면의 점수들을 최근 5개년 전체에 일괄 복제 저장)
+        const saveAllYearsCutoffs = async () => {
+            const rows = app.querySelectorAll('.cutoff-item-row');
+            const baseCutoffs = [];
+
+            rows.forEach(tr => {
+                const school = tr.dataset.school;
+                const scoreType = tr.dataset.type;
+                const dept = tr.querySelector('.row-dept-name')?.value.trim() ?? tr.dataset.dept ?? '';
+                const track = tr.querySelector('.row-track-name')?.value.trim() || '일반';
+                const minStr = tr.querySelector('.row-min-score')?.value.trim();
+                const maxStr = tr.querySelector('.row-max-score')?.value.trim();
+                const avgStr = tr.querySelector('.row-avg-score')?.value.trim();
+
+                const minVal = parseFloat(minStr);
+                const maxVal = parseFloat(maxStr);
+                const avgVal = parseFloat(avgStr);
+
+                if (!isNaN(minVal) && minVal > 0) {
+                    baseCutoffs.push({
+                        schoolName: school,
+                        department: dept,
+                        track: track,
+                        scoreType: scoreType,
+                        minValue: minVal,
+                        maxValue: !isNaN(maxVal) && maxVal > 0 ? maxVal : minVal,
+                        avgValue: !isNaN(avgVal) && avgVal > 0 ? avgVal : 0
+                    });
+                }
+            });
+
+            if (baseCutoffs.length === 0) {
+                await showModalAlert({
+                    title: '저장할 점수 없음',
+                    message: '현재 화면에 입력된 유효 커트라인 점수가 없습니다.<br>점수를 먼저 입력하거나 타 연도 데이터를 복사해온 후 일괄 저장을 실행해주세요.',
+                    type: 'warning'
+                });
+                return false;
+            }
+
+            const yearListText = admissionYears.map(y => `<strong>${y}학년도</strong>`).join(', ');
+            const confirmed = await showModalConfirm({
+                title: '전체 연도 커트라인 일괄 저장',
+                message: `현재 화면에 입력된 <strong>총 ${baseCutoffs.length}개</strong>의 고교·학과별 커트라인을<br>최근 5개년 전체(${yearListText})에 일괄 복제 저장하시겠습니까?<br><br>` +
+                         `<span class="text-xs text-indigo-300">✓ 5개년 전체에 동일한 기준 커트라인이 한 번에 등록됩니다.<br>✓ 저장 후 어떤 학년도를 선택하셔도 커트라인이 정상 표시됩니다.<br>✓ 특정 학년도의 세부 점수는 언제든 개별 수정 가능합니다.</span>`,
+                confirmText: '5개년 전체 일괄 저장',
+                type: 'info'
+            });
+
+            if (!confirmed) return false;
+
+            // 5개년 전체 연도에 대해 커트라인 레코드 생성
+            const allYearsToSave = [];
+            admissionYears.forEach(year => {
+                baseCutoffs.forEach(item => {
+                    allYearsToSave.push({
+                        ...item,
+                        year: Number(year)
+                    });
+                });
+            });
+
+            try {
+                await window.go.main.App.SaveCutoffs(allYearsToSave);
+                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                window.dispatchEvent(new CustomEvent('cutoffs-updated', { detail: allSavedCutoffs }));
+                await showModalAlert({
+                    title: '전체 연도 일괄 저장 완료',
+                    message: `최근 5개년 전체(${yearListText})에 걸쳐<br>총 <strong>${allYearsToSave.length}건</strong>(${baseCutoffs.length}개 항목 × ${admissionYears.length}개년)의 커트라인이 안전하게 일괄 저장되었습니다!<br><br>이제 상단 학년도를 어떤 연도로 바꾸셔도 등록된 커트라인을 바로 확인하실 수 있습니다.`,
+                    type: 'success'
+                });
+                renderMainScreen();
+                return true;
+            } catch (err) {
+                await showModalAlert({ title: '일괄 저장 실패', message: String(err), type: 'error' });
+                return false;
+            }
+        };
+
+        // 전체 연도 일괄 저장 버튼 이벤트 연결
+        document.getElementById('saveAllYearsCutoffsBtn')?.addEventListener('click', () => {
+            saveAllYearsCutoffs();
+        });
 
         // 9. 관내 진학자료 내보내기 (커트라인 + 지원현황 통계 + 공식자료 오프라인 패키징)
         document.getElementById('exportJointDataBtn')?.addEventListener('click', async () => {
@@ -9222,13 +9445,15 @@ async function renderCutoffScreen(schoolName) {
                 const res = await window.go.main.App.ImportJointShareData(currentAdmissionYear);
                 if (res) {
                     allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+                    const totalAllYears = (allSavedCutoffs || []).length;
                     await showModalAlert({
                         title: '타교자료 일괄 병합 완료',
                         message: `선택하신 타 학교 진학자료가 성공적으로 병합되었습니다!<br><br>` +
                                  `• 처리된 파일: <strong>${res.files || 1}개 학교 자료</strong><br>` +
-                                 `• 커트라인 갱신: <strong>${res.cutoffs || 0}건</strong><br>` +
+                                 `• 커트라인 갱신: 총 <strong>${res.cutoffs || 0}건</strong> (전체 학년도 누적 병합)<br>` +
                                  `• 타교 지원현황 합격선 반영: <strong>${res.applications || 0}건</strong><br>` +
-                                 `• 공식 공개자료 보완: <strong>${res.official || 0}건</strong>`,
+                                 `• 공식 공개자료 보완: <strong>${res.official || 0}건</strong><br><br>` +
+                                 `<span class="text-xs text-slate-400 block">💡 상단 학년도(2026, 2025 등)를 전환하시면 각 학년도별로 분할 저장된 커트라인(${res.cutoffs || 0}건 중 해당 연도분)을 확인하실 수 있습니다. (전체 보관: ${totalAllYears}건)</span>`,
                         type: 'success'
                     });
                     renderMainScreen();
