@@ -1,15 +1,17 @@
-# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
+﻿# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
     [string]$Notes = @"
-- 진학상담 대시보드 1:1 프라이버시 상담 모드 및 희망학교 원클릭 삭제 기능 추가
-- 학과 지망 중복 방지 실시간 비활성화 복구
-- 배포자료 재수신 시 상담일지·희망학교 자동 보존 및 병합
-- 비밀번호 재설정 파일(.phgcreset) 가져오기 버튼 탑재
-- 모달창 전면 전환
+- 진학상담 대시보드 1:1 프라이버시 상담 모드 (실시간 학생 번호/이름 검색 및 다차원 정렬)
+- 대시보드 희망학교 원클릭 즉시 삭제([✕]) 버튼 구현
+- 진학상담 기록/삭제 후 대시보드 실시간 자동 반영 및 상단 [🔄 새로고침] 버튼 추가
+- 키보드 ESC 키로 열려있는 모든 모달(창) 즉시 닫기 전역 지원
+- 고입원서대장 서식 명칭 정비 및 원클릭 엑셀(.xls) 다운로드 기능 탑재
+- 마이스터고/특성화고 합격 예측 모달의 내신 석차 표기 버그 수정(전교 총원 기준)
+- 비밀번호 재설정 저장 버그 및 배포 패키지 파일 비밀번호 인증 보강
 "@.Trim(),
-    [string]$Version = "1.5.0",
+    [string]$Version = "1.5.1",
     [switch]$SkipBindings,
     [switch]$SkipGitHubRelease,  # GitHub 릴리즈 바이너리 업로드를 건너뛸 때 사용
     [switch]$UploadGiteaRelease  # Gitea에도 바이너리 릴리즈 업로드할 때 사용
@@ -105,8 +107,12 @@ Write-Host ">>> 압축 배포 파일 생성 완료 ($zipName)" -ForegroundColor 
 Copy-Item $exePath "server-data\PHGC.exe" -Force
 Copy-Item $zipPath "server-data\$zipName" -Force
 Copy-Item $exePath "D:\PHGC\PHGC.exe" -Force -ErrorAction SilentlyContinue
-Copy-Item $exePath "C:\Users\PurnPadoSori\Desktop\푸른파도소리중학교\PHGC.exe" -Force -ErrorAction SilentlyContinue
-Copy-Item $exePath "C:\Users\PurnPadoSori\Desktop\test\PHGC.exe" -Force -ErrorAction SilentlyContinue
+
+$desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
+$schoolTarget = Join-Path $desktopPath "푸른파도소리중학교\PHGC.exe"
+$testTarget = Join-Path $desktopPath "test\PHGC.exe"
+if (Test-Path (Split-Path $schoolTarget -Parent)) { Copy-Item $exePath $schoolTarget -Force -ErrorAction SilentlyContinue }
+if (Test-Path (Split-Path $testTarget -Parent)) { Copy-Item $exePath $testTarget -Force -ErrorAction SilentlyContinue }
 Write-Host ">>> server-data 및 로컬 배포 폴더 복사 완료" -ForegroundColor Green
 
 # ===== 4. Git 커밋 & 태그 & 푸시 =====
