@@ -7511,12 +7511,13 @@ function getTeacherGuideHTML() {
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-emerald-300 text-base mb-2 flex items-center gap-2">
-                    <span>2️⃣</span> 2단계: 학급 진학 현황, 1:1 프라이버시 대시보드 및 통계
+                    <span>2️⃣</span> 2단계: 학급 진학 현황, 1:1 프라이버시 대시보드 & 종합 성적표 인쇄
                 </h3>
                 <p class="text-slate-300 leading-relaxed">
                     • <strong>🔒 1:1 프라이버시 상담 모드:</strong> 대시보드 상단 검색창에 학생 번호(예: 1, 15) 또는 이름을 입력하면 해당 학생만 화면에 단독 표시되어, <strong>학부모·학생 대면 상담 중 타 학생의 점수나 지망이 노출되지 않는 안심 상담 환경</strong>을 제공합니다.<br>
                     • <strong>다차원 실시간 정렬:</strong> 번호순, 성명 가나다순, 일반계고 안정순/위험순, 마이스터고 유망순 등으로 학생 목록을 자유롭게 정렬할 수 있습니다.<br>
                     • <strong>희망학교 원클릭 즉시 삭제([✕]):</strong> 대시보드 목록의 희망학교 배지 옆 <strong>[✕] 버튼</strong>을 눌러 상담 모달을 열지 않고도 지망 학교를 즉시 취소·삭제할 수 있습니다.<br>
+                    • <strong>🖨️ 학생 종합 성적표(교과/출결/봉사) A4 1장 완벽 맞춤 인쇄:</strong> [🖨️ 성적표 인쇄] 버튼 클릭 시 교과 매트릭스와 출결, 봉사활동 요약이 <strong>A4 1장에 칼같이 쏙 들어가도록 자동 최적화</strong>되어 학부모 상담용으로 바로 배부할 수 있습니다.<br>
                     • <strong>전교 석차 스냅샷 기반 일반계고 합격 예측:</strong> 학년부장이 배포한 전교 석차 스냅샷을 기반으로 전교 석차백분율(%) 기준 🟢 안정, 🟡 경계선, 🔴 주의 판정을 정확하게 제공합니다.<br>
                     • <strong>📊 신호등 매트릭스 & 👥 우리 반 통계:</strong> [📊 신호등 매트릭스]로 전체 학생의 전기고 합격 가능성을 종합 비교하고, [우리 반 통계]에서 지망별 뱃지를 클릭하여 지원자 명단을 즉시 확인합니다.
                 </p>
@@ -7524,14 +7525,15 @@ function getTeacherGuideHTML() {
 
             <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
                 <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
-                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (다각도 입결 비교 & 학과 중복 방지)
+                    <span>3️⃣</span> 3단계: 1:1 심층 상담 (고정 닫기, 학과 중복 방지 & 학부모용 공식 서명 푸터)
                 </h3>
                 <p class="text-slate-300 leading-relaxed">
                     • 학생 성명 또는 <strong>[🎯 진학 상담]</strong> 버튼을 클릭하여 개인별 심층 상담창을 엽니다.<br>
+                    • <strong>상단 고정(Sticky) 닫기 버튼 & ESC 키 지원:</strong> 모달을 아래로 끝까지 스크롤해도 <strong>우측 상단에 붉은빛 [✕ 창 닫기] 버튼이 계속 고정</strong>되며, 키보드 <strong>ESC 키</strong>를 누르거나 맨 아래의 [✕ 상담 모달 닫기] 버튼을 눌러도 즉시 안전하게 닫힙니다. (실수로 윈도우 창 X를 눌러 프로그램이 종료되는 현상 방지)<br>
                     • <strong>다각도 합격선 비교:</strong> [🎯 직전 1개년], [📊 최근 3년 평균], [📈 최근 5년 평균] 탭과 <strong>공식 최고점·평균점·최저점</strong>을 대조하여 합격 가능성을 정밀 진단합니다.<br>
                     • <strong>학과 지망 중복 방지 실시간 비활성화:</strong> 1~5지망 선택 시 이미 선택된 학과는 다른 지망 드롭다운에서 자동으로 비활성화(회색)되어 중복 접수 실수를 원천 방지합니다.<br>
-                    • <strong>합격(배정) 학과 최종 지정:</strong> 고교 합격자 발표 후 실제 배정된 학과를 지정하여 원서대장에 정확히 반영합니다.<br>
-                    • <strong>A4 상담표 인쇄:</strong> [📄 진학 상담 결과표] 버튼으로 학부모 상담용 A4 상담표를 즉시 출력하거나 PDF로 저장합니다.
+                    • <strong>학부모 배부용 정갈한 공식 서명 푸터:</strong> '상담 메모 포함' 체크를 해제한 상태로 [🖨️ 인쇄 / PDF]를 누르면, 어색한 빈 상담 일지 박스는 100% 숨겨지고 맨 아래에 <strong>[📅 진학 상담 일자 | 담임교사 확인 (인) | 학생·학부모 확인 (인)]</strong> 공식 서명 라인이 정갈하게 출력됩니다. (선생님 상담 메모 보관용은 '상담 메모 포함' 체크 시 함께 인쇄)<br>
+                    • <strong>합격(배정) 학과 최종 지정:</strong> 고교 합격자 발표 후 실제 배정된 학과를 지정하여 원서대장에 정확히 반영합니다.
                 </p>
             </div>
 
@@ -7554,6 +7556,16 @@ function getTeacherGuideHTML() {
                 <p class="text-slate-300 leading-relaxed">
                     • 2학기 출결(미인정 결석/지각)이나 추가 봉사시간, 리더십 가산점을 상담창에서 수기 반영합니다.<br>
                     • 학급 상담이 마무리되면 화면 상단의 <strong>[📤 취합자료제출(담임)]</strong> 버튼을 눌러 공용 암호로 암호화된 변경분 파일(<strong>.phgcpatch</strong>)을 생성하여 학년부장 선생님께 전달합니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-rose-300 text-base mb-2 flex items-center gap-2">
+                    <span>🔒</span> 6단계: 교무실 개인정보 보호 원클릭 화면 잠금 (Ctrl + L)
+                </h3>
+                <p class="text-slate-300 leading-relaxed">
+                    • 상담 도중 잠시 자리를 비우거나 학생·학부모가 교무실에 출입할 때, 상단 도구 바의 <strong>[🔒 화면 잠금]</strong> 버튼이나 단축키 <strong>Ctrl + L</strong>을 누르면 즉시 화면이 안전하게 잠깁니다.<br>
+                    • 본인의 비밀번호를 입력하면 작업 중이던 화면 그대로 안전하게 복귀할 수 있습니다.
                 </p>
             </div>
         </div>
@@ -7641,6 +7653,16 @@ function getMasterGuideHTML() {
                     • <strong>[🔒 입시 결과 확정]:</strong> 모든 고입 전형 종료 후 결과를 확정하여 당해 연도 최종 커트라인을 통계에 반영합니다.<br>
                     • <strong>[🗄️ 최종 보관본 생성]:</strong> 감사 및 차후 조회를 위한 100% 암호화 백업 아카이브를 생성합니다.<br>
                     • <strong>[📅 새 학년도 전환]:</strong> 졸업생 개인정보를 안전하게 비우고, 다음 학년도(예: 2027학년도 입학)로 5개년 커트라인 기준을 한 칸씩 자동 시프트(Shift)하여 완벽한 인수인계를 준비합니다.
+                </p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-800/50 border border-slate-700/60">
+                <h3 class="font-bold text-amber-300 text-base mb-2 flex items-center gap-2">
+                    <span>🔒</span> 7단계: 개인정보 보호 화면 잠금 (Ctrl + L)
+                </h3>
+                <p class="text-slate-300 leading-relaxed">
+                    • 전교생 성적 및 민감 정보를 다루는 학년부장 화면 특성상, 자리 비움 시 상단 도구 바의 <strong>[🔒 화면 잠금]</strong> 버튼이나 단축키 <strong>Ctrl + L</strong>을 누르면 즉시 암막 보호 화면으로 전환됩니다.<br>
+                    • 관리자 비밀번호를 입력하면 작업 중이던 데이터 그대로 안전하게 복귀합니다.
                 </p>
             </div>
         </div>
