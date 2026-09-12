@@ -1,4 +1,4 @@
-﻿# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
+# PHGC 자동 빌드 & 릴리즈 & 푸시 스크립트
 # - GitHub (github.com): 메인 배포 및 릴리즈 저장소 (v$Version 릴리즈 생성 및 PHGC.exe 바이너리 자동 업로드)
 # - Gitea (gitea.gguk.link): 내부 소스 백업 및 옵션별 릴리즈 업로드
 param (
@@ -32,7 +32,6 @@ $ghRepo = "PHGC"
 $giteaURL = "https://gitea.gguk.link"
 $giteaOwner = "purnpadosori"
 $giteaRepo = "PHGC-OFFLINE"
-$giteaToken = $env:GITEA_TOKEN
 
 $newVer = $Version.TrimStart('v').Trim()
 
