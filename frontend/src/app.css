@@ -626,4 +626,58 @@ input[type="number"]::-webkit-inner-spin-button {
         padding: 0 !important;
         text-align: left !important;
     }
+
+    /* ===== 진학상담 분석표(report) A4 1장 최적화 & 프라이버시 보호 스타일 ===== */
+    /* 1. 담임용 수기 인풋 섹션 및 장바구니 영역은 인쇄 시 완전 숨김 */
+    body.printing[data-print-kind="report"] .non-academic-input-section,
+    body.printing[data-print-kind="report"] #studentWishlistSection {
+        display: none !important;
+    }
+    /* 2. 장바구니/희망학교 등록 학생의 경우: 미등록 학교 카드는 인쇄 시 완전 제외 */
+    body.printing[data-print-kind="report"] .counsel-print-unregistered-school {
+        display: none !important;
+    }
+    /* 3. 학교 카드 내 화면 조작용 버튼/인터랙션 숨김 */
+    body.printing[data-print-kind="report"] .btn-toggle-wishlist,
+    body.printing[data-print-kind="report"] .btn-direct-apply {
+        display: none !important;
+    }
+    /* 4. 진학상담 상세 메모 및 입력창 프라이버시 보호 (기본 인쇄 배제) */
+    body.printing[data-print-kind="report"] .counsel-private-content {
+        display: none !important;
+    }
+    body.printing[data-print-kind="report"] .include-private-counsel .counsel-private-content {
+        display: block !important;
+    }
+    body.printing[data-print-kind="report"] .counsel-print-summary {
+        display: block !important;
+    }
+
+    /* ===== 종합성적표(transcript) 나이스 표준 매트릭스 A4 1장 인쇄 최적화 ===== */
+    body.printing[data-print-kind="transcript"] table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+        border: 1.5px solid #475569 !important;
+    }
+    body.printing[data-print-kind="transcript"] th,
+    body.printing[data-print-kind="transcript"] td {
+        border: 1px solid #94a3b8 !important;
+        color: #0f172a !important;
+        background: white !important;
+        padding: 1.5mm 1mm !important;
+        font-size: 8pt !important;
+        vertical-align: middle !important;
+    }
+    body.printing[data-print-kind="transcript"] th {
+        background: #f1f5f9 !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+    }
+    body.printing[data-print-kind="transcript"] .free-semester-cell {
+        background: #f8fafc !important;
+        color: #334155 !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+    }
 }
+

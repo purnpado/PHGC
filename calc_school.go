@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -369,8 +370,8 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		}
 
 		achieve := string(achieveRaw[0])
-		if achieve == "P" {
-			continue // P는 성취도 수치 점수 산출에서 제외
+		if strings.EqualFold(achieve, "P") || achieveRaw == "이수" || strings.HasPrefix(achieveRaw, "P") || strings.HasPrefix(achieveRaw, "p") {
+			continue // P는 성취도 수치 점수 산출에서 제외 (자유학기 및 이수과목)
 		}
 
 		score := 0
@@ -389,7 +390,12 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 			continue
 		}
 
-		key := grade + "_" + sem
+		cleanGrade := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(grade, "학년", ""), " ", ""))
+		cleanSem := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(sem, "학기", ""), " ", ""))
+		if cleanGrade == "" || cleanSem == "" {
+			continue
+		}
+		key := cleanGrade + "_" + cleanSem
 		result.SemesterScores[key] = append(result.SemesterScores[key], score)
 		if isArtsSubject(subjectName) {
 			// 에너지고·현대공고: 예체능은 평균에서 제외, B/보통 0.1·C/미흡 0.2 감점.
@@ -428,22 +434,73 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 
 	// 출결 파싱
 	if s.AttendanceData != "" {
-		var attendanceMap map[string]int
-		json.Unmarshal([]byte(s.AttendanceData), &attendanceMap)
-		result.RawAbsenceDays = attendanceMap["absence"]
-		result.RawLateCount = attendanceMap["late"]
-		result.RawEarlyCount = attendanceMap["early"]
-		result.RawResultCount = attendanceMap["result"]
-		// 지각/조퇴/결과 3회 = 결석 1일
-		tardyDays := (result.RawLateCount + result.RawEarlyCount + result.RawResultCount) / 3
-		result.AbsenceDays = result.RawAbsenceDays + tardyDays
+		var attMap map[string]interface{}
+		if err := json.Unmarshal([]byte(s.AttendanceData), &attMap); err == nil {
+			getInt := func(keys ...string) int {
+				for _, k := range keys {
+					if v, ok := attMap[k]; ok {
+						switch val := v.(type) {
+						case float64:
+							return int(val)
+						case int:
+							return val
+						case string:
+							if iv, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+								return iv
+							}
+						}
+					}
+				}
+				return 0
+			}
+			abs := getInt("absence", "absent")
+			if abs == 0 {
+				abs = getInt("1_absence") + getInt("2_absence") + getInt("3_absence")
+			}
+			late := getInt("late")
+			if late == 0 {
+				late = getInt("1_late") + getInt("2_late") + getInt("3_late")
+			}
+			early := getInt("early")
+			if early == 0 {
+				early = getInt("1_early") + getInt("2_early") + getInt("3_early")
+			}
+			resultCount := getInt("result")
+			if resultCount == 0 {
+				resultCount = getInt("1_result") + getInt("2_result") + getInt("3_result")
+			}
+
+			result.RawAbsenceDays = abs
+			result.RawLateCount = late
+			result.RawEarlyCount = early
+			result.RawResultCount = resultCount
+			tardyDays := (result.RawLateCount + result.RawEarlyCount + result.RawResultCount) / 3
+			result.AbsenceDays = result.RawAbsenceDays + tardyDays
+		}
 	}
 
 	// 봉사 파싱
 	if s.VolunteerData != "" {
-		var volunteerMap map[string]int
-		json.Unmarshal([]byte(s.VolunteerData), &volunteerMap)
-		result.VolunteerHours = volunteerMap["total_time"]
+		var volMap map[string]interface{}
+		if err := json.Unmarshal([]byte(s.VolunteerData), &volMap); err == nil {
+			for _, k := range []string{"total_time", "totalTime", "total", "hours"} {
+				if v, ok := volMap[k]; ok {
+					switch val := v.(type) {
+					case float64:
+						result.VolunteerHours = int(val)
+					case int:
+						result.VolunteerHours = val
+					case string:
+						if iv, err := strconv.Atoi(strings.TrimSpace(val)); err == nil {
+							result.VolunteerHours = iv
+						}
+					}
+					if result.VolunteerHours > 0 {
+						break
+					}
+				}
+			}
+		}
 	}
 
 	// 수기 입력 가산점 및 추가 봉사시간, 9.30 전기고 출결 파싱

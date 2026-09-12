@@ -105,13 +105,16 @@ Write-Host ">>> 압축 배포 파일 생성 완료 ($zipName)" -ForegroundColor 
 # server-data 및 배포 폴더 복사
 Copy-Item $exePath "server-data\PHGC.exe" -Force
 Copy-Item $zipPath "server-data\$zipName" -Force
-Copy-Item $exePath "D:\PHGC\PHGC.exe" -Force -ErrorAction SilentlyContinue
 
 $desktopPath = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::Desktop)
-$schoolTarget = Join-Path $desktopPath "푸른파도소리중학교\PHGC.exe"
-$testTarget = Join-Path $desktopPath "test\PHGC.exe"
-if (Test-Path (Split-Path $schoolTarget -Parent)) { Copy-Item $exePath $schoolTarget -Force -ErrorAction SilentlyContinue }
-if (Test-Path (Split-Path $testTarget -Parent)) { Copy-Item $exePath $testTarget -Force -ErrorAction SilentlyContinue }
+$schoolDir = Join-Path $desktopPath "푸른파도소리중학교"
+$testDir = Join-Path $desktopPath "test"
+if (Test-Path -LiteralPath $schoolDir) {
+    Copy-Item -LiteralPath $exePath -Destination (Join-Path $schoolDir "PHGC.exe") -Force -ErrorAction SilentlyContinue
+}
+if (Test-Path -LiteralPath $testDir) {
+    Copy-Item -LiteralPath $exePath -Destination (Join-Path $testDir "PHGC.exe") -Force -ErrorAction SilentlyContinue
+}
 Write-Host ">>> server-data 및 로컬 배포 폴더 복사 완료" -ForegroundColor Green
 
 # ===== 4. Git 커밋 & 태그 & 푸시 =====

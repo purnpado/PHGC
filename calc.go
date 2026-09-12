@@ -321,8 +321,8 @@ func calcSingleStudent(s StudentExcelData) (StudentCalcResult, error) {
 		// 성취도 추출 (예: "A(123)" -> "A")
 		achieve := string(achieveRaw[0])
 
-		if achieve == "P" {
-			continue // P는 교과 점수 산출에서 제외
+		if strings.EqualFold(achieve, "P") || achieveRaw == "이수" || strings.HasPrefix(achieveRaw, "P") || strings.HasPrefix(achieveRaw, "p") {
+			continue // P는 교과 점수 산출에서 제외 (자유학기 및 이수과목)
 		}
 
 		score := 0

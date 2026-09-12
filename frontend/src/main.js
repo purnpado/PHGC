@@ -2206,19 +2206,18 @@ async function renderStudentList(students, classNum) {
         window.go.main.App.GetClassCounselingSummary ? window.go.main.App.GetClassCounselingSummary(classNum).catch(() => ({})) : Promise.resolve({}),
     ]);
 
-    // 공식 공개 자료를 커트라인 형태로 정규화 및 결합 (레거시 하드코딩 잔재 배제)
-    const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
+    // 공식 공개 자료를 커트라인 형태로 정규화 및 결합
     const officialCutoffs = (officialResp?.items || []).map(item => ({
         schoolName: item.schoolName || '',
         department: item.department || '',
         track: item.track || '일반전형',
         minValue: Number(item.minAcceptedScore || item.minValue || 0),
+        avgValue: Number(item.avgAcceptedScore || item.avgValue || 0),
         year: item.admissionYear || item.year || 0,
         isOfficial: true,
     })).filter(c => {
         if (!c.minValue || c.minValue <= 0) return false;
         if (c.schoolName.includes('청량고')) return false;
-        if (c.schoolName.includes('마이스터') && legacyMeisterScores.includes(Number(c.minValue))) return false;
         return true;
     });
 
@@ -2719,7 +2718,6 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
             String(s.studentNum) === String(studentNum) || s.name === studentName
         );
 
-        const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
         const officialCutoffs = (officialResp?.items || []).map(item => ({
             schoolName: item.schoolName || '',
             department: item.department || '',
@@ -2732,7 +2730,6 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
         })).filter(c => {
             if (!c.minValue || c.minValue <= 0) return false;
             if (c.schoolName.includes('청량고')) return false;
-            if (c.schoolName.includes('마이스터') && legacyMeisterScores.includes(Number(c.minValue))) return false;
             return true;
         });
 
@@ -4788,8 +4785,20 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
     try {
         const data = await window.go.main.App.GetStudentTranscript(classNum, studentNum, name);
 
-        // 1. 교과 성적 행(Tr) 생성
-        let subjectRows = '';
+        // 1. 교과 성적 맵 생성 (과목별 행, 학기별 열 - 나이스 표준 매트릭스)
+        const subjectOrder = [
+            '국어', '사회', '역사', '도덕', '수학', '과학',
+            '기술·가정', '기술가정', '체육', '음악', '미술', '영어', '정보', '한문'
+        ];
+        const getSubjectPriority = (name) => {
+            const idx = subjectOrder.findIndex(s => name.includes(s) || s.includes(name));
+            return idx !== -1 ? idx : 999;
+        };
+
+        const subjectMap = new Map(); // normSubject -> { displayName, scores: {} }
+        let has1_1Data = false;
+        let has1_1Graded = false; // A~E 일반 성취도가 있는지 여부
+
         if (data.subjectRecords && data.subjectRecords.length > 0) {
             let lastGrade = '1';
             let lastSem = '1';
@@ -4802,7 +4811,6 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                 let rawScore = '';
 
                 for (const [k, v] of Object.entries(rec)) {
-                    // 키와 값의 공백('과 목' -> '과목', '학 년' -> '학년')을 완전히 제거하여 매칭
                     const cleanK = k.replace(/\s+/g, '').replace(/["'\r\n]/g, '');
                     const cleanV = String(v || '').trim().replace(/["'\r\n]/g, '');
 
@@ -4820,41 +4828,116 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                     }
                 }
 
-                // 나이스 엑셀의 병합 셀 처리 (빈칸이면 직전 행의 학년/학기 계승)
                 if (grade) lastGrade = grade;
                 else grade = lastGrade;
 
                 if (sem) lastSem = sem;
                 else sem = lastSem;
 
-                // 유효하지 않은 과목명 또는 잡음 행 필터링 (슬래시, 숫자만 있는 행, 학교명 등)
                 if (!subject || !achieve || subject === '/' || !isNaN(Number(subject)) || subject.length < 2) return;
-                // 성취도가 A, B, C, D, E, P 로 시작하지 않으면 건너뜀 (예: 수강자수 단독 행 등)
+
+                const gNum = grade.replace(/[^0-9]/g, '') || '1';
+                const sNum = sem.replace(/[^0-9]/g, '') || '1';
+                const semKey = `${gNum}-${sNum}`;
+
                 const firstChar = achieve[0].toUpperCase();
-                if (!['A', 'B', 'C', 'D', 'E', 'P'].includes(firstChar)) return;
+                const isPass = firstChar === 'P' || achieve === '이수';
+                if (!['A', 'B', 'C', 'D', 'E', 'P'].includes(firstChar) && !isPass) return;
 
-                let badgeColor = 'text-slate-300';
-                if (achieve.startsWith('A')) badgeColor = 'text-emerald-400 font-bold';
-                else if (achieve.startsWith('B')) badgeColor = 'text-sky-400 font-bold';
-                else if (achieve.startsWith('C')) badgeColor = 'text-amber-400 font-bold';
-                else if (achieve.startsWith('D')) badgeColor = 'text-orange-400 font-bold';
-                else if (achieve.startsWith('E')) badgeColor = 'text-rose-400 font-bold';
-                else if (achieve.startsWith('P')) badgeColor = 'text-indigo-300 font-semibold';
+                if (semKey === '1-1') {
+                    has1_1Data = true;
+                    if (!isPass && ['A', 'B', 'C', 'D', 'E'].includes(firstChar)) {
+                        has1_1Graded = true;
+                    }
+                }
 
-                subjectRows += `
-                    <tr class="hover:bg-slate-800/40 border-b border-slate-700/40 text-center">
-                        <td class="p-2 text-slate-400">${grade}학년</td>
-                        <td class="p-2 text-slate-400">${sem}학기</td>
-                        <td class="p-2 font-bold text-white text-left pl-4">${subject}</td>
-                        <td class="p-2 ${badgeColor}">${achieve}</td>
-                        <td class="p-2 text-slate-400 text-xs font-mono">${rawScore || '-'}</td>
-                    </tr>
-                `;
+                // 과목명 정규화 (기술·가정 등 통일)
+                const normSubject = subject.replace(/\s+/g, '');
+                if (!subjectMap.has(normSubject)) {
+                    subjectMap.set(normSubject, {
+                        displayName: subject,
+                        scores: {}
+                    });
+                }
+                subjectMap.get(normSubject).scores[semKey] = {
+                    achieve,
+                    rawScore,
+                    isPass
+                };
             });
         }
 
-        if (!subjectRows) {
-            subjectRows = `<tr><td colspan="5" class="p-8 text-center text-text-muted">업로드된 교과 성적 데이터가 없거나 파싱할 과목이 없습니다.</td></tr>`;
+        // 1학년 1학기 자유학기제 판정 (A~E 일반 성취도가 없거나 데이터가 없는 경우 자유학기제로 자동 판정)
+        const is1_1FreeSemester = !has1_1Graded;
+
+        // 표준 과목 순서대로 정렬
+        const sortedSubjects = [...subjectMap.values()].sort((a, b) => {
+            const pA = getSubjectPriority(a.displayName);
+            const pB = getSubjectPriority(b.displayName);
+            if (pA !== pB) return pA - pB;
+            return a.displayName.localeCompare(b.displayName, 'ko');
+        });
+
+        // 성취도 배지 생성 헬퍼
+        const getAchieveBadge = (achieve) => {
+            if (!achieve) return '-';
+            const firstChar = achieve[0].toUpperCase();
+            let color = 'text-slate-300';
+            if (firstChar === 'A') color = 'text-emerald-400 font-bold';
+            else if (firstChar === 'B') color = 'text-sky-400 font-bold';
+            else if (firstChar === 'C') color = 'text-amber-400 font-bold';
+            else if (firstChar === 'D') color = 'text-orange-400 font-bold';
+            else if (firstChar === 'E') color = 'text-rose-400 font-bold';
+            else if (firstChar === 'P') color = 'text-indigo-300 font-semibold';
+            return `<span class="${color}">${escapeHtml(achieve)}</span>`;
+        };
+
+        // 테이블 행(TR) 생성
+        let matrixRows = '';
+        if (sortedSubjects.length === 0) {
+            matrixRows = `<tr><td colspan="6" class="p-8 text-center text-text-muted">업로드된 교과 성적 데이터가 없거나 성취평가 대상 과목이 없습니다.</td></tr>`;
+        } else {
+            sortedSubjects.forEach((subObj, rowIdx) => {
+                let tds = '';
+
+                // 1. 1학년 1학기 셀 (자유학기제인 경우 전체 과목 높이만큼 1개 셀로 통합 병합)
+                if (is1_1FreeSemester) {
+                    if (rowIdx === 0) {
+                        tds += `
+                            <td rowspan="${sortedSubjects.length}" class="p-2 border-l border-slate-700/60 bg-indigo-950/20 text-indigo-300 font-bold text-center text-xs align-middle leading-relaxed free-semester-cell">
+                                <span class="px-2 py-0.5 rounded-full bg-indigo-600/40 text-indigo-200 border border-indigo-500/40 text-[11px] font-black inline-block mb-1">자유학기제</span>
+                                <div class="text-[10px] text-slate-400 font-normal">성적 미산출<br>(지필평가 미실시)</div>
+                            </td>
+                        `;
+                    }
+                    // rowIdx > 0일 때는 rowspan 병합에 의해 td 생략
+                } else {
+                    const sc = subObj.scores['1-1'];
+                    tds += `
+                        <td class="p-2 border-l border-slate-700/60 text-center">
+                            ${sc ? `<div>${getAchieveBadge(sc.achieve)}</div>${sc.rawScore ? `<div class="text-[10px] text-slate-400 font-mono mt-0.5">${escapeHtml(sc.rawScore)}</div>` : ''}` : '<span class="text-slate-600">-</span>'}
+                        </td>
+                    `;
+                }
+
+                // 2. 나머지 학기 (1-2, 2-1, 2-2, 3-1)
+                const otherSemKeys = ['1-2', '2-1', '2-2', '3-1'];
+                otherSemKeys.forEach(semKey => {
+                    const sc = subObj.scores[semKey];
+                    tds += `
+                        <td class="p-2 border-l border-slate-700/60 text-center">
+                            ${sc ? `<div>${getAchieveBadge(sc.achieve)}</div>${sc.rawScore ? `<div class="text-[10px] text-slate-400 font-mono mt-0.5">${escapeHtml(sc.rawScore)}</div>` : ''}` : '<span class="text-slate-600">-</span>'}
+                        </td>
+                    `;
+                });
+
+                matrixRows += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-700/40">
+                        <td class="p-2.5 font-bold text-white text-left pl-3">${escapeHtml(subObj.displayName)}</td>
+                        ${tds}
+                    </tr>
+                `;
+            });
         }
 
         // 2. 출결 및 봉사 파싱
@@ -4913,27 +4996,44 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
                     </div>
                 </div>
 
-                <!-- 2. 전학년 전과목 교과 성적표 -->
+                <!-- 2. 전학년 전과목 교과 성적표 (나이스 표준 매트릭스) -->
                 <div class="space-y-2">
-                    <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
-                        <span>📚</span> 전학년 학기별 과목 성적 상세 내역
-                    </h3>
-                    <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-900/40 max-h-72 custom-scrollbar">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-1.5">
+                            <span>📚</span> 전학년 학기별 교과 성적 매트릭스
+                        </h3>
+                        <span class="text-[11px] text-slate-400 font-mono">성취도(원점수/과목평균)</span>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-700/50 bg-slate-900/40 custom-scrollbar">
                         <table class="w-full text-left border-collapse text-xs">
-                            <thead class="sticky top-0 bg-slate-800 border-b border-slate-700/70 text-text-muted text-center z-10">
+                            <thead class="sticky top-0 bg-slate-800 border-b border-slate-700/70 text-text-muted text-center z-10 text-xs">
                                 <tr>
-                                    <th class="p-2.5 w-16">학년</th>
-                                    <th class="p-2.5 w-16">학기</th>
-                                    <th class="p-2.5 text-left pl-4">교과목명</th>
-                                    <th class="p-2.5 w-24">성취도</th>
-                                    <th class="p-2.5 w-44">원점수/평균(표준편차)</th>
+                                    <th rowspan="2" class="p-2.5 text-left pl-3.5 w-28 border-r border-slate-700/60 bg-slate-800">교과목</th>
+                                    <th colspan="2" class="p-2 border-r border-slate-700/60 bg-slate-800/95 text-slate-200 font-bold">1학년</th>
+                                    <th colspan="2" class="p-2 border-r border-slate-700/60 bg-slate-800/95 text-slate-200 font-bold">2학년</th>
+                                    <th class="p-2 bg-slate-800/95 text-slate-200 font-bold">3학년</th>
+                                </tr>
+                                <tr class="text-[11px] border-t border-slate-700/50 text-slate-400">
+                                    <th class="p-1.5 w-28 border-r border-slate-700/60 ${is1_1FreeSemester ? 'bg-indigo-950/40 text-indigo-300 font-bold' : ''}">
+                                        1학기
+                                    </th>
+                                    <th class="p-1.5 w-28 border-r border-slate-700/60">2학기</th>
+                                    <th class="p-1.5 w-28 border-r border-slate-700/60">1학기</th>
+                                    <th class="p-1.5 w-28 border-r border-slate-700/60">2학기</th>
+                                    <th class="p-1.5 w-28">1학기</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${subjectRows}
+                                ${matrixRows}
                             </tbody>
                         </table>
                     </div>
+                    ${is1_1FreeSemester ? `
+                        <div class="p-2 rounded-lg bg-indigo-950/20 border border-indigo-500/20 text-[11px] flex items-center gap-1.5 text-indigo-300">
+                            <span class="text-sm">ℹ️</span>
+                            <span>1학년 1학기는 교육과정상 <strong>자유학기제</strong>로 운영되어 지필 성적이 산출되지 않으며, 고입 내신성적 산출에서 제외됩니다.</span>
+                        </div>
+                    ` : ''}
                 </div>
 
                 <!-- 3. 비교과 (출결 및 봉사) 요약 -->
@@ -4985,6 +5085,22 @@ async function openStudentTranscriptModal(classNum, studentNum, name) {
         modalEl.addEventListener('click', (e) => {
             if (e.target === modalEl) modalEl.remove();
         });
+
+        // 자유학기 P 과목 접기/펼치기 토글
+        const togglePBtn = document.getElementById('togglePassSubjectsBtn');
+        const pContainer = document.getElementById('passSubjectsContainer');
+        if (togglePBtn && pContainer) {
+            togglePBtn.addEventListener('click', () => {
+                const isHidden = pContainer.classList.contains('hidden');
+                if (isHidden) {
+                    pContainer.classList.remove('hidden');
+                    togglePBtn.textContent = `자유학기(P) 접기 ▲`;
+                } else {
+                    pContainer.classList.add('hidden');
+                    togglePBtn.textContent = `자유학기(P) 과목 보기 (${passSubjectCount}) ▼`;
+                }
+            });
+        }
 
     } catch (err) {
         modalEl.innerHTML = `
@@ -5163,8 +5279,18 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             weightDetailText = `<span class="text-slate-400 text-xs">(${parts.join(', ')})</span>`;
         }
 
+        const hasRegisteredWish = (wishlist && wishlist.length > 0) || (data.applications || []).some(a => a.schoolName && a.schoolName.trim());
+        const isMatchedSchool = isAlreadyWish || (data.applications || []).some(a => normalizeSchoolName(a.schoolName) === normalizeSchoolName(r.schoolName));
+        // 장바구니/희망학교가 등록된 학생: 등록된 학교만 인쇄, 아예 등록 안 한 학생: 전체 학교 인쇄
+        let schoolPrintClass = '';
+        if (hasRegisteredWish) {
+            schoolPrintClass = isMatchedSchool ? 'counsel-print-target-school' : 'counsel-print-unregistered-school';
+        } else {
+            schoolPrintClass = 'counsel-print-target-school';
+        }
+
         cardsHTML += `
-            <div class="p-4 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-2.5 school-counsel-card" id="card_${rIdx}"
+            <div class="p-4 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-2.5 school-counsel-card ${schoolPrintClass}" id="card_${rIdx}"
                  data-score="${r.totalScore}"
                  data-max="${r.totalMax}"
                  data-last-cutoff="${defaultCutoff || 0}"
@@ -5298,19 +5424,23 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     modalEl.innerHTML = `
         <div class="glass-card print-document p-6 md:p-8 w-full max-w-6xl max-h-[92vh] overflow-y-auto space-y-6 print-modal" id="printReportArea">
             <!-- 모달 헤더 (인쇄 제외 버튼 포함) -->
-            <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
-                <div>
-                    <h2 class="text-2xl font-black text-white flex items-center gap-2">
+            <div class="flex items-center justify-between border-b border-slate-700/50 pb-4 gap-4 flex-wrap sm:flex-nowrap">
+                <div class="min-w-0">
+                    <h2 class="text-2xl font-black text-white flex items-center gap-2 truncate">
                         👨‍🎓 ${escapeHtml(name)} <span class="text-base text-slate-400 font-normal">(${escapeHtml(classNum)}반 ${escapeHtml(studentNum)}번)</span>
                     </h2>
                     <p class="text-xs text-text-muted mt-1">울산 특목·마이스터·특성화고 진학 상담 분석표 (3-1 누적)</p>
                 </div>
-                <div class="flex items-center gap-2 no-print">
-                    <button id="printReportBtn" class="btn-secondary text-xs px-3 py-2 font-bold flex items-center gap-1">
-                        🖨️ 인쇄 / PDF
+                <div class="flex items-center gap-2.5 no-print shrink-0 flex-nowrap">
+                    <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl border border-slate-700 select-none transition-all h-9 whitespace-nowrap">
+                        <input type="checkbox" id="printIncludeCounselCheck" class="rounded accent-indigo-500 cursor-pointer w-4 h-4" />
+                        <span class="font-medium">상담 메모 포함</span>
+                    </label>
+                    <button id="printReportBtn" class="px-4 h-9 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer whitespace-nowrap active:scale-95">
+                        <span>🖨️</span> <span>인쇄 / PDF</span>
                     </button>
-                    <button id="closeModalBtn" class="text-slate-400 hover:text-white p-2 text-xl font-bold bg-transparent border-none cursor-pointer">
-                        ✕
+                    <button id="closeModalBtn" class="px-3 h-9 rounded-xl font-bold text-xs bg-slate-800 hover:bg-rose-600/80 text-slate-300 hover:text-white border border-slate-700 transition-all cursor-pointer flex items-center justify-center whitespace-nowrap active:scale-95" title="닫기">
+                        <span class="text-sm">✕</span> <span class="ml-1 font-semibold">닫기</span>
                     </button>
                 </div>
             </div>
@@ -5338,66 +5468,93 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 </div>
             </div>
 
-            <!-- 2. 수기 입력 가산점 및 9/30 출결 영역 (담임용) -->
+            <!-- 2. 수기 입력 가산점 및 리더십 영역 (출결·봉사는 나이스 자동 산출) -->
             ${(() => {
             const isViewer = window.currentUser && window.currentUser.Role === 'viewer';
-            const defaultAbsence = data.hasSeptAbsence ? data.septAbsenceDays : (data.rawAbsenceDays || 0);
-            const defaultLateEtc = data.hasSeptAbsence ? (data.septLateEtc || 0) : ((data.rawLateCount || 0) + (data.rawEarlyCount || 0) + (data.rawResultCount || 0));
-            const defaultOctAbsence = data.hasOctAbsence ? data.octAbsenceDays : defaultAbsence;
-            const defaultOctLateEtc = data.hasOctAbsence ? (data.octLateEtc || 0) : defaultLateEtc;
 
             return `
-                <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3">
-                    <div class="flex items-center justify-between">
-                        <h3 class="font-bold text-sm text-indigo-300 flex items-center gap-1.5">
-                            <span>✏️</span> 전형별 비교과 입력
-                            ${isViewer ? '<span class="text-[11px] text-warning font-normal ml-2">※ 진로부장은 조회 전용 모드입니다.</span>' : ''}
-                        </h3>
+                <div class="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-3 non-academic-input-section no-print">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">✏️</span>
+                            <div>
+                                <h3 class="font-bold text-sm text-indigo-200 flex items-center gap-2">
+                                    전형별 가산점 및 리더십 수기 입력
+                                    ${isViewer ? '<span class="text-[11px] text-warning font-normal">※ 진로부장은 조회 전용 모드입니다.</span>' : ''}
+                                </h3>
+                                <p class="text-[11px] text-slate-400 mt-0.5">출결 및 봉사점수는 <strong>나이스 공식 데이터에서 100% 자동 산출</strong>되므로 별도 입력이 필요 없습니다.</p>
+                            </div>
+                        </div>
                         ${!isViewer ? `
-                        <button id="saveExtraBtn" class="btn-primary text-xs font-bold no-print" style="width:auto; min-width:130px; padding:8px 12px;">
-                            💾 저장·재계산
+                        <button id="saveExtraBtn" class="px-4 h-9 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md shadow-indigo-500/20 transition-all cursor-pointer whitespace-nowrap active:scale-95 no-print">
+                            <span>💾</span> <span>저장 후 재계산</span>
                         </button>
                         ` : ''}
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
-                        <div class="rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-3 py-2"><b class="text-indigo-200">마이스터고</b> · 출결·봉사·리더십 <span class="text-amber-300">9/30 마감</span></div>
-                        <div class="rounded-lg border border-cyan-500/30 bg-cyan-950/30 px-3 py-2"><b class="text-cyan-200">특성화고</b> · 취업희망자 <span class="text-amber-300">9/30</span> · 일반 <span class="text-amber-300">10/31 마감</span></div>
-                        <div class="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2"><b class="text-emerald-200">후기 일반고</b> · 출결·봉사·행발·창체 <span class="text-amber-300">11/30 마감</span></div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
-                        <section class="lg:col-span-5 bg-slate-900/60 p-4 rounded-lg border border-indigo-500/30 space-y-3">
-                            <div><b class="text-indigo-200 text-sm">① 마이스터·특성화고 비교과</b><span class="ml-2 text-slate-400">취업희망 9/30 · 특성화 일반 10/31</span></div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <label class="text-slate-300">9/30 결석(일)<input type="number" id="inputSeptAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultAbsence}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">9/30 지각·조퇴·결과(회)<input type="number" id="inputSeptLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">10/31 결석(일)<input type="number" id="inputOctAbsence" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctAbsence}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">10/31 지각·조퇴·결과(회)<input type="number" id="inputOctLateEtc" min="0" max="100" class="input-field w-full text-center mt-1" value="${defaultOctLateEtc}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">추가 봉사(시간)<input type="number" id="inputAddVolunteer" min="0" max="100" class="input-field w-full text-center mt-1" value="${data.addVolunteerHours || 0}" ${isViewer ? 'disabled' : ''}/></label>
-                                <label class="text-slate-300">리더십 인정(학기)<input type="number" id="inputLeadershipTerms" min="0" max="4" step="1" class="input-field w-full text-center mt-1" value="${data.leadershipTerms || 0}" ${isViewer ? 'disabled' : ''}/></label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs pt-1">
+                        <!-- ① 마이스터고 리더십 가산점 -->
+                        <section class="bg-slate-900/70 p-3.5 rounded-xl border border-indigo-500/30 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <b class="text-indigo-200 text-sm flex items-center gap-1.5">
+                                    <span>🏛️</span> 마이스터고 리더십 활동 가산점
+                                </b>
+                                <span class="text-[11px] text-amber-300 font-semibold">최대 10점</span>
                             </div>
-                            <p class="text-[10px] text-slate-400">출결은 결석 + 기타 3회당 1일입니다. 10/31 확정 전에는 9/30과 같은 누적값을 넣어 예상 점수로 확인하세요. 리더십은 반장·부반장·전교회장·부회장만, 한 학기 2.5점입니다.</p>
+                            <div class="flex items-center gap-3 pt-1">
+                                <label class="text-slate-300 font-medium whitespace-nowrap">인정 리더십(학기):</label>
+                                <div class="relative w-32">
+                                    <input type="number" id="inputLeadershipTerms" min="0" max="4" step="1"
+                                           class="input-field w-full text-center py-1.5 text-sm font-bold text-amber-300"
+                                           value="${data.leadershipTerms || 0}" ${isViewer ? 'disabled' : ''}/>
+                                    <span class="absolute right-2.5 top-2 text-[11px] text-slate-400 pointer-events-none">학기</span>
+                                </div>
+                                <span class="text-xs text-slate-400">= 가산점 <strong class="text-amber-300 font-mono">${Math.min(10, ((data.leadershipTerms || 0) * 2.5)).toFixed(1)}</strong>점</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">※ 반장·부반장·전교 학생회장·부회장 활동만 인정 (한 학기당 2.5점, 최대 4학기 10점)</p>
                         </section>
 
-                        <section class="lg:col-span-7 bg-slate-900/60 p-4 rounded-lg border border-emerald-500/30 space-y-3">
-                            <div><b class="text-emerald-200 text-sm">② 후기 일반고 비교과</b><span class="ml-2 text-slate-400">11/30 마감 · 현재는 3학년 1학기 누적자료로 예상 산출</span></div>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                ${[1, 2, 3].map(g => `<div class="rounded border border-slate-700/70 p-2"><b class="text-slate-200">${g}학년</b><div class="grid grid-cols-2 gap-1 mt-1"><input type="number" id="inputGeneralAbsence${g}" min="0" class="input-field text-center" value="${extra['general_absence_' + g] ?? ''}" placeholder="결" title="미인정 결석 환산일수" aria-label="${g}학년 미인정 결석 환산일수" ${isViewer ? 'disabled' : ''}/><input type="number" id="inputGeneralVolunteer${g}" min="0" class="input-field text-center" value="${extra['general_volunteer_' + g] ?? ''}" placeholder="봉" title="봉사시간" aria-label="${g}학년 봉사시간" ${isViewer ? 'disabled' : ''}/></div></div>`).join('')}
+                        <!-- ② 후기 일반고 비교과 가산점 -->
+                        <section class="bg-slate-900/70 p-3.5 rounded-xl border border-emerald-500/30 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <b class="text-emerald-200 text-sm flex items-center gap-1.5">
+                                    <span>🏫</span> 후기 일반고 창체·행발 가산점
+                                </b>
+                                <span class="text-[11px] text-emerald-300 font-semibold">각 학년당 +1점</span>
                             </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                <div class="rounded border border-slate-700/70 p-2"><b class="text-emerald-200">창체 가산점</b><span class="ml-1 text-slate-400">(+1점씩)</span><div class="flex gap-3 mt-2">${[1, 2, 3].map(g => `<label><input type="checkbox" id="checkChangche${g}" ${extra['changche_' + g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/> ${g}학년</label>`).join('')}</div></div>
-                                <div class="rounded border border-slate-700/70 p-2"><b class="text-emerald-200">행발 가산점</b><span class="ml-1 text-slate-400">(+1점씩)</span><div class="flex gap-3 mt-2">${[1, 2, 3].map(g => `<label><input type="checkbox" id="checkHaengbal${g}" ${extra['haengbal_' + g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/> ${g}학년</label>`).join('')}</div></div>
+                            <div class="grid grid-cols-2 gap-2 pt-1">
+                                <div class="rounded-lg bg-slate-800/80 border border-slate-700 p-2.5 space-y-1.5">
+                                    <span class="text-[11px] font-bold text-slate-300 block">창체 활동 가산점</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        ${[1, 2, 3].map(g => `
+                                            <label class="inline-flex items-center gap-1 text-xs text-slate-200 cursor-pointer">
+                                                <input type="checkbox" id="checkChangche${g}" class="accent-indigo-500 rounded cursor-pointer" ${extra['changche_' + g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/>
+                                                <span>${g}학년</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                <div class="rounded-lg bg-slate-800/80 border border-slate-700 p-2.5 space-y-1.5">
+                                    <span class="text-[11px] font-bold text-slate-300 block">행발(행동발달) 가산점</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        ${[1, 2, 3].map(g => `
+                                            <label class="inline-flex items-center gap-1 text-xs text-slate-200 cursor-pointer">
+                                                <input type="checkbox" id="checkHaengbal${g}" class="accent-indigo-500 rounded cursor-pointer" ${extra['haengbal_' + g] ? 'checked' : ''} ${isViewer ? 'disabled' : ''}/>
+                                                <span>${g}학년</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </div>
                             </div>
-                            <p class="text-[10px] text-slate-400">11/30에 학년별 결석 환산일수·봉사시간을 확정 입력하면 예상 점수가 확정 점수로 바뀝니다.</p>
+                            <p class="text-[10px] text-slate-400 mt-1">※ 일반고 비교과(총 50점) 산출 시 각 해당 학년의 가산점으로 직결됩니다.</p>
                         </section>
                     </div>
                 </div>
                 `;
         })()}
 
-            <!-- ⭐ 학생 희망·관심학교 장바구니 영역 -->
-            <div id="studentWishlistSection" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/50 space-y-3 shadow-lg">
+            <!-- ⭐ 학생 희망·관심학교 장바구니 영역 (화면 상담용, 인쇄 시 자동 제외) -->
+            <div id="studentWishlistSection" class="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/50 space-y-3 shadow-lg no-print">
                 <div class="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-indigo-500/20">
                     <div class="flex items-center gap-2">
                         <span class="text-xl">🛒</span>
@@ -5422,8 +5579,8 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                         <h3 class="font-bold text-sm text-white">🏫 목표 고교별 산출 점수 및 합격 가능성</h3>
                         <p class="text-[11px] text-text-muted mt-0.5">* 면접 점수를 제외한 1차 서류 전형 기준</p>
                     </div>
-                    <!-- 탭 메뉴: 직전년도 / 최근 3개년 평균 / 최근 5개년 평균 -->
-                    <div class="flex items-center gap-2 flex-wrap">
+                    <!-- 탭 메뉴: 직전년도 / 최근 3개년 평균 / 최근 5개년 평균 (인쇄 시 제외) -->
+                    <div class="flex items-center gap-2 flex-wrap no-print">
                         <span class="text-xs font-bold text-slate-300">판정 기준:</span>
                         <div class="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 shadow-inner" id="cutoffBaselineTabs">
                             <button type="button" class="cutoff-tab-btn active px-3 py-1.5 text-xs font-bold rounded-md bg-primary text-white transition-all cursor-pointer" data-mode="last">
@@ -5439,7 +5596,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                     </div>
                 </div>
 
-                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 flex items-center justify-between text-xs">
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 flex items-center justify-between text-xs no-print">
                     <span id="cutoffBaselineDesc" class="text-indigo-200 font-medium">🎯 <strong>직전 1개년(작년)</strong> 커트라인 및 공식 발표자료를 기준으로 합격 가능성을 판정합니다.</span>
                     <span class="text-[11px] text-slate-400">탭을 클릭하면 실시간으로 신호등·게이지가 재계산됩니다</span>
                 </div>
@@ -5450,79 +5607,90 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             </div>
 
             <!-- 4. 스마트 1:1 진학 상담 일지 영역 -->
-            <div class="p-5 rounded-2xl bg-indigo-950/25 border border-indigo-500/40 space-y-4 shadow-xl">
+            <div class="p-5 rounded-2xl bg-indigo-950/25 border border-indigo-500/40 space-y-4 shadow-xl counsel-section-container">
                 <div class="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-indigo-500/20">
                     <div>
                         <h3 class="font-black text-sm text-indigo-200 flex items-center gap-2">
                             <span>📝</span> ${escapeHtml(name)} 학생 1:1 진학 상담 일지
                         </h3>
                         <p class="text-[11px] text-slate-400 mt-0.5">
-                            🔒 <strong>개인 상담 비밀보장:</strong> 작성자 본인만 열람 가능하며, 관내 취합 및 학년부장 제출 시 상담 내용은 100% 자동 제외됩니다.
+                            🔒 <strong>개인 상담 비밀보장:</strong> 작성자 본인만 열람 가능하며, 관내 취합 및 인쇄 시 기본적으로 상담 메모는 100% 자동 제외됩니다.
                         </p>
                     </div>
-                    <span class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-300 border border-indigo-400/30 font-bold">
+                    <span class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-900/60 text-indigo-300 border border-indigo-400/30 font-bold no-print">
                         로컬 독립 보안 모드
                     </span>
                 </div>
 
-                <!-- 상담 작성 폼 -->
-                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-700/70 space-y-3">
-                    <input type="hidden" id="counselRecordId" value="0" />
-                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                        <div class="sm:col-span-4">
-                            <label class="block text-xs font-bold text-slate-300 mb-1">상담 날짜</label>
-                            <input type="date" id="counselDateInput" class="input-field w-full text-xs font-mono font-bold text-indigo-200 py-1.5" value="${todayDate}" required />
+                <!-- 비공개 상담 내용 (인쇄 시 체크 안하면 완전 숨김) -->
+                <div class="counsel-private-content space-y-4">
+                    <!-- 상담 작성 폼 -->
+                    <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-700/70 space-y-3 no-print">
+                        <input type="hidden" id="counselRecordId" value="0" />
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                            <div class="sm:col-span-4">
+                                <label class="block text-xs font-bold text-slate-300 mb-1">상담 날짜</label>
+                                <input type="date" id="counselDateInput" class="input-field w-full text-xs font-mono font-bold text-indigo-200 py-1.5" value="${todayDate}" required />
+                            </div>
+                            <div class="sm:col-span-8">
+                                <label class="block text-xs font-bold text-slate-300 mb-1">상담 목표/관련 고교 (선택)</label>
+                                <input type="text" id="counselTargetSchoolInput" class="input-field w-full text-xs py-1.5" placeholder="예: 울산에너지고 신재생에너지과, 일반고 등" />
+                            </div>
                         </div>
-                        <div class="sm:col-span-8">
-                            <label class="block text-xs font-bold text-slate-300 mb-1">상담 목표/관련 고교 (선택)</label>
-                            <input type="text" id="counselTargetSchoolInput" class="input-field w-full text-xs py-1.5" placeholder="예: 울산에너지고 신재생에너지과, 일반고 등" />
+
+                        <!-- 스마트 빠른 태그 바 -->
+                        <div>
+                            <div class="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
+                                <span>⚡</span> 스마트 빠른 태그 (클릭 시 내용에 자동 추가):
+                            </div>
+                            <div class="flex flex-wrap gap-1.5" id="counselQuickTags">
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/40 font-medium transition-all cursor-pointer" data-tag="[마이스터고 희망] ">마이스터고 희망</button>
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 font-medium transition-all cursor-pointer" data-tag="[특성화고 취업희망자전형] ">특성화 취업희망</button>
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-medium transition-all cursor-pointer" data-tag="[후기 일반고 안정권] ">일반고 안정권</button>
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-medium transition-all cursor-pointer" data-tag="[내신 추이 및 비교과 상담] ">성적·비교과 추이</button>
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 font-medium transition-all cursor-pointer" data-tag="[학부모 전화 상담 완료] ">학부모 상담</button>
+                                <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/40 font-medium transition-all cursor-pointer" data-tag="[원서 변경 고민 중] ">원서 변경 고민</button>
+                            </div>
+                        </div>
+
+                        <!-- 상담 내용 입력창 -->
+                        <div>
+                            <textarea id="counselContentInput" rows="3" class="input-field w-full text-xs leading-relaxed py-2 px-3 resize-y" placeholder="학생의 진로 희망, 강점 및 약점, 학부모 상담 내용, 추천 고교 등을 자유롭게 기록하세요. (Ctrl+Enter를 누르면 바로 저장됩니다)"></textarea>
+                        </div>
+
+                        <!-- 액션 버튼 -->
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="text-[11px] text-slate-500 font-mono">단축키: Ctrl + Enter</span>
+                            <div class="flex items-center gap-2">
+                                <button type="button" id="cancelCounselEditBtn" class="btn-secondary text-xs px-3 py-1.5 font-semibold hidden">수정 취소</button>
+                                <button type="button" id="saveCounselBtn" class="btn-primary text-xs px-4 py-1.5 font-bold inline-flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer">
+                                    <span>💾</span> <span id="saveCounselBtnText">상담 일지 저장</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 스마트 빠른 태그 바 -->
-                    <div>
-                        <div class="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
-                            <span>⚡</span> 스마트 빠른 태그 (클릭 시 내용에 자동 추가):
+                    <!-- 누적 상담 타임라인 목록 -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                                <span>📋</span> 누적 상담 이력 (<span id="counselRecordCount" class="text-indigo-400 font-bold">0</span>건)
+                            </span>
+                            <span class="text-[11px] text-slate-400">최신순 정렬</span>
                         </div>
-                        <div class="flex flex-wrap gap-1.5" id="counselQuickTags">
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/40 font-medium transition-all cursor-pointer" data-tag="[마이스터고 희망] ">마이스터고 희망</button>
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 font-medium transition-all cursor-pointer" data-tag="[특성화고 취업희망자전형] ">특성화 취업희망</button>
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-500/40 font-medium transition-all cursor-pointer" data-tag="[후기 일반고 안정권] ">일반고 안정권</button>
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/40 font-medium transition-all cursor-pointer" data-tag="[내신 추이 및 비교과 상담] ">성적·비교과 추이</button>
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 border border-purple-500/40 font-medium transition-all cursor-pointer" data-tag="[학부모 전화 상담 완료] ">학부모 상담</button>
-                            <button type="button" class="quick-tag-btn text-[11px] py-1 px-2.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/40 font-medium transition-all cursor-pointer" data-tag="[원서 변경 고민 중] ">원서 변경 고민</button>
-                        </div>
-                    </div>
-
-                    <!-- 상담 내용 입력창 -->
-                    <div>
-                        <textarea id="counselContentInput" rows="3" class="input-field w-full text-xs leading-relaxed py-2 px-3 resize-y" placeholder="학생의 진로 희망, 강점 및 약점, 학부모 상담 내용, 추천 고교 등을 자유롭게 기록하세요. (Ctrl+Enter를 누르면 바로 저장됩니다)"></textarea>
-                    </div>
-
-                    <!-- 액션 버튼 -->
-                    <div class="flex items-center justify-between pt-1">
-                        <span class="text-[11px] text-slate-500 font-mono">단축키: Ctrl + Enter</span>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="cancelCounselEditBtn" class="btn-secondary text-xs px-3 py-1.5 font-semibold hidden">수정 취소</button>
-                            <button type="button" id="saveCounselBtn" class="btn-primary text-xs px-4 py-1.5 font-bold inline-flex items-center gap-1.5 shadow-md shadow-indigo-600/30 cursor-pointer">
-                                <span>💾</span> <span id="saveCounselBtnText">상담 일지 저장</span>
-                            </button>
+                        <div id="counselRecordsList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                            <div class="text-center py-6 text-slate-500 text-xs">
+                                <span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 상담 일지를 불러오는 중...
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 누적 상담 타임라인 목록 -->
-                <div class="space-y-2">
+                <!-- 인쇄 전용 프라이버시 안심 요약 배너 -->
+                <div class="counsel-print-summary hidden border-t border-slate-300 pt-3 mt-4 text-xs text-slate-700">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                            <span>📋</span> 누적 상담 이력 (<span id="counselRecordCount" class="text-indigo-400 font-bold">0</span>건)
-                        </span>
-                        <span class="text-[11px] text-slate-400">최신순 정렬</span>
-                    </div>
-                    <div id="counselRecordsList" class="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                        <div class="text-center py-6 text-slate-500 text-xs">
-                            <span class="spinner" style="width:14px;height:14px;border-width:2px;"></span> 상담 일지를 불러오는 중...
-                        </div>
+                        <span><strong>📅 진학 상담 일자:</strong> ${todayDate}</span>
+                        <span class="text-slate-500 text-[11px]">※ 학생 개인정보 및 상담 상세 메모는 비공개 처리되었습니다.</span>
                     </div>
                 </div>
             </div>
@@ -5663,30 +5831,15 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             saveBtn.disabled = true;
             saveBtn.textContent = '저장 중...';
 
-            const addVol = parseInt(document.getElementById('inputAddVolunteer').value) || 0;
-            const septAbsence = parseInt(document.getElementById('inputSeptAbsence').value) || 0;
-            const septLateEtc = parseInt(document.getElementById('inputSeptLateEtc').value) || 0;
-            const octAbsence = parseInt(document.getElementById('inputOctAbsence').value) || 0;
-            const octLateEtc = parseInt(document.getElementById('inputOctLateEtc').value) || 0;
+            const leadershipTerms = Math.min(4, Math.max(0, parseInt(document.getElementById('inputLeadershipTerms')?.value) || 0));
             const newExtra = {
-                add_volunteer: addVol,
-                sept_absence: septAbsence,
-                sept_late_etc: septLateEtc,
-                oct_absence: octAbsence,
-                oct_late_etc: octLateEtc,
-                leadership_terms: Math.min(4, Math.max(0, parseInt(document.getElementById('inputLeadershipTerms').value) || 0)),
-                general_absence_1: parseInt(document.getElementById('inputGeneralAbsence1').value),
-                general_absence_2: parseInt(document.getElementById('inputGeneralAbsence2').value),
-                general_absence_3: parseInt(document.getElementById('inputGeneralAbsence3').value),
-                general_volunteer_1: parseInt(document.getElementById('inputGeneralVolunteer1').value),
-                general_volunteer_2: parseInt(document.getElementById('inputGeneralVolunteer2').value),
-                general_volunteer_3: parseInt(document.getElementById('inputGeneralVolunteer3').value),
-                changche_1: document.getElementById('checkChangche1').checked,
-                changche_2: document.getElementById('checkChangche2').checked,
-                changche_3: document.getElementById('checkChangche3').checked,
-                haengbal_1: document.getElementById('checkHaengbal1').checked,
-                haengbal_2: document.getElementById('checkHaengbal2').checked,
-                haengbal_3: document.getElementById('checkHaengbal3').checked,
+                leadership_terms: leadershipTerms,
+                changche_1: Boolean(document.getElementById('checkChangche1')?.checked),
+                changche_2: Boolean(document.getElementById('checkChangche2')?.checked),
+                changche_3: Boolean(document.getElementById('checkChangche3')?.checked),
+                haengbal_1: Boolean(document.getElementById('checkHaengbal1')?.checked),
+                haengbal_2: Boolean(document.getElementById('checkHaengbal2')?.checked),
+                haengbal_3: Boolean(document.getElementById('checkHaengbal3')?.checked),
             };
 
             try {
@@ -5702,7 +5855,20 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     }
 
     // 인쇄/PDF 저장
-    document.getElementById('printReportBtn').addEventListener('click', () => printOnly('report'));
+    document.getElementById('printReportBtn')?.addEventListener('click', () => {
+        const printArea = document.getElementById('printReportArea');
+        const includeCounsel = document.getElementById('printIncludeCounselCheck')?.checked ?? false;
+
+        if (printArea) {
+            if (includeCounsel) {
+                printArea.classList.add('include-private-counsel');
+            } else {
+                printArea.classList.remove('include-private-counsel');
+            }
+        }
+
+        printOnly('report');
+    });
 
     // ===== 스마트 1:1 진학 상담 일지 컨트롤러 =====
     const counselDateInput = document.getElementById('counselDateInput');
@@ -8014,7 +8180,6 @@ async function renderCutoffScreen(schoolName) {
 
     // 공식 공개 입결 데이터 (하드코딩 없이 백엔드 data/official_admission_data.json 기반 로드)
     let publicOfficialData = [];
-    const legacyMeisterScores = [245.22, 241.03, 218.04, 206.33, 215.82, 212.85];
 
     try {
         const officialResp = await window.go.main.App.GetOfficialAdmissionData().catch(() => null);
@@ -8031,8 +8196,6 @@ async function renderCutoffScreen(schoolName) {
                 note: item.source || item.note || '공식자료'
             })).filter(x => {
                 if (!x.school || x.school.includes('청량고')) return false;
-                // 이전 구버전 하드코딩 샘플 데이터 유입 원천 차단
-                if (x.school.includes('마이스터') && legacyMeisterScores.includes(Number(x.min))) return false;
                 return true;
             });
         }
