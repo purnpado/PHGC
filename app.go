@@ -2641,5 +2641,3 @@ func (a *App) DeleteStudentCounselingRecord(classNum int, id int64) error {
 	}
 	return a.db.DeleteStudentCounselingRecord(classNum, id, a.user.Username)
 }
-
-

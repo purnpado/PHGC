@@ -141,7 +141,7 @@ const ScreenLockManager = {
         overlay.innerHTML = `
             <div class="relative w-full max-w-md bg-slate-900/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl text-center space-y-6 backdrop-blur-xl">
                 <!-- 잠금 자물쇠 뱃지 -->
-                <div class="relative mx-auto w-20 h-20 flex items-center justify-center rounded-3xl bg-gradient-to-tr from-amber-600/30 to-rose-600/20 border border-amber-500/40 shadow-lg shadow-amber-500/10">
+                <div class="relative mx-auto w-20 h-20 flex items-center justify-center rounded-3xl bg-linear-to-tr from-amber-600/30 to-rose-600/20 border border-amber-500/40 shadow-lg shadow-amber-500/10">
                     <span class="text-4xl animate-bounce">🔒</span>
                     <span class="absolute -top-1 -right-1 flex h-3 w-3">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -168,13 +168,13 @@ const ScreenLockManager = {
                         <label class="block text-xs font-bold text-slate-300 mb-1.5 ml-1">비밀번호 입력</label>
                         <div class="relative">
                             <input type="password" id="unlockPasswordInput" 
-                                   class="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 transition-all text-center tracking-widest font-mono" 
+                                   class="input-field w-full py-3 text-sm text-center tracking-widest font-mono" 
                                    placeholder="비밀번호를 입력하세요" autocomplete="current-password" autofocus required />
                         </div>
                         <p id="unlockErrorMsg" class="text-xs text-rose-400 mt-1.5 hidden text-center font-bold"></p>
                     </div>
 
-                    <button type="submit" id="unlockSubmitBtn" class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-primary hover:from-indigo-500 hover:to-primary/90 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 text-sm">
+                    <button type="submit" id="unlockSubmitBtn" class="w-full py-3 px-4 bg-linear-to-r from-indigo-600 to-primary hover:from-indigo-500 hover:to-primary/90 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer flex items-center justify-center gap-2 text-sm">
                         <span>🔓</span> 잠금 해제 (이전 작업 복귀)
                     </button>
                 </form>
@@ -8958,7 +8958,7 @@ async function renderCutoffScreen(schoolName) {
                     if (curCount === 0 && sourceYears.length > 0) {
                         const topYear = sourceYears[0];
                         return `
-                            <div class="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-slate-900/80 border border-indigo-500/50 flex items-center justify-between flex-wrap gap-3 shadow-lg">
+                            <div class="mb-4 p-3.5 rounded-2xl bg-linear-to-r from-indigo-950/70 via-purple-950/50 to-slate-900/80 border border-indigo-500/50 flex items-center justify-between flex-wrap gap-3 shadow-lg">
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">💡</span>
                                     <div>
