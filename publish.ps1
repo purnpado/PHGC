@@ -67,6 +67,12 @@ Start-Sleep -Milliseconds 500
 # ===== 3. Wails 빌드 =====
 Write-Host ">>> Wails 빌드 실행 중..." -ForegroundColor Cyan
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+# 일부 PC에서는 사용자 Go bin 경로가 환경 변수에 즉시 반영되지 않는다.
+# 현재 사용자 홈의 기본 Go 설치 경로를 보완해 Wails CLI를 안정적으로 찾는다.
+$goBin = Join-Path $env:USERPROFILE "go\\bin"
+if (Test-Path (Join-Path $goBin "wails.exe")) {
+    $env:Path = "$goBin;$env:Path"
+}
 # 개발 PC의 사용자명·절대 경로가 EXE 디버그 정보에 남지 않도록 경로와
 # 디버그 심볼을 제거한 배포용 바이너리를 생성한다.
 $wailsArgs = @("build", "-trimpath", "-ldflags", "-s -w")

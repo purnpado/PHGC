@@ -1,11 +1,27 @@
-# Release Asset 정책
+# 릴리즈 및 배포 정책
 
-Gitea Release에는 `PHGC.exe` 하나만 올린다. `publish.ps1`은 `build/bin/PHGC.exe`만 Release Asset으로 업로드한다.
+## 공식 배포물
 
-다음 항목은 Release에 첨부하거나 포함하지 않는다.
+GitHub와 Gitea의 동일 태그 릴리즈에는 다음 두 파일만 첨부합니다.
+
+- `PHGC.exe`
+- `phgc_v<버전>.zip`
+
+자동 업데이트는 GitHub Releases의 `PHGC.exe`를 기준으로 안내합니다. `server-data/version.json`의 버전·다운로드 주소는 릴리즈 태그와 일치해야 합니다.
+
+## 절대 포함하지 않는 자료
 
 - `docs/`의 기획·개발 문서
-- 소스코드 및 서버 소스
-- `.env`, API 토큰, 비밀번호
-- `data/`, `*.db`, 나이스 엑셀 자료, 학교별 운영 자료
-- 개발용 관리자 프로그램과 의존성 폴더
+- `.env`, 토큰, 계정, 비밀번호
+- `data/`, `*.db`, 나이스 엑셀, 학교별 상담·지원·합격 자료
+- `.phgcpkg`, `.phgcpatch`, `.phgcreset`, `.phgcdata`
+- 개발용 임시 파일과 의존성 폴더
+
+## 릴리즈 순서
+
+1. 테스트와 배포용 Wails 빌드를 완료한다.
+2. `version.json`, 앱 버전, 한국어 릴리즈 노트를 갱신한다.
+3. 변경사항을 한국어 커밋으로 기록한다.
+4. GitHub와 Gitea `main`, 동일한 `v<버전>` 태그를 푸시한다.
+5. 두 저장소에 한국어 릴리즈 노트와 공식 에셋을 등록한다.
+6. 공개 다운로드 주소와 실행 파일 버전을 한 번 더 확인한다.
