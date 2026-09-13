@@ -5506,8 +5506,9 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     const normalizeDept = (dept) => String(dept || '').replace(/\s+/g, '');
 
     // 학생별 관심학교(장바구니) 목록 로드 (모든 키 포맷 호환)
+    const wishlistKey = `phgc_wishlist_${classNum}_${studentNum}`;
     const possibleKeys = [
-        `phgc_wishlist_${classNum}_${studentNum}`,
+        wishlistKey,
         `phgc_wishlist_${classNum}_${parseInt(studentNum, 10)}`,
         `phgc_wishlist_${classNum}_${String(studentNum).padStart(2, '0')}`
     ];
@@ -6514,18 +6515,26 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     const wishlistCountBadge = document.getElementById('wishlistCountBadge');
 
     const getStoredWishlist = () => {
-        try {
-            return JSON.parse(localStorage.getItem(wishlistKey) || '[]');
-        } catch {
-            return [];
+        for (const key of possibleKeys) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (_) {}
         }
+        return [];
     };
 
     const saveStoredWishlist = (list) => {
-        try {
-            localStorage.setItem(wishlistKey, JSON.stringify(list));
-        } catch (e) {
-            console.warn('관심학교 저장 실패:', e);
+        const jsonStr = JSON.stringify(list);
+        for (const key of possibleKeys) {
+            try {
+                localStorage.setItem(key, jsonStr);
+            } catch (e) {
+                console.warn('관심학교 저장 실패:', key, e);
+            }
         }
     };
 
@@ -6580,7 +6589,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         modalEl.querySelectorAll('.btn-toggle-wishlist').forEach(btn => {
             const sch = btn.dataset.school || '';
             const trk = btn.dataset.track || '';
-            const isWish = currentList.some(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(sch) && w.trackName === trk);
+            const isWish = currentList.some(w => isSameSchool(w.schoolName, sch) && w.trackName === trk);
             const textSpan = btn.querySelector('.wishlist-btn-text');
             const iconSpan = btn.querySelector('span');
 
@@ -6592,6 +6601,25 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 btn.className = 'btn-toggle-wishlist px-2.5 py-1 text-xs font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer bg-slate-800 text-slate-300 border-slate-600 hover:text-white hover:border-slate-500';
                 if (iconSpan) iconSpan.textContent = '☆';
                 if (textSpan) textSpan.textContent = '관심 담기';
+            }
+        });
+
+        // 인쇄 대상 클래스(counsel-print-target-school / counsel-print-unregistered-school) 실시간 동기화
+        const hasRegistered = currentList.length > 0 || (data.applications || []).some(a => a.schoolName && a.schoolName.trim());
+        modalEl.querySelectorAll('.school-counsel-card').forEach(card => {
+            const sch = card.dataset.school || card.querySelector('.font-bold.text-white')?.textContent || '';
+            const isMatch = currentList.some(w => isSameSchool(w.schoolName, sch)) || (data.applications || []).some(a => isSameSchool(a.schoolName, sch));
+            if (hasRegistered) {
+                if (isMatch) {
+                    card.classList.remove('counsel-print-unregistered-school');
+                    card.classList.add('counsel-print-target-school');
+                } else {
+                    card.classList.remove('counsel-print-target-school');
+                    card.classList.add('counsel-print-unregistered-school');
+                }
+            } else {
+                card.classList.remove('counsel-print-unregistered-school');
+                card.classList.add('counsel-print-target-school');
             }
         });
     };
@@ -6612,7 +6640,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             const badgeHTML = badgeEl ? badgeEl.innerHTML : '';
 
             let list = getStoredWishlist();
-            const existingIdx = list.findIndex(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(schoolName) && w.trackName === trackName);
+            const existingIdx = list.findIndex(w => isSameSchool(w.schoolName, schoolName) && w.trackName === trackName);
 
             if (existingIdx !== -1) {
                 list.splice(existingIdx, 1);
