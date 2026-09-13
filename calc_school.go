@@ -591,8 +591,30 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 	}
 
 	// === 1. 전과목 점수 ===
-	if len(rule.SemesterWeights) > 0 {
-		// 학기별 차등 가중치 (현대공고)
+	if rule.SchoolName == "울산에너지고" {
+		// 울산에너지고 공식 입학요강 및 공식 엑셀 수식:
+		// 1) 각 학기별 학기평균성취도 = ROUND( (비예체능 성취도합 / 비예체능 과목수) / 5.0, 2 ) (소수 셋째자리 반올림)
+		// 2) 각 학기성적 = ROUND( 해당학기배점 * 학기평균성취도 - 예체능감점합, 2 ) (소수 셋째자리 반올림)
+		// 3) 전과목 총점 = 각 학기성적들의 합 (SUM)
+		var sumTermScore float64
+		for _, sem := range rule.Semesters {
+			scores := ruleSemesterScores(student, rule, sem)
+			if len(scores) == 0 {
+				continue
+			}
+			avg := calcAverage(scores) // 비예체능 과목 평균 성취도 (1~5)
+			termAchieveRatio := roundToTwoDecimals(avg / 5.0) // 학기평균성취도 (0.00~1.00)
+			termMax := rule.AllSubjectMax * rule.SemesterWeights[sem]
+			termPenalty := student.ArtPenaltyBySemester[sem]
+			termScore := roundToTwoDecimals(termMax*termAchieveRatio - termPenalty)
+			if termScore < 0 {
+				termScore = 0
+			}
+			sumTermScore += termScore
+		}
+		result.AllSubjectScore = roundToTwoDecimals(sumTermScore)
+	} else if len(rule.SemesterWeights) > 0 {
+		// 학기별 차등 가중치 (현대공고 등)
 		var totalWeightedAvg float64
 		for _, sem := range rule.Semesters {
 			scores := ruleSemesterScores(student, rule, sem)
