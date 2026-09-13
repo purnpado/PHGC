@@ -330,7 +330,8 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing #matrixModal,
     body.printing #classApplicationSummaryModal,
     body.printing #applicationRegisterModal,
-    body.printing #programGuideModal {
+    body.printing #programGuideModal,
+    body.printing #predictionDetailModal {
         display: none !important;
     }
     body.printing[data-print-kind="report"] #studentDetailModal,
@@ -338,7 +339,8 @@ input[type="number"]::-webkit-inner-spin-button {
     body.printing[data-print-kind="matrix"] #matrixModal,
     body.printing[data-print-kind="summary"] #classApplicationSummaryModal,
     body.printing[data-print-kind="register"] #applicationRegisterModal,
-    body.printing[data-print-kind="guide"] #programGuideModal {
+    body.printing[data-print-kind="guide"] #programGuideModal,
+    body.printing[data-print-kind="prediction"] #predictionDetailModal {
         display: block !important;
         position: static !important;
         inset: auto !important;
@@ -823,10 +825,99 @@ input[type="number"]::-webkit-inner-spin-button {
         font-size: 6.5pt !important;
         color: #64748b !important;
     }
-    body.printing[data-print-kind="transcript"] .flex.items-center.justify-between.p-3 .text-xl {
-        font-size: 13pt !important;
-        font-weight: 900 !important;
-        color: #047857 !important;
+    /* ===== 고교 합격 예측 정밀 분석표(prediction) A4 인쇄 최적화 ===== */
+    body.printing[data-print-kind="prediction"] #predictionDetailModal {
+        display: block !important;
+        position: static !important;
+        inset: auto !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        background: white !important;
+        backdrop-filter: none !important;
+    }
+    body.printing[data-print-kind="prediction"] #predictionDetailModal .glass-card {
+        max-width: 100% !important;
+        max-height: none !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-summary-header {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-bottom: 3mm !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-summary-header .bg-slate-800\/60,
+    body.printing[data-print-kind="prediction"] .prediction-summary-header .bg-slate-900\/70 {
+        background: #f8fafc !important;
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-summary-header span,
+    body.printing[data-print-kind="prediction"] .prediction-summary-header div {
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-scores-scroll {
+        max-height: none !important;
+        overflow: visible !important;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 1.5mm !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-score-item {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 2mm 3mm !important;
+        box-shadow: none !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-score-item span,
+    body.printing[data-print-kind="prediction"] .prediction-score-item div {
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-score-item .text-amber-300 {
+        color: #b45309 !important;
+        font-weight: 800 !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-table-container {
+        max-height: none !important;
+        overflow: visible !important;
+        border: 1px solid #94a3b8 !important;
+        background: white !important;
+        box-shadow: none !important;
+    }
+    body.printing[data-print-kind="prediction"] table {
+        width: 100% !important;
+        font-size: 8pt !important;
+        border-collapse: collapse !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] th,
+    body.printing[data-print-kind="prediction"] td {
+        padding: 4px 6px !important;
+        border: 1px solid #94a3b8 !important;
+        color: #0f172a !important;
+    }
+    body.printing[data-print-kind="prediction"] th {
+        background-color: #f1f5f9 !important;
+        font-weight: 800 !important;
+        text-align: center !important;
+    }
+    body.printing[data-print-kind="prediction"] td {
+        background-color: white !important;
+    }
+    body.printing[data-print-kind="prediction"] .prediction-table-container::-webkit-scrollbar,
+    body.printing[data-print-kind="prediction"] .prediction-scores-scroll::-webkit-scrollbar {
+        display: none !important;
+    }
+    body.printing[data-print-kind="prediction"] * {
+        scrollbar-width: none !important;
     }
 }
 

@@ -1982,7 +1982,7 @@ window.getGeneralGuideBadge = getGeneralGuideBadge;
 // 화면 전체가 아닌 선택한 문서만 A4로 인쇄한다.
 // 매트릭스는 열 수가 많아 A4 가로, 개인 문서는 A4 세로를 기본값으로 사용한다.
 function printOnly(kind, orientation = 'portrait') {
-    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register', 'summary', 'guide']);
+    const allowedKinds = new Set(['report', 'transcript', 'matrix', 'register', 'summary', 'guide', 'prediction']);
     const safeKind = allowedKinds.has(kind) ? kind : 'report';
     const safeOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
     const previous = document.getElementById('runtimePrintPageStyle');
@@ -3002,7 +3002,72 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
     let activeFilter = 'all'; // 'all' or 'pass'
 
     const renderModalContent = () => {
-        const displayList = activeFilter === 'pass' ? analysisList.filter(x => x.isPass) : analysisList;
+        const displayList = [...(activeFilter === 'pass' ? analysisList.filter(x => x.isPass) : analysisList)];
+
+        // 기준연도(내림차순) -> 고교명(가나다) -> 전형구분(일반 우선) -> 학과명(공통 우선) 순서로 정렬
+        displayList.sort((a, b) => {
+            if (Number(b.year) !== Number(a.year)) return Number(b.year) - Number(a.year);
+            const schComp = String(a.schoolName || '').localeCompare(String(b.schoolName || ''), 'ko');
+            if (schComp !== 0) return schComp;
+            const aTrk = String(a.track || '');
+            const bTrk = String(b.track || '');
+            if (aTrk !== bTrk) {
+                if (aTrk.includes('일반')) return -1;
+                if (bTrk.includes('일반')) return 1;
+                return aTrk.localeCompare(bTrk, 'ko');
+            }
+            const aIsCommon = a.dept.includes('공통') || a.dept.includes('전체') ? 0 : 1;
+            const bIsCommon = b.dept.includes('공통') || b.dept.includes('전체') ? 0 : 1;
+            if (aIsCommon !== bIsCommon) return aIsCommon - bIsCommon;
+            return String(a.dept || '').localeCompare(String(b.dept || ''), 'ko');
+        });
+
+        // 같은 기준연도, 같은 고교명, 같은 전형구분 행 병합(rowspan) 계산
+        const yearSpans = [];
+        const schoolSpans = [];
+        const trackSpans = [];
+
+        for (let i = 0; i < displayList.length; i++) {
+            // 1. 기준연도 rowspan
+            if (i === 0 || displayList[i].year !== displayList[i - 1].year) {
+                let count = 1;
+                while (i + count < displayList.length && displayList[i + count].year === displayList[i].year) {
+                    count++;
+                }
+                yearSpans[i] = count;
+            } else {
+                yearSpans[i] = 0;
+            }
+
+            // 2. 고교명 rowspan (같은 연도 내에서)
+            if (i === 0 || displayList[i].year !== displayList[i - 1].year || displayList[i].schoolName !== displayList[i - 1].schoolName) {
+                let count = 1;
+                while (i + count < displayList.length && 
+                       displayList[i + count].year === displayList[i].year && 
+                       displayList[i + count].schoolName === displayList[i].schoolName) {
+                    count++;
+                }
+                schoolSpans[i] = count;
+            } else {
+                schoolSpans[i] = 0;
+            }
+
+            // 3. 전형구분 rowspan (같은 연도 & 같은 고교 내에서)
+            if (i === 0 || displayList[i].year !== displayList[i - 1].year || 
+                displayList[i].schoolName !== displayList[i - 1].schoolName || 
+                displayList[i].track !== displayList[i - 1].track) {
+                let count = 1;
+                while (i + count < displayList.length && 
+                       displayList[i + count].year === displayList[i].year && 
+                       displayList[i + count].schoolName === displayList[i].schoolName && 
+                       displayList[i + count].track === displayList[i].track) {
+                    count++;
+                }
+                trackSpans[i] = count;
+            } else {
+                trackSpans[i] = 0;
+            }
+        }
 
         // 고교별 환산점수 뱃지 목록 (undefined만점 완벽 해결 & 카드 확장)
         const schoolScoresHTML = (fullStudent?.schoolResults || [])
@@ -3019,10 +3084,10 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                 const maxVal = r.totalMax || r.TotalMax || defaultMax;
 
                 return `
-                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/70 flex items-center justify-between gap-3 shadow-inner hover:border-slate-600 transition-colors">
+                    <div class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/70 flex items-center justify-between gap-3 shadow-inner hover:border-slate-600 transition-colors prediction-score-item">
                         <div class="flex flex-col min-w-0">
                             <span class="text-xs font-bold text-white truncate">${r.schoolName}</span>
-                            <span class="text-[11px] text-indigo-300 font-semibold truncate">${r.trackName}</span>
+                            <span class="text-[11px] text-indigo-300 font-semibold truncate">${r.trackName}전형</span>
                         </div>
                         <div class="text-right shrink-0">
                             <div class="text-sm font-black text-amber-300">${Number(r.totalScore).toFixed(2)}점</div>
@@ -3044,7 +3109,7 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                 </tr>
             `;
         } else {
-            tableRowsHTML = displayList.map(item => {
+            tableRowsHTML = displayList.map((item, idx) => {
                 const diffStr = item.diff >= 0 ? `+${item.diff.toFixed(2)}` : item.diff.toFixed(2);
                 const diffColor = item.diff >= 0 ? 'text-emerald-400 font-black' : 'text-rose-400 font-bold';
                 const statusBadge = item.isPass
@@ -3053,19 +3118,39 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
 
                 return `
                     <tr class="border-b border-slate-700/40 hover:bg-slate-800/50 transition-colors text-center text-xs">
-                        <td class="p-3 font-bold text-white text-left pl-4 whitespace-nowrap">${item.schoolName}</td>
-                        <td class="p-3 text-indigo-200 font-semibold whitespace-nowrap">${item.dept}</td>
-                        <td class="p-3 text-slate-300 font-medium whitespace-nowrap">${item.track}</td>
-                        <td class="p-3 text-slate-400 font-mono whitespace-nowrap">${item.year}학년도</td>
-                        <td class="p-3 text-right font-black text-indigo-300 whitespace-nowrap">${item.studentScore.toFixed(2)}점</td>
-                        <td class="p-3 text-right font-semibold text-slate-300 whitespace-nowrap">
+                        ${yearSpans[idx] > 0 ? `
+                            <td rowspan="${yearSpans[idx]}" class="p-3 text-center font-bold text-amber-300/90 font-mono bg-slate-900/40 border-r border-slate-700/60 align-middle whitespace-nowrap">
+                                ${item.year}학년도
+                            </td>
+                        ` : ''}
+                        ${schoolSpans[idx] > 0 ? `
+                            <td rowspan="${schoolSpans[idx]}" class="p-3 font-bold text-white text-left pl-3.5 bg-slate-900/20 border-r border-slate-700/60 align-middle whitespace-nowrap">
+                                ${item.schoolName}
+                            </td>
+                        ` : ''}
+                        ${trackSpans[idx] > 0 ? `
+                            <td rowspan="${trackSpans[idx]}" class="p-3 text-center text-slate-300 font-semibold bg-slate-900/10 border-r border-slate-700/60 align-middle whitespace-nowrap">
+                                ${item.track}${item.track.endsWith('전형') ? '' : '전형'}
+                            </td>
+                        ` : ''}
+                        <td class="p-3 text-left pl-3 text-indigo-200 font-medium whitespace-nowrap border-r border-slate-800/40">
+                            ${item.dept}
+                        </td>
+                        <td class="p-3 text-right font-black text-indigo-300 whitespace-nowrap border-r border-slate-800/40">
+                            ${item.studentScore.toFixed(2)}점
+                        </td>
+                        <td class="p-3 text-right font-semibold text-slate-300 whitespace-nowrap border-r border-slate-800/40">
                             <div class="flex flex-col items-end gap-0.5">
                                 <span class="font-bold text-emerald-300">최저 ${item.minScore.toFixed(2)}점</span>
                                 ${item.avgScore > 0 ? `<span class="text-[10px] text-amber-300/80">평균 ${item.avgScore.toFixed(2)}점</span>` : ''}
                             </div>
                         </td>
-                        <td class="p-3 text-right ${diffColor} whitespace-nowrap">${diffStr}점</td>
-                        <td class="p-3 whitespace-nowrap">${statusBadge}</td>
+                        <td class="p-3 text-right ${diffColor} whitespace-nowrap border-r border-slate-800/40">
+                            ${diffStr}점
+                        </td>
+                        <td class="p-3 whitespace-nowrap">
+                            ${statusBadge}
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -3096,8 +3181,8 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                     </div>
                 </div>
 
-                <!-- 상단: 학생 기본 성적 & 본인 고교별 환산점수 카드 (시원하게 확장) -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                <!-- 상단: 학생 기본 성적 & 본인 고교별 환산점수 카드 (페이지 분할 시 중복 방지) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0 prediction-summary-header">
                     <!-- 기본 내신 지표 -->
                     <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2.5">
                         <div class="flex items-center justify-between text-xs text-text-muted border-b border-slate-700/40 pb-1.5">
@@ -3120,13 +3205,13 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                         </div>
                     </div>
 
-                    <!-- 고교별 학생 본인 산출점수 (충분한 높이와 스크롤) -->
+                    <!-- 고교별 학생 본인 산출점수 (인쇄 시 스크롤 제거 및 펼침) -->
                     <div class="p-4 rounded-xl bg-slate-800/60 border border-slate-700/50 space-y-2.5">
                         <div class="flex items-center justify-between text-xs text-text-muted border-b border-slate-700/40 pb-1.5">
                             <span class="font-bold text-slate-300">🎯 학생 본인 고교별 공식 환산 점수</span>
                             <span class="text-[11px] text-emerald-400 font-bold">100% 자동 산출</span>
                         </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5 max-h-36 overflow-y-auto custom-scrollbar">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5 max-h-36 overflow-y-auto custom-scrollbar prediction-scores-scroll">
                             ${schoolScoresHTML || '<div class="text-xs text-slate-400 p-2 text-center col-span-2">산출된 고교 점수가 없습니다.</div>'}
                         </div>
                     </div>
@@ -3150,19 +3235,19 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                     </div>
                 </div>
 
-                <!-- 테이블 영역 (스크롤 가능) -->
-                <div class="overflow-y-auto flex-1 rounded-xl border border-slate-700/60 bg-slate-900/60 custom-scrollbar">
+                <!-- 테이블 영역 (기준연도, 고교명, 전형구분 묶음 헤더) -->
+                <div class="overflow-y-auto flex-1 rounded-xl border border-slate-700/60 bg-slate-900/60 custom-scrollbar prediction-table-container">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead class="bg-slate-800/90 text-text-muted font-bold text-center border-b border-slate-700/60 sticky top-0 z-10 whitespace-nowrap">
                             <tr>
-                                <th class="p-3 text-left pl-4 w-40">고교명</th>
-                                <th class="p-3 w-36">학과명</th>
-                                <th class="p-3 w-28">전형 구분</th>
-                                <th class="p-3 w-24">기준 연도</th>
-                                <th class="p-3 text-right w-32 text-indigo-300">본인 환산점수</th>
-                                <th class="p-3 text-right w-36 text-slate-200">고교 합격선(최저/평균)</th>
-                                <th class="p-3 text-right w-28">점수 차이</th>
-                                <th class="p-3 w-28">합격 예측</th>
+                                <th class="p-3 text-center w-24 border-r border-slate-700/60">기준 연도</th>
+                                <th class="p-3 text-left pl-3.5 w-36 border-r border-slate-700/60">고교명</th>
+                                <th class="p-3 text-center w-28 border-r border-slate-700/60">전형 구분</th>
+                                <th class="p-3 text-left pl-3 w-40 border-r border-slate-700/60">학과명</th>
+                                <th class="p-3 text-right w-32 text-indigo-300 border-r border-slate-700/60">본인 환산점수</th>
+                                <th class="p-3 text-right w-36 text-slate-200 border-r border-slate-700/60">고교 합격선(최저/평균)</th>
+                                <th class="p-3 text-right w-28 border-r border-slate-700/60">점수 차이</th>
+                                <th class="p-3 text-center w-28">합격 예측</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -3192,7 +3277,7 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
         modal.querySelector('#closePredictionModalBtn')?.addEventListener('click', () => modal.remove());
         modal.querySelector('#closePredictionModalFooterBtn')?.addEventListener('click', () => modal.remove());
         modal.querySelector('#printPredictionModalBtn')?.addEventListener('click', () => {
-            window.print();
+            printOnly('prediction', 'portrait');
         });
         modal.querySelector('#filterAllPredictionsBtn')?.addEventListener('click', () => {
             activeFilter = 'all';
@@ -5400,8 +5485,17 @@ async function openStudentModal(classNum, studentNum, name) {
 function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs, officialItems = []) {
     const todayDate = new Date().toISOString().split('T')[0];
 
-    // 학교명 및 학과명 정규화 헬퍼
-    const normalizeSchoolName = (sch) => String(sch || '').replace(/등학교$/, '').replace(/\s+/g, '');
+    // 학교명 및 학과명 정규화 헬퍼 (다양한 표기법 완벽 포용)
+    const normalizeSchoolName = (sch) => String(sch || '')
+        .replace(/(고등학교|공업고|마이스터고|에너지고|상업고|과학고|예술고|애니원고|고)$/, '')
+        .replace(/공고$/, '공')
+        .replace(/\s+/g, '');
+    const isSameSchool = (s1, s2) => {
+        const n1 = normalizeSchoolName(s1);
+        const n2 = normalizeSchoolName(s2);
+        if (!n1 || !n2) return false;
+        return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+    };
     const normalizeDept = (dept) => String(dept || '').replace(/\s+/g, '');
 
     // 학생별 관심학교(장바구니) 목록 로드
@@ -5420,7 +5514,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     data.schoolResults.forEach((r, rIdx) => {
         const isMeisterSchool = ['울산마이스터', '울산에너지', '현대공업'].some(kw => r.schoolName.includes(kw));
         const schoolCat = isMeisterSchool ? 'meister' : 'special';
-        const isAlreadyWish = wishlist.some(w => normalizeSchoolName(w.schoolName) === normalizeSchoolName(r.schoolName) && w.trackName === r.trackName);
+        const isAlreadyWish = wishlist.some(w => isSameSchool(w.schoolName, r.schoolName));
         const officialForSchool = (officialItems || []).filter(item =>
             String(item.schoolName || '').includes(r.schoolName.substring(0, 4)) &&
             (!item.track || String(item.track).includes(r.trackName) || r.trackName.includes(String(item.track)))
@@ -5521,7 +5615,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         }
 
         const hasRegisteredWish = (wishlist && wishlist.length > 0) || (data.applications || []).some(a => a.schoolName && a.schoolName.trim());
-        const isMatchedSchool = isAlreadyWish || (data.applications || []).some(a => normalizeSchoolName(a.schoolName) === normalizeSchoolName(r.schoolName));
+        const isMatchedSchool = isAlreadyWish || (data.applications || []).some(a => a.schoolName && isSameSchool(a.schoolName, r.schoolName));
         // 장바구니/희망학교가 등록된 학생: 등록된 학교만 인쇄, 아예 등록 안 한 학생: 전체 학교 인쇄
         let schoolPrintClass = '';
         if (hasRegisteredWish) {
@@ -5532,6 +5626,8 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
 
         cardsHTML += `
             <div class="p-4 rounded-xl bg-slate-800/70 border border-slate-700/70 space-y-2.5 school-counsel-card ${schoolPrintClass}" id="card_${rIdx}"
+                 data-school="${escapeAttr(r.schoolName)}"
+                 data-track="${escapeAttr(r.trackName)}"
                  data-score="${r.totalScore}"
                  data-max="${r.totalMax}"
                  data-last-cutoff="${defaultCutoff || 0}"
@@ -6134,6 +6230,48 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             } else {
                 printArea.classList.remove('include-private-counsel');
             }
+        }
+
+        // [인쇄 직전 실시간 관심/희망학교 필터링 동기화]
+        // 1. 등록된 관심학교(로컬스토리지) 및 희망원서(화면 입력값 + DB 데이터) 실시간 수집
+        const registeredSchoolNames = new Set();
+        try {
+            const curWishlist = JSON.parse(localStorage.getItem(`phgc_wishlist_${classNum}_${studentNum}`) || '[]');
+            if (Array.isArray(curWishlist)) {
+                curWishlist.forEach(w => {
+                    if (w.schoolName && w.schoolName.trim()) registeredSchoolNames.add(w.schoolName.trim());
+                });
+            }
+        } catch (_) {}
+
+        (data.applications || []).forEach(a => {
+            if (a.schoolName && a.schoolName.trim()) registeredSchoolNames.add(a.schoolName.trim());
+        });
+
+        modalEl.querySelectorAll('.app-school-select, .app-school-input, select[name*="school"], input[name*="school"]').forEach(el => {
+            if (el.value && el.value.trim()) registeredSchoolNames.add(el.value.trim());
+        });
+
+        // 2. 등록된 관심/희망학교가 1개 이상이면 등록된 학교 카드만 남기고 나머지는 인쇄 시 100% 숨김
+        const allCards = modalEl.querySelectorAll('.school-counsel-card');
+        if (registeredSchoolNames.size > 0) {
+            allCards.forEach(card => {
+                const cardSchool = card.dataset.school || card.querySelector('.font-bold.text-white')?.textContent || '';
+                const isMatched = Array.from(registeredSchoolNames).some(target => isSameSchool(target, cardSchool));
+                if (isMatched) {
+                    card.classList.remove('counsel-print-unregistered-school');
+                    card.classList.add('counsel-print-target-school');
+                } else {
+                    card.classList.remove('counsel-print-target-school');
+                    card.classList.add('counsel-print-unregistered-school');
+                }
+            });
+        } else {
+            // 등록된 관심학교가 전혀 없는 학생의 경우에만 전체 학교 카드 출력
+            allCards.forEach(card => {
+                card.classList.remove('counsel-print-unregistered-school');
+                card.classList.add('counsel-print-target-school');
+            });
         }
 
         printOnly('report');
