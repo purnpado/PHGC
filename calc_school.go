@@ -97,6 +97,9 @@ type StudentFullData struct {
 
 	// 학교별 산출 결과
 	SchoolResults []SchoolCalcResult `json:"schoolResults"`
+
+	// 학생 지원 희망 학교 목록 (1~5지망)
+	Applications []ApplicationRecord `json:"applications"`
 }
 
 // 전체 학교 규칙 등록부

@@ -636,8 +636,16 @@ input[type="number"]::-webkit-inner-spin-button {
         display: none !important;
     }
     /* 2. 장바구니/희망학교 등록 학생의 경우: 미등록 학교 카드는 인쇄 시 완전 제외 */
-    body.printing[data-print-kind="report"] .counsel-print-unregistered-school {
+    body.printing[data-print-kind="report"] .counsel-print-unregistered-school,
+    body.printing[data-print-kind="report"] .school-counsel-card.counsel-print-unregistered-school {
         display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
     }
     /* 3. 학교 카드 내 화면 조작용 버튼/인터랙션 숨김 */
     body.printing[data-print-kind="report"] .btn-toggle-wishlist,

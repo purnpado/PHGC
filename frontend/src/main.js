@@ -5461,11 +5461,18 @@ async function openStudentModal(classNum, studentNum, name) {
     document.body.appendChild(modalEl);
 
     try {
-        const [fullData, cutoffs, official] = await Promise.all([
+        const [fullData, cutoffs, official, directApps] = await Promise.all([
             window.go.main.App.GetStudentFullDetail(classNum, studentNum, name),
             window.go.main.App.GetCutoffs().catch(() => []),
             window.go.main.App.GetOfficialAdmissionData().catch(() => ({ items: [] })),
+            window.go.main.App.GetStudentApplications ? window.go.main.App.GetStudentApplications(classNum, String(studentNum), name).catch(() => []) : Promise.resolve([]),
         ]);
+
+        if (fullData) {
+            if ((!fullData.applications || fullData.applications.length === 0) && Array.isArray(directApps) && directApps.length > 0) {
+                fullData.applications = directApps;
+            }
+        }
 
         renderStudentModalContent(modalEl, classNum, studentNum, name, fullData, cutoffs, official?.items || []);
     } catch (err) {
@@ -5498,14 +5505,24 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     };
     const normalizeDept = (dept) => String(dept || '').replace(/\s+/g, '');
 
-    // 학생별 관심학교(장바구니) 목록 로드
-    const wishlistKey = `phgc_wishlist_${classNum}_${studentNum}`;
+    // 학생별 관심학교(장바구니) 목록 로드 (모든 키 포맷 호환)
+    const possibleKeys = [
+        `phgc_wishlist_${classNum}_${studentNum}`,
+        `phgc_wishlist_${classNum}_${parseInt(studentNum, 10)}`,
+        `phgc_wishlist_${classNum}_${String(studentNum).padStart(2, '0')}`
+    ];
     let wishlist = [];
-    try {
-        wishlist = JSON.parse(localStorage.getItem(wishlistKey) || '[]');
-        if (!Array.isArray(wishlist)) wishlist = [];
-    } catch (_) {
-        wishlist = [];
+    for (const key of possibleKeys) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    wishlist = parsed;
+                    break;
+                }
+            }
+        } catch (_) {}
     }
 
     // 학교별 합격 가능성 카드 목록 생성
@@ -6233,26 +6250,31 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         }
 
         // [인쇄 직전 실시간 관심/희망학교 필터링 동기화]
-        // 1. 등록된 관심학교(로컬스토리지) 및 희망원서(화면 입력값 + DB 데이터) 실시간 수집
+        // 1. 등록된 관심학교(로컬스토리지 다중키) 및 희망원서(DB 데이터 + 화면 입력값) 실시간 수집
         const registeredSchoolNames = new Set();
-        try {
-            const curWishlist = JSON.parse(localStorage.getItem(`phgc_wishlist_${classNum}_${studentNum}`) || '[]');
-            if (Array.isArray(curWishlist)) {
-                curWishlist.forEach(w => {
-                    if (w.schoolName && w.schoolName.trim()) registeredSchoolNames.add(w.schoolName.trim());
-                });
-            }
-        } catch (_) {}
+        for (const key of possibleKeys) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed)) {
+                        parsed.forEach(w => {
+                            if (w.schoolName && w.schoolName.trim()) registeredSchoolNames.add(w.schoolName.trim());
+                        });
+                    }
+                }
+            } catch (_) {}
+        }
 
         (data.applications || []).forEach(a => {
-            if (a.schoolName && a.schoolName.trim()) registeredSchoolNames.add(a.schoolName.trim());
+            if (a && a.schoolName && a.schoolName.trim()) registeredSchoolNames.add(a.schoolName.trim());
         });
 
         modalEl.querySelectorAll('.app-school-select, .app-school-input, select[name*="school"], input[name*="school"]').forEach(el => {
             if (el.value && el.value.trim()) registeredSchoolNames.add(el.value.trim());
         });
 
-        // 2. 등록된 관심/희망학교가 1개 이상이면 등록된 학교 카드만 남기고 나머지는 인쇄 시 100% 숨김
+        // 2. 등록된 관심/희망학교가 1개 이상이면 등록된 학교 카드만 남기고 나머지는 물리적으로 display: none 강제
         const allCards = modalEl.querySelectorAll('.school-counsel-card');
         if (registeredSchoolNames.size > 0) {
             allCards.forEach(card => {
@@ -6261,16 +6283,26 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
                 if (isMatched) {
                     card.classList.remove('counsel-print-unregistered-school');
                     card.classList.add('counsel-print-target-school');
+                    card.style.removeProperty('display');
                 } else {
                     card.classList.remove('counsel-print-target-school');
                     card.classList.add('counsel-print-unregistered-school');
+                    card.style.setProperty('display', 'none', 'important'); // 브라우저 인쇄 엔진에서 100% 완전 제외
                 }
             });
+
+            // 인쇄 대화상자가 닫힌 후 화면에서는 원래대로 복원
+            window.addEventListener('afterprint', () => {
+                allCards.forEach(card => {
+                    card.style.removeProperty('display');
+                });
+            }, { once: true });
         } else {
             // 등록된 관심학교가 전혀 없는 학생의 경우에만 전체 학교 카드 출력
             allCards.forEach(card => {
                 card.classList.remove('counsel-print-unregistered-school');
                 card.classList.add('counsel-print-target-school');
+                card.style.removeProperty('display');
             });
         }
 

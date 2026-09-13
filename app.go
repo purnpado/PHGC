@@ -1574,6 +1574,14 @@ func (a *App) GetStudentFullDetail(classNum int, studentNum, name string) (*Stud
 		}
 	}
 
+	// 학생 등록 지원 희망 학교 목록 조회
+	apps, err := a.db.GetStudentApplications(classNum, studentNum, name)
+	if err == nil && apps != nil {
+		full.Applications = apps
+	} else {
+		full.Applications = []ApplicationRecord{}
+	}
+
 	return full, nil
 }
 

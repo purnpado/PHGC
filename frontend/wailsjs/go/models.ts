@@ -638,6 +638,7 @@ export namespace main {
 	    generalHSDataComplete: boolean;
 	    generalHSProjected: boolean;
 	    schoolResults: SchoolCalcResult[];
+	    applications: ApplicationRecord[];
 	
 	    static createFrom(source: any = {}) {
 	        return new StudentFullData(source);
@@ -677,6 +678,7 @@ export namespace main {
 	        this.generalHSDataComplete = source["generalHSDataComplete"];
 	        this.generalHSProjected = source["generalHSProjected"];
 	        this.schoolResults = this.convertValues(source["schoolResults"], SchoolCalcResult);
+	        this.applications = this.convertValues(source["applications"], ApplicationRecord);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
