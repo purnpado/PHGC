@@ -502,20 +502,143 @@ func (dm *DBManager) HasConfig() bool {
 
 // --- 고입 커트라인 관리 ---
 
-// SaveCutoffs 고교 커트라인 저장
+func normalizeCutoffSchool(name string) string {
+	s := strings.TrimSpace(name)
+	s = strings.ReplaceAll(s, " ", "")
+	if strings.Contains(s, "일반계고") {
+		return "울산 후기 일반계고"
+	}
+	if strings.HasPrefix(s, "울산마이스터") {
+		return "울산마이스터고"
+	}
+	if strings.HasPrefix(s, "울산에너지") {
+		return "울산에너지고"
+	}
+	if strings.HasPrefix(s, "현대공업") {
+		return "현대공업고"
+	}
+	if strings.HasPrefix(s, "울산공업") {
+		return "울산공업고"
+	}
+	if strings.HasPrefix(s, "울산기술공업") {
+		return "울산기술공업고"
+	}
+	if strings.HasPrefix(s, "울산미용예술") {
+		return "울산미용예술고"
+	}
+	if strings.HasPrefix(s, "울산산업") {
+		return "울산산업고"
+	}
+	if strings.HasPrefix(s, "울산생활과학") {
+		return "울산생활과학고"
+	}
+	if strings.HasPrefix(s, "울산여자상업") {
+		return "울산여자상업고"
+	}
+	if strings.HasPrefix(s, "울산상업") {
+		return "울산상업고"
+	}
+	if strings.HasPrefix(s, "울산애니원") {
+		return "울산애니원고"
+	}
+	if strings.HasSuffix(s, "고등학교") {
+		return strings.TrimSuffix(s, "고등학교") + "고"
+	}
+	if !strings.HasSuffix(s, "고") {
+		return s + "고"
+	}
+	return s
+}
+
+func normalizeCutoffDept(dept string) string {
+	d := strings.TrimSpace(dept)
+	if d == "공통" || d == "전체" || d == "학교 전체" || d == "학교전체" {
+		return ""
+	}
+	return d
+}
+
+func normalizeCutoffTrack(track string) string {
+	t := strings.TrimSpace(track)
+	if t == "일반" || t == "일반전형" || t == "일반계고" || t == "일반계고전형" {
+		return "일반"
+	}
+	if t == "특별" || t == "특별전형" {
+		return "특별"
+	}
+	if t == "취업" || t == "취업희망자" || t == "취업희망자전형" {
+		return "취업희망자"
+	}
+	return strings.TrimSuffix(t, "전형")
+}
+
+// SaveCutoffs 고교 커트라인 저장 (표준 규격 정규화 및 중복 자동 통합)
 func (dm *DBManager) SaveCutoffs(cutoffs []CutoffInfo) error {
+	if len(cutoffs) == 0 {
+		return nil
+	}
 	db, err := dm.openDB(dm.getConfigDBPath())
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
+	type key struct {
+		year                int
+		school, dept, track string
+	}
+	uniqueMap := make(map[key]CutoffInfo)
+	for _, c := range cutoffs {
+		if strings.TrimSpace(c.SchoolName) == "" {
+			continue
+		}
+		normSchool := normalizeCutoffSchool(c.SchoolName)
+		normDept := normalizeCutoffDept(c.Department)
+		normTrack := normalizeCutoffTrack(c.Track)
+		k := key{c.Year, normSchool, normDept, normTrack}
+
+		c.SchoolName = normSchool
+		c.Department = normDept
+		c.Track = normTrack
+		if c.ScoreType == "" {
+			if strings.Contains(normSchool, "일반계고") {
+				c.ScoreType = "percentile"
+			} else {
+				c.ScoreType = "total_score"
+			}
+		}
+
+		if cur, exists := uniqueMap[k]; exists {
+			if c.MinValue > 0 && (cur.MinValue == 0 || c.MinValue < cur.MinValue) {
+				cur.MinValue = c.MinValue
+			}
+			if c.MaxValue > cur.MaxValue {
+				cur.MaxValue = c.MaxValue
+			}
+			if cur.AvgValue == 0 && c.AvgValue > 0 {
+				cur.AvgValue = c.AvgValue
+			}
+			uniqueMap[k] = cur
+		} else {
+			uniqueMap[k] = c
+		}
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 
-	for _, c := range cutoffs {
+	for _, c := range uniqueMap {
+		shortName := strings.TrimSuffix(c.SchoolName, "고")
+		_, _ = tx.Exec(`
+			DELETE FROM highschool_cutoffs 
+			WHERE year = ? 
+			  AND (school_name = ? OR school_name = ? OR school_name = ? OR school_name LIKE ?)
+			  AND (department = ? OR (department = '' AND ? = '공통') OR (department = '공통' AND ? = ''))
+			  AND (track = ? OR track = ? OR track LIKE ?)
+		`, c.Year, c.SchoolName, shortName, shortName+"고등학교", shortName+"%", c.Department, c.Department, c.Department, c.Track, c.Track+"전형", c.Track+"%")
+
 		_, err = tx.Exec(`
 			INSERT INTO highschool_cutoffs (year, school_name, department, track, score_type, max_value, min_value, avg_value)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -607,7 +730,7 @@ func (dm *DBManager) ResetCutoffs(year int) error {
 	return err
 }
 
-// GetCutoffs 커트라인 정보 반환
+// GetCutoffs 커트라인 정보 반환 (정규화된 단일 대표 목록으로 중복 제거)
 func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	db, err := dm.openDB(dm.getConfigDBPath())
 	if err != nil {
@@ -621,12 +744,45 @@ func (dm *DBManager) GetCutoffs() ([]CutoffInfo, error) {
 	}
 	defer rows.Close()
 
-	var cutoffs []CutoffInfo
+	type key struct {
+		year                int
+		school, dept, track string
+	}
+	uniqueMap := make(map[key]CutoffInfo)
+	orderedKeys := make([]key, 0)
+
 	for rows.Next() {
 		var c CutoffInfo
 		if err := rows.Scan(&c.Year, &c.SchoolName, &c.Department, &c.Track, &c.ScoreType, &c.MaxValue, &c.MinValue, &c.AvgValue); err == nil {
-			cutoffs = append(cutoffs, c)
+			sNorm := normalizeCutoffSchool(c.SchoolName)
+			dNorm := normalizeCutoffDept(c.Department)
+			tNorm := normalizeCutoffTrack(c.Track)
+			c.SchoolName = sNorm
+			c.Department = dNorm
+			c.Track = tNorm
+
+			k := key{c.Year, sNorm, dNorm, tNorm}
+			if cur, exists := uniqueMap[k]; exists {
+				if c.MinValue > 0 && (cur.MinValue == 0 || c.MinValue < cur.MinValue) {
+					cur.MinValue = c.MinValue
+				}
+				if c.MaxValue > cur.MaxValue {
+					cur.MaxValue = c.MaxValue
+				}
+				if cur.AvgValue == 0 && c.AvgValue > 0 {
+					cur.AvgValue = c.AvgValue
+				}
+				uniqueMap[k] = cur
+			} else {
+				uniqueMap[k] = c
+				orderedKeys = append(orderedKeys, k)
+			}
 		}
+	}
+
+	cutoffs := make([]CutoffInfo, 0, len(uniqueMap))
+	for _, k := range orderedKeys {
+		cutoffs = append(cutoffs, uniqueMap[k])
 	}
 	return cutoffs, nil
 }
@@ -636,7 +792,6 @@ func (dm *DBManager) PurgeOldCutoffs(currentAdmissionYear, keepYears int) (int64
 	if keepYears <= 0 {
 		keepYears = 5
 	}
-	// 올해(현재 입시 학년도)를 제외하고 작년부터 5개년 보존 (예: 2027년 기준 2026, 2025, 2024, 2023, 2022 보존 -> 2022 미만 삭제)
 	lastYear := currentAdmissionYear - 1
 	cutoffYear := lastYear - (keepYears - 1)
 	db, err := dm.openDB(dm.getConfigDBPath())
@@ -652,32 +807,58 @@ func (dm *DBManager) PurgeOldCutoffs(currentAdmissionYear, keepYears int) (int64
 	return res.RowsAffected()
 }
 
-// MergeCutoffs 타 학교 커트라인을 우리 학교 커트라인과 스마트 병합
+// MergeCutoffs 타 학교 커트라인을 우리 학교 커트라인과 스마트 병합 (정규화 및 중복 완전 해소)
 func (dm *DBManager) MergeCutoffs(incoming []CutoffInfo) (int, error) {
 	if len(incoming) == 0 {
 		return 0, nil
-	}
-	existing, err := dm.GetCutoffs()
-	if err != nil {
-		return 0, err
 	}
 	type key struct {
 		year                int
 		school, dept, track string
 	}
+	normalizedIncoming := make(map[key]CutoffInfo)
+	for _, inc := range incoming {
+		if strings.TrimSpace(inc.SchoolName) == "" {
+			continue
+		}
+		sNorm := normalizeCutoffSchool(inc.SchoolName)
+		dNorm := normalizeCutoffDept(inc.Department)
+		tNorm := normalizeCutoffTrack(inc.Track)
+		inc.SchoolName = sNorm
+		inc.Department = dNorm
+		inc.Track = tNorm
+		k := key{inc.Year, sNorm, dNorm, tNorm}
+		if cur, ok := normalizedIncoming[k]; ok {
+			if inc.MinValue > 0 && (cur.MinValue == 0 || inc.MinValue < cur.MinValue) {
+				cur.MinValue = inc.MinValue
+			}
+			if inc.MaxValue > cur.MaxValue {
+				cur.MaxValue = inc.MaxValue
+			}
+			if cur.AvgValue == 0 && inc.AvgValue > 0 {
+				cur.AvgValue = inc.AvgValue
+			}
+			normalizedIncoming[k] = cur
+		} else {
+			normalizedIncoming[k] = inc
+		}
+	}
+
+	existing, err := dm.GetCutoffs()
+	if err != nil {
+		return 0, err
+	}
 	existMap := make(map[key]CutoffInfo)
 	for _, e := range existing {
-		k := key{e.Year, e.SchoolName, e.Department, e.Track}
+		sNorm := normalizeCutoffSchool(e.SchoolName)
+		dNorm := normalizeCutoffDept(e.Department)
+		tNorm := normalizeCutoffTrack(e.Track)
+		k := key{e.Year, sNorm, dNorm, tNorm}
 		existMap[k] = e
 	}
 
-	mergedList := make([]CutoffInfo, 0, len(incoming))
-	count := 0
-	for _, inc := range incoming {
-		if inc.SchoolName == "" {
-			continue
-		}
-		k := key{inc.Year, inc.SchoolName, inc.Department, inc.Track}
+	mergedList := make([]CutoffInfo, 0, len(normalizedIncoming))
+	for k, inc := range normalizedIncoming {
 		if cur, ok := existMap[k]; ok {
 			updated := cur
 			changed := false
@@ -695,11 +876,9 @@ func (dm *DBManager) MergeCutoffs(incoming []CutoffInfo) (int, error) {
 			}
 			if changed {
 				mergedList = append(mergedList, updated)
-				count++
 			}
 		} else {
 			mergedList = append(mergedList, inc)
-			count++
 		}
 	}
 
@@ -708,7 +887,7 @@ func (dm *DBManager) MergeCutoffs(incoming []CutoffInfo) (int, error) {
 			return 0, err
 		}
 	}
-	return count, nil
+	return len(normalizedIncoming), nil
 }
 
 // ----------------------------------------------------

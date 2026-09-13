@@ -8575,13 +8575,31 @@ async function renderCutoffScreen(schoolName) {
     let allSavedCutoffs = [];
     try {
         allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+        // DB 내 중복 레코드(학교명 표기 차이, 전형명 중복 등) 자동 정리 및 표준화
+        if (allSavedCutoffs && allSavedCutoffs.length > 0) {
+            const rawCount = allSavedCutoffs.length;
+            const uniqueSet = new Set(allSavedCutoffs.map(c => `${c.year}_${normalizeSchoolName(c.schoolName)}_${normalizeDept(c.department)}_${normalizeTrack(c.track)}`));
+            if (uniqueSet.size < rawCount && window.go?.main?.App?.SaveCutoffs) {
+                await window.go.main.App.SaveCutoffs(allSavedCutoffs);
+                allSavedCutoffs = await window.go.main.App.GetCutoffs() || [];
+            }
+        }
     } catch (e) {
         console.error(e);
     }
 
-    // 각 연도별 저장된 유효 커트라인 건수 집계 헬퍼
+    // 각 연도별 저장된 유효 커트라인 건수 집계 헬퍼 (중복 명칭 정규화하여 실제 고교·학과별 유효 항목 수 계산)
     const getCutoffCountByYear = (yr) => {
-        return (allSavedCutoffs || []).filter(c => Number(c.year) === Number(yr) && Number(c.minValue) > 0).length;
+        const uniqueKeys = new Set();
+        (allSavedCutoffs || []).forEach(c => {
+            if (Number(c.year) === Number(yr) && Number(c.minValue) > 0) {
+                const sKey = normalizeSchoolName(c.schoolName);
+                const dKey = normalizeDept(c.department);
+                const tKey = normalizeTrack(c.track);
+                uniqueKeys.add(`${sKey}_${dKey}_${tKey}`);
+            }
+        });
+        return uniqueKeys.size;
     };
 
     // 2026년 최근 기준 및 그 밑으로 5년치(2026, 2025, 2024, 2023, 2022) 산출 (2027년 이상 미래 연도는 원천 배제)
