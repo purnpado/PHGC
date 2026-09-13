@@ -773,7 +773,7 @@ function renderSetupScreen(existingConfig = null) {
     const schoolName = existingConfig?.schoolName || '';
     const classCount = existingConfig?.classCount || '';
     const isSmallSchool = existingConfig?.isSmallSchool || false;
-    const admissionYear = existingConfig?.admissionYear || (new Date().getFullYear() + 1);
+    const admissionYear = existingConfig?.admissionYear || 2026;
     const isEdit = existingConfig !== null;
 
     app.innerHTML = `
@@ -3310,7 +3310,7 @@ async function openApplicationRegisterModal() {
     document.getElementById('applicationRegisterModal')?.remove();
 
     let schoolName = '중학교';
-    let admissionYear = new Date().getFullYear() + 1;
+    let admissionYear = 2026;
     try {
         const config = await GetSchoolConfig();
         if (config) {
@@ -4297,7 +4297,7 @@ async function openApplicationSummaryModal() {
         const recordsResp = await window.go.main.App.GetSchoolApplicationRecords().catch(() => []);
         const allRecords = Array.isArray(recordsResp) ? recordsResp : [];
 
-        const admissionYear = config?.admissionYear || new Date().getFullYear() + 1;
+        const admissionYear = config?.admissionYear || 2026;
         const [closure, review] = await Promise.all([
             window.go.main.App.GetAdmissionClosure(admissionYear).catch(() => null),
             window.go.main.App.GetAdmissionClosureReview(admissionYear).catch(() => null),
@@ -8556,16 +8556,21 @@ async function renderUserManagementScreen(schoolName) {
 async function renderCutoffScreen(schoolName) {
     app.className = 'wide-layout';
 
-    const currentMiddleSchoolYear = new Date().getFullYear();
-    let currentAdmissionYear = currentMiddleSchoolYear + 1;
+    // 최신 고교 입학년도 기준: 2026학년도 (미래 연도 2027 이상은 제외하고 2026년 기준 직전 5개년 산출)
+    let baseAdmissionYear = 2026;
     try {
         const config = await GetSchoolConfig();
         if (config && config.admissionYear) {
-            currentAdmissionYear = config.admissionYear;
+            const cfgYear = Number(config.admissionYear);
+            if (cfgYear > 2000 && cfgYear <= 2026) {
+                baseAdmissionYear = cfgYear;
+            }
         }
     } catch (e) {
         console.warn(e);
     }
+
+    let currentAdmissionYear = baseAdmissionYear;
 
     let allSavedCutoffs = [];
     try {
@@ -8579,13 +8584,13 @@ async function renderCutoffScreen(schoolName) {
         return (allSavedCutoffs || []).filter(c => Number(c.year) === Number(yr) && Number(c.minValue) > 0).length;
     };
 
-    // DB에 존재하는 모든 연도 및 기준 5개년 포함 후보 연도 산출
-    const existingYears = (allSavedCutoffs || []).map(c => Number(c.year)).filter(y => !isNaN(y) && y > 2000);
-    const candidateYears = new Set([currentAdmissionYear, currentMiddleSchoolYear + 1, currentMiddleSchoolYear, ...existingYears]);
+    // 2026년 최근 기준 및 그 밑으로 5년치(2026, 2025, 2024, 2023, 2022) 산출 (2027년 이상 미래 연도는 원천 배제)
+    const existingYears = (allSavedCutoffs || []).map(c => Number(c.year)).filter(y => !isNaN(y) && y > 2000 && y <= baseAdmissionYear);
+    const candidateYears = new Set([baseAdmissionYear, ...existingYears]);
     for (let i = 0; i < 5; i++) {
-        candidateYears.add((currentMiddleSchoolYear + 1) - i);
+        candidateYears.add(baseAdmissionYear - i);
     }
-    const admissionYears = Array.from(candidateYears).sort((a, b) => b - a);
+    const admissionYears = Array.from(candidateYears).filter(y => y <= baseAdmissionYear).sort((a, b) => b - a);
 
     // 데이터가 가장 많이 등록된 연도가 있다면 기본 선택 우선 배정 (등록된 연도 바로 보여주기)
     const yearWithMostData = admissionYears.find(y => getCutoffCountByYear(y) > 0);
@@ -9989,10 +9994,10 @@ async function renderAddPublicDataModal(defaultYear, availableYears, onAddCallba
         console.warn('공식자료 모달: 고교 목록 동적 로드 실패', e);
     }
 
-    // 입학년도 기준: 초기설정의 직전 5개년(예: 2026, 2025, 2024, 2023, 2022) 연동
-    const fallbackYear = new Date().getFullYear();
+    // 입학년도 기준: 2026년 기준 직전 5개년(2026, 2025, 2024, 2023, 2022) 연동
+    const fallbackYear = 2026;
     const yearOptions = (availableYears && availableYears.length > 0)
-        ? availableYears
+        ? availableYears.filter(y => y <= 2026)
         : Array.from({ length: 5 }, (_, idx) => fallbackYear - idx);
 
     const selectedYear = (yearOptions.includes(defaultYear)) ? defaultYear : yearOptions[0];
