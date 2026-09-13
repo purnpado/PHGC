@@ -2264,6 +2264,28 @@ function normalizeSchoolName(name) {
         .trim();
 }
 
+function normalizeDept(dept) {
+    const d = String(dept || '').trim();
+    if (d === '공통' || d === '전체' || d === '학교 전체' || d === '학교전체') {
+        return '';
+    }
+    return d;
+}
+
+function normalizeTrack(track) {
+    const t = String(track || '').trim();
+    if (t === '일반' || t === '일반전형' || t === '일반계고' || t === '일반계고전형') {
+        return '일반';
+    }
+    if (t === '특별' || t === '특별전형') {
+        return '특별';
+    }
+    if (t === '취업' || t === '취업희망자' || t === '취업희망자전형') {
+        return '취업희망자';
+    }
+    return t.replace(/전형$/u, '');
+}
+
 function isSameTrack(left, right) {
     const a = String(left || '').replace('전형', '').trim();
     const b = String(right || '').replace('전형', '').trim();
@@ -8590,16 +8612,21 @@ async function renderCutoffScreen(schoolName) {
 
     // 각 연도별 저장된 유효 커트라인 건수 집계 헬퍼 (중복 명칭 정규화하여 실제 고교·학과별 유효 항목 수 계산)
     const getCutoffCountByYear = (yr) => {
-        const uniqueKeys = new Set();
-        (allSavedCutoffs || []).forEach(c => {
-            if (Number(c.year) === Number(yr) && Number(c.minValue) > 0) {
-                const sKey = normalizeSchoolName(c.schoolName);
-                const dKey = normalizeDept(c.department);
-                const tKey = normalizeTrack(c.track);
-                uniqueKeys.add(`${sKey}_${dKey}_${tKey}`);
-            }
-        });
-        return uniqueKeys.size;
+        try {
+            const uniqueKeys = new Set();
+            (allSavedCutoffs || []).forEach(c => {
+                if (Number(c.year) === Number(yr) && Number(c.minValue) > 0) {
+                    const sKey = typeof normalizeSchoolName === 'function' ? normalizeSchoolName(c.schoolName) : (c.schoolName || '');
+                    const dKey = typeof normalizeDept === 'function' ? normalizeDept(c.department) : (c.department || '');
+                    const tKey = typeof normalizeTrack === 'function' ? normalizeTrack(c.track) : (c.track || '');
+                    uniqueKeys.add(`${sKey}_${dKey}_${tKey}`);
+                }
+            });
+            return uniqueKeys.size;
+        } catch (e) {
+            console.error('getCutoffCountByYear error:', e);
+            return 0;
+        }
     };
 
     // 2026년 최근 기준 및 그 밑으로 5년치(2026, 2025, 2024, 2023, 2022) 산출 (2027년 이상 미래 연도는 원천 배제)
