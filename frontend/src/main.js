@@ -3118,7 +3118,7 @@ function showSchoolScoreDetailModal(studentName, classNum, studentNum, r, fullSt
             </div>
 
             <!-- 총점 요약 카드 (그라디언트) -->
-            <div class="bg-gradient-to-r from-indigo-950/60 via-slate-800/90 to-purple-950/60 p-4 rounded-xl border border-indigo-500/40 flex items-center justify-between shadow-inner">
+            <div class="bg-linear-to-r from-indigo-950/60 via-slate-800/90 to-purple-950/60 p-4 rounded-xl border border-indigo-500/40 flex items-center justify-between shadow-inner">
                 <div>
                     <span class="text-[11px] text-indigo-300 font-bold uppercase tracking-wider">최종 공식 환산 총점</span>
                     <div class="text-2xl font-black text-amber-300 mt-0.5">${Number(r.totalScore).toFixed(2)}<span class="text-xs text-slate-300 font-normal"> / ${totalMax}점 만점</span></div>
