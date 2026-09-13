@@ -5492,16 +5492,21 @@ async function openStudentModal(classNum, studentNum, name) {
 function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cutoffs, officialItems = []) {
     const todayDate = new Date().toISOString().split('T')[0];
 
-    // 학교명 및 학과명 정규화 헬퍼 (다양한 표기법 완벽 포용)
-    const normalizeSchoolName = (sch) => String(sch || '')
-        .replace(/(고등학교|공업고|마이스터고|에너지고|상업고|과학고|예술고|애니원고|고)$/, '')
-        .replace(/공고$/, '공')
-        .replace(/\s+/g, '');
+    // 학교명 정규화 헬퍼 (마이스터, 에너지, 애니원 등 고유 명칭은 보존하고 고등학교/고 접미사만 정리)
+    const cleanSchoolName = (sch) => {
+        let s = String(sch || '').replace(/\s+/g, '');
+        return s.replace(/고등학교$/, '').replace(/공업고등학교$/, '공고').replace(/공업고$/, '공고').replace(/고$/, '');
+    };
     const isSameSchool = (s1, s2) => {
-        const n1 = normalizeSchoolName(s1);
-        const n2 = normalizeSchoolName(s2);
-        if (!n1 || !n2) return false;
-        return n1 === n2 || n1.includes(n2) || n2.includes(n1);
+        if (!s1 || !s2) return false;
+        const raw1 = String(s1).trim();
+        const raw2 = String(s2).trim();
+        if (raw1 === raw2) return true;
+        return cleanSchoolName(raw1) === cleanSchoolName(raw2);
+    };
+    const isSameWishItem = (item, sch, trk) => {
+        if (!item) return false;
+        return isSameSchool(item.schoolName, sch) && String(item.trackName || '').trim() === String(trk || '').trim();
     };
     const normalizeDept = (dept) => String(dept || '').replace(/\s+/g, '');
 
@@ -5532,7 +5537,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
     data.schoolResults.forEach((r, rIdx) => {
         const isMeisterSchool = ['울산마이스터', '울산에너지', '현대공업'].some(kw => r.schoolName.includes(kw));
         const schoolCat = isMeisterSchool ? 'meister' : 'special';
-        const isAlreadyWish = wishlist.some(w => isSameSchool(w.schoolName, r.schoolName));
+        const isAlreadyWish = wishlist.some(w => isSameWishItem(w, r.schoolName, r.trackName));
         const officialForSchool = (officialItems || []).filter(item =>
             String(item.schoolName || '').includes(r.schoolName.substring(0, 4)) &&
             (!item.track || String(item.track).includes(r.trackName) || r.trackName.includes(String(item.track)))
@@ -6589,7 +6594,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
         modalEl.querySelectorAll('.btn-toggle-wishlist').forEach(btn => {
             const sch = btn.dataset.school || '';
             const trk = btn.dataset.track || '';
-            const isWish = currentList.some(w => isSameSchool(w.schoolName, sch) && w.trackName === trk);
+            const isWish = currentList.some(w => isSameWishItem(w, sch, trk));
             const textSpan = btn.querySelector('.wishlist-btn-text');
             const iconSpan = btn.querySelector('span');
 
@@ -6640,7 +6645,7 @@ function renderStudentModalContent(modalEl, classNum, studentNum, name, data, cu
             const badgeHTML = badgeEl ? badgeEl.innerHTML : '';
 
             let list = getStoredWishlist();
-            const existingIdx = list.findIndex(w => isSameSchool(w.schoolName, schoolName) && w.trackName === trackName);
+            const existingIdx = list.findIndex(w => isSameWishItem(w, schoolName, trackName));
 
             if (existingIdx !== -1) {
                 list.splice(existingIdx, 1);
