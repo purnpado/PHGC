@@ -2533,10 +2533,11 @@ async function renderStudentList(students, classNum) {
             totalStudents = Math.round(Number(s.Rank) / (Number(s.Percentile) / 100));
         }
 
-        // 마이스터고(3개교) 및 특성화고 전체 학교수 산출
-        const meisterTotalCount = 3;
+        // 커트라인이 등록된 학교 수 기준 산출 (미등록 학교로 인한 불합격 오해 방지)
+        const meisterSchoolsSet = new Set(meisterList.map(x => normalizeSchoolName(x.schoolName)));
+        const meisterTotalCount = meisterSchoolsSet.size > 0 ? meisterSchoolsSet.size : 3;
         const specialSchoolsSet = new Set(specialList.map(x => normalizeSchoolName(x.schoolName)));
-        const specialTotalCount = specialSchoolsSet.size > 0 ? specialSchoolsSet.size : 7;
+        const specialTotalCount = specialSchoolsSet.size;
 
         return {
             raw: s,
@@ -2709,7 +2710,7 @@ async function renderStudentList(students, classNum) {
                                         title="${escapeAttr(s.name)} 학생의 마이스터고 3개교 전형별 상세 점수 및 합격 분석표 보기 (클릭)">
                                     <span class="text-sm">🏛️</span>
                                     <span>마이스터고</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.meisterPassCount}/${s.meisterTotalCount}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.meisterTotalCount > 0 ? `${s.meisterPassCount}/${s.meisterTotalCount}` : '미등록'}</span>
                                 </button>
                                 <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
                                         data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="special"
@@ -2717,7 +2718,7 @@ async function renderStudentList(students, classNum) {
                                         title="${escapeAttr(s.name)} 학생의 특성화고 전형·학과별 상세 점수 및 합격 분석표 보기 (클릭)">
                                     <span class="text-sm">🏭</span>
                                     <span>특성화고</span>
-                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.specialPassCount}/${s.specialTotalCount}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.specialTotalCount > 0 ? `${s.specialPassCount}/${s.specialTotalCount}` : '미등록'}</span>
                                 </button>
                             </div>
                         </td>
