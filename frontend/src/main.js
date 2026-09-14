@@ -2119,7 +2119,7 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
                     <button id="classGridHomeBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" style="display: none;">
                         <span>🗂️</span> 학급 목록
                     </button>
-                    <button id="exportCurrentClassPatchBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="현재 학급의 진학 상담 및 희망원서 취합자료(패치 파일)를 내보냅니다">
+                    <button id="exportCurrentClassPatchBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5" title="현재 학급의 진학 상담 및 희망원서 취합자료(패치 파일)를 내보냅니다" style="display: none;">
                         <span>📤</span> 취합자료 내보내기
                     </button>
                     <button id="lockScreenTeacherBtn" class="btn-secondary whitespace-nowrap text-xs px-3 py-2 flex items-center gap-1.5 text-amber-300 hover:text-amber-200 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer transition-all font-bold" title="자리를 비우실 때 화면을 즉시 잠그고 학생 개인정보를 보호합니다 (단축키: Ctrl+L)">
@@ -2181,9 +2181,11 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     // 학급 카드 클릭 시 학급 로드 함수
     const loadClass = async (classNum) => {
+        const exportPatchBtn = document.getElementById('exportCurrentClassPatchBtn');
         if (!classNum) {
             activeClassNum = null;
             document.getElementById('classGridHomeBtn').style.display = 'none';
+            if (exportPatchBtn) exportPatchBtn.style.display = 'none';
             document.getElementById('teacherContent').innerHTML = getClassGridHTML();
             bindGridEvents();
             if (window.currentUser?.Role === 'master') {
@@ -2200,6 +2202,10 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
         }
 
         document.getElementById('classGridHomeBtn').style.display = 'inline-flex';
+        // 담임교사가 학급에 진입했을 때만 취합자료 내보내기 버튼 표시 (학년부장은 담임 자료를 받는 관리자이므로 제외)
+        if (exportPatchBtn) {
+            exportPatchBtn.style.display = (window.currentUser?.Role === 'homeroom') ? 'inline-flex' : 'none';
+        }
         document.getElementById('teacherContent').innerHTML = '<div class="text-center py-20"><span class="spinner"></span> 데이터를 불러오는 중...</div>';
 
         try {
@@ -2230,6 +2236,30 @@ async function renderTeacherScreen(schoolName, targetClassNum = null) {
 
     document.getElementById('classGridHomeBtn')?.addEventListener('click', () => {
         loadClass(null);
+    });
+
+    // 담임교사 취합자료 내보내기 버튼 이벤트 바인딩
+    document.getElementById('exportCurrentClassPatchBtn')?.addEventListener('click', async () => {
+        if (!activeClassNum) {
+            await showModalAlert('상담 및 입력 내용을 제출할 학급을 먼저 선택해 주세요.', '알림', 'warning');
+            return;
+        }
+        if (window.currentUser?.Role !== 'homeroom') {
+            await showModalAlert('취합자료 제출은 담임교사 계정으로 로그인한 경우에만 가능합니다.', '안내', 'info');
+            return;
+        }
+        const password = await showModalPrompt({
+            title: '취합자료 내보내기 (학년부장 제출용)',
+            message: '학년부장이 안내한 공용 데이터 암호를 입력하세요.',
+            isPassword: true
+        });
+        if (!password) return;
+        try {
+            const path = await window.go.main.App.SaveCurrentClassPatch(password);
+            await showModalAlert(`취합자료 파일이 안전하게 저장되었습니다.\n\n저장 위치:\n${path}\n\n이 파일을 학년부장 선생님께 전달해 주세요.`, '취합자료 저장 완료', 'success');
+        } catch (err) {
+            await showModalAlert('취합자료 제출 실패: ' + err, '오류', 'error');
+        }
     });
 
     document.getElementById('openTeacherGuideBtn')?.addEventListener('click', () => {
@@ -2931,22 +2961,6 @@ async function renderStudentList(students, classNum) {
     // 우리 반 통계 버튼
     document.getElementById('openClassApplicationSummaryBtn')?.addEventListener('click', () => {
         openClassApplicationSummaryModal(classNum);
-    });
-
-    // 취합자료 내보내기 버튼 (상단 툴바가 있는 경우)
-    document.getElementById('exportCurrentClassPatchBtn')?.addEventListener('click', async () => {
-        const password = await showModalPrompt({
-            title: '취합자료 내보내기',
-            message: '학년부장이 안내한 공용 데이터 암호를 입력하세요.',
-            isPassword: true
-        });
-        if (!password) return;
-        try {
-            const path = await window.go.main.App.SaveCurrentClassPatch(password);
-            await showModalAlert(`취합자료 파일을 저장했습니다.\n${path}\n\n이 파일을 학년부장에게 전달하세요.`, '취합자료 저장 완료', 'success');
-        } catch (err) {
-            await showModalAlert('취합자료 제출 실패: ' + err, '오류', 'error');
-        }
     });
 }
 
