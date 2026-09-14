@@ -97,4 +97,4 @@ wails build -trimpath -ldflags "-s -w"
 
 ## 라이선스
 
-[CC BY-NC-SA 4.0](LICENSE) — 출처 표기, 비영리, 동일조건변경허락.
+[교육용 비영리 라이선스 (ENCL)](LICENSE) — 비영리 교육목적 자유 이용, 상업적 이용 절대 금지, 면책 조항 적용.
