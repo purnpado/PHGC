@@ -2533,26 +2533,10 @@ async function renderStudentList(students, classNum) {
             totalStudents = Math.round(Number(s.Rank) / (Number(s.Percentile) / 100));
         }
 
-        // 마이스터고 3개교 개별 산출 점수 및 합격 판정 요약 생성
-        const meisterSummary = ['울산마이스터고', '현대공업고', '울산에너지고'].map(schName => {
-            const r = (full?.schoolResults || []).find(x => x.schoolName.includes(schName.substring(0, 4)) && x.trackName === '일반');
-            const pred = meisterList.find(x => x.schoolName.includes(schName.substring(0, 4)) && x.track === '일반');
-            if (!r) return null;
-            const shortName = schName === '울산마이스터고' ? '마이스터' : schName === '울산에너지고' ? '에너지' : '현대공';
-            const status = pred ? pred.status : '판정중';
-            const statusIcon = status === '안정' ? '🟢' : status === '적정' ? '🟡' : status === '소신' ? '🟠' : '🔴';
-            const diffStr = pred && pred.diff != null ? (pred.diff >= 0 ? `+${pred.diff.toFixed(1)}` : pred.diff.toFixed(1)) : '';
-            return {
-                shortName,
-                score: r.totalScore,
-                max: r.totalMax,
-                status,
-                statusIcon,
-                diff: pred ? pred.diff : null,
-                minScore: pred ? pred.minScore : null,
-                tooltip: `[${schName}] 1차 점수: ${r.totalScore.toFixed(2)}점 / ${r.totalMax}점 만점 (커트라인: ${pred?.minScore || '-'}점, ${status} ${diffStr}점)`
-            };
-        }).filter(Boolean);
+        // 마이스터고(3개교) 및 특성화고 전체 학교수 산출
+        const meisterTotalCount = 3;
+        const specialSchoolsSet = new Set(specialList.map(x => normalizeSchoolName(x.schoolName)));
+        const specialTotalCount = specialSchoolsSet.size > 0 ? specialSchoolsSet.size : 7;
 
         return {
             raw: s,
@@ -2563,8 +2547,9 @@ async function renderStudentList(students, classNum) {
             rank: s.Rank || '',
             totalStudents: totalStudents || students.length,
             meisterPassCount,
+            meisterTotalCount,
             specialPassCount,
-            meisterSummary,
+            specialTotalCount,
             applications,
             generalBadge: getGeneralGuideBadge(s.Percentile)
         };
@@ -2716,39 +2701,24 @@ async function renderStudentList(students, classNum) {
                             </div>
                         </td>
                         <td class="p-3.5 text-center">${s.generalBadge}</td>
-                        <td class="p-3.5 text-center min-w-72">
-                            <div class="flex flex-col items-center justify-center gap-2">
-                                <div class="flex items-center justify-center gap-1.5 flex-wrap">
-                                    <button class="btn-prediction-detail inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.meisterPassCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
-                                            data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="meister"
-                                            data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
-                                            title="${escapeAttr(s.name)} 학생의 마이스터고 3개교 전형별 상세 분석표 열기 (클릭)">
-                                        <span class="text-xs">🏛️</span>
-                                        <span>마이스터고</span>
-                                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-black ${s.meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.meisterPassCount}/3</span>
-                                    </button>
-                                    <button class="btn-prediction-detail inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
-                                            data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="special"
-                                            data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
-                                            title="${escapeAttr(s.name)} 학생의 특성화고 합격 예측 상세 분석 보기 (클릭)">
-                                        <span class="text-xs">🏭</span>
-                                        <span>특성화고</span>
-                                        <span class="px-1.5 py-0.2 rounded-full text-[10px] font-black ${s.specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.specialPassCount}</span>
-                                    </button>
-                                </div>
-
-                                ${s.meisterSummary && s.meisterSummary.length > 0 ? `
-                                    <div class="flex items-center justify-center gap-1 flex-wrap">
-                                        ${s.meisterSummary.map(m => `
-                                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-900/90 border border-slate-700/70 text-[10px] font-mono shadow-2xs cursor-help"
-                                                  title="${escapeAttr(m.tooltip)}">
-                                                <span>${m.statusIcon}</span>
-                                                <span class="text-slate-400 font-sans">${m.shortName}:</span>
-                                                <strong class="${m.status === '안정' ? 'text-emerald-300' : m.status === '적정' ? 'text-amber-300' : 'text-rose-300'}">${m.score.toFixed(1)}</strong>
-                                            </span>
-                                        `).join('')}
-                                    </div>
-                                ` : ''}
+                        <td class="p-3.5 text-center min-w-56">
+                            <div class="flex items-center justify-center gap-2 flex-wrap">
+                                <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.meisterPassCount > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 hover:bg-amber-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
+                                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="meister"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
+                                        title="${escapeAttr(s.name)} 학생의 마이스터고 3개교 전형별 상세 점수 및 합격 분석표 보기 (클릭)">
+                                    <span class="text-sm">🏛️</span>
+                                    <span>마이스터고</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.meisterPassCount > 0 ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.meisterPassCount}/${s.meisterTotalCount}</span>
+                                </button>
+                                <button class="btn-prediction-detail inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${s.specialPassCount > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 hover:bg-cyan-500/30' : 'bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:bg-slate-800'}"
+                                        data-class="${classNum}" data-num="${s.studentNum}" data-name="${escapeAttr(s.name)}" data-category="special"
+                                        data-percentile="${s.percentile !== 999 ? s.percentile.toFixed(2) : ''}" data-rank="${s.rank || ''}" data-total="${s.totalStudents}"
+                                        title="${escapeAttr(s.name)} 학생의 특성화고 전형·학과별 상세 점수 및 합격 분석표 보기 (클릭)">
+                                    <span class="text-sm">🏭</span>
+                                    <span>특성화고</span>
+                                    <span class="px-2 py-0.5 rounded-full text-[11px] font-black ${s.specialPassCount > 0 ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-400'}">${s.specialPassCount}/${s.specialTotalCount}</span>
+                                </button>
                             </div>
                         </td>
                         <td class="p-3.5 text-center min-w-56">${appCellHTML}</td>
@@ -3482,14 +3452,27 @@ async function openPredictionDetailModal(classNum, studentNum, studentName, cate
                 else if (sNameNorm.includes('현대공업')) defaultMax = (tNameNorm.includes('특별') ? 150 : 200);
                 const maxVal = r.totalMax || r.TotalMax || defaultMax;
 
+                // 해당 학교/전형의 커트라인 판정 조회
+                const relatedPred = analysisList.find(x => 
+                    normalizeSchoolName(x.schoolName) === sNameNorm && 
+                    normalizeTrack(x.track) === tNameNorm
+                );
+                let badgeHTML = '';
+                if (relatedPred) {
+                    const diffStr = relatedPred.diff >= 0 ? `+${relatedPred.diff.toFixed(1)}` : relatedPred.diff.toFixed(1);
+                    const bColor = relatedPred.isPass ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+                    badgeHTML = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${bColor}">${relatedPred.isPass ? '🟢' : '🔴'} ${relatedPred.status} (${diffStr})</span>`;
+                }
+
                 return `
-                    <div data-school="${escapeHtml(r.schoolName)}" data-track="${escapeHtml(r.trackName)}" role="button" tabindex="0" title="클릭하여 ${r.schoolName} ${r.trackName}전형 상세 성적 산출 내역 보기" class="bg-slate-900/90 p-2.5 rounded-xl border border-slate-700/70 hover:border-indigo-400 hover:bg-slate-800/90 flex items-center justify-between gap-3 shadow-inner hover:shadow-indigo-500/15 transition-all cursor-pointer group active:scale-98 prediction-score-item">
+                    <div data-school="${escapeHtml(r.schoolName)}" data-track="${escapeHtml(r.trackName)}" role="button" tabindex="0" title="클릭하여 ${r.schoolName} ${r.trackName}전형 상세 성적 산출 내역 보기" class="bg-slate-900/90 p-3 rounded-xl border border-slate-700/70 hover:border-indigo-400 hover:bg-slate-800/90 flex items-center justify-between gap-3 shadow-inner hover:shadow-indigo-500/15 transition-all cursor-pointer group active:scale-98 prediction-score-item">
                         <div class="flex flex-col min-w-0">
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors truncate">${r.schoolName}</span>
                                 <span class="text-[10px] text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">🔍</span>
+                                ${badgeHTML}
                             </div>
-                            <span class="text-[11px] text-indigo-300 font-semibold truncate">${r.trackName}${r.trackName.endsWith('전형') ? '' : '전형'}</span>
+                            <span class="text-[11px] text-indigo-300 font-semibold truncate mt-0.5">${r.trackName}${r.trackName.endsWith('전형') ? '' : '전형'}</span>
                         </div>
                         <div class="text-right shrink-0">
                             <div class="text-sm font-black text-amber-300">${Number(r.totalScore).toFixed(2)}점</div>
