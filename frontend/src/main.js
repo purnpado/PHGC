@@ -7129,27 +7129,28 @@ async function openMatrixModal(classNum = null) {
 
         const cutoffs = await window.go.main.App.GetCutoffs().catch(() => []);
 
-        // 학교 목록 정의
+        // 학교 목록 정의 (정확한 공식 명칭 기반 완전 일치)
         const schoolKeywords = [
-            { key: '마이스터', label: '울산마이스터', isMeister: true },
-            { key: '에너지', label: '에너지고', isMeister: true },
-            { key: '현대', label: '현대공고', isMeister: true },
-            { key: '상업고', label: '울산상고', isMeister: false },
-            { key: '여자상업고', label: '울산여상', isMeister: false },
-            { key: '생활과학', label: '울산생과고', isMeister: false },
-            { key: '공업고', label: '울산공고', isMeister: false },
-            { key: '산업고', label: '울산산업고', isMeister: false },
-            { key: '미용예술', label: '미용예술고', isMeister: false },
-            { key: '기술공업', label: '기술공고', isMeister: false }
+            { fullName: '울산마이스터고', label: '울산마이스터', isMeister: true },
+            { fullName: '울산에너지고', label: '에너지고', isMeister: true },
+            { fullName: '현대공업고', label: '현대공고', isMeister: true },
+            { fullName: '울산상업고', label: '울산상고', isMeister: false },
+            { fullName: '울산여자상업고', label: '울산여상', isMeister: false },
+            { fullName: '울산생활과학고', label: '울산생과고', isMeister: false },
+            { fullName: '울산공업고', label: '울산공고', isMeister: false },
+            { fullName: '울산산업고', label: '울산산업고', isMeister: false },
+            { fullName: '울산미용예술고', label: '미용예술고', isMeister: false },
+            { fullName: '울산기술공업고', label: '기술공고', isMeister: false }
         ];
 
-        // 전형별(general/special) 및 학교별 연도별 커트라인 히스토리 맵 구축
+        // 전형별(general/special) 및 학교별 연도별 커트라인 히스토리 맵 구축 (정확한 학교명 일치)
         const cutoffHistoryMap = new Map();
         schoolKeywords.forEach(s => {
+            const sNorm = normalizeSchoolName(s.fullName);
             ['general', 'special'].forEach(trackType => {
                 const historyByYear = new Map();
                 (cutoffs || []).filter(c => {
-                    if (!c.schoolName.includes(s.key) || Number(c.minValue) <= 0) return false;
+                    if (normalizeSchoolName(c.schoolName) !== sNorm || Number(c.minValue) <= 0) return false;
                     const isSpec = c.track.includes('특별') || c.track.includes('취업');
                     return trackType === 'special' ? isSpec : !isSpec;
                 }).sort((a, b) => b.year - a.year)
@@ -7160,13 +7161,13 @@ async function openMatrixModal(classNum = null) {
                   });
 
                 const sortedValues = [...historyByYear.entries()].sort((a, b) => b[0] - a[0]).map(x => x[1]);
-                cutoffHistoryMap.set(`${s.key}_${trackType}`, sortedValues);
+                cutoffHistoryMap.set(`${s.fullName}_${trackType}`, sortedValues);
             });
         });
 
         // 특정 학교/전형/연도모드 기준선 계산 함수
-        const getSchoolCutoffVal = (schoolKey, trackType, yearMode) => {
-            const history = cutoffHistoryMap.get(`${schoolKey}_${trackType}`) || [];
+        const getSchoolCutoffVal = (schoolName, trackType, yearMode) => {
+            const history = cutoffHistoryMap.get(`${schoolName}_${trackType}`) || [];
             if (!history.length) return 0;
             if (yearMode === 'last') {
                 return history[0] || 0;
@@ -7180,15 +7181,16 @@ async function openMatrixModal(classNum = null) {
             return history[0] || 0;
         };
 
-        // 학생의 특정 고교 환산점수 반환 헬퍼
-        const getStudentSchoolScore = (student, schoolKey, trackMode) => {
+        // 학생의 특정 고교 환산점수 반환 헬퍼 (정확한 학교명 완전 일치 매칭)
+        const getStudentSchoolScore = (student, schoolName, trackMode) => {
             if (!student || !student.schoolResults) return 0;
+            const targetNorm = normalizeSchoolName(schoolName);
             let r = null;
             if (trackMode === 'special') {
-                r = student.schoolResults.find(x => x.schoolName.includes(schoolKey) && (x.trackName.includes('특별') || x.trackName.includes('취업')));
+                r = student.schoolResults.find(x => normalizeSchoolName(x.schoolName) === targetNorm && (x.trackName.includes('특별') || x.trackName.includes('취업')));
             }
             if (!r) {
-                r = student.schoolResults.find(x => x.schoolName.includes(schoolKey) && x.trackName.includes('일반'));
+                r = student.schoolResults.find(x => normalizeSchoolName(x.schoolName) === targetNorm && x.trackName.includes('일반'));
             }
             return r ? Number(r.totalScore || 0) : 0;
         };
@@ -7283,11 +7285,11 @@ async function openMatrixModal(classNum = null) {
                 } else if (currentSortMode === 'general_asc') {
                     return (a.generalHSPercentile || 999) - (b.generalHSPercentile || 999);
                 } else if (currentSortMode === 'meister_desc') {
-                    return getStudentSchoolScore(b, '마이스터', trackMode) - getStudentSchoolScore(a, '마이스터', trackMode);
+                    return getStudentSchoolScore(b, '울산마이스터고', trackMode) - getStudentSchoolScore(a, '울산마이스터고', trackMode);
                 } else if (currentSortMode === 'energy_desc') {
-                    return getStudentSchoolScore(b, '에너지', trackMode) - getStudentSchoolScore(a, '에너지', trackMode);
+                    return getStudentSchoolScore(b, '울산에너지고', trackMode) - getStudentSchoolScore(a, '울산에너지고', trackMode);
                 } else if (currentSortMode === 'hyundai_desc') {
-                    return getStudentSchoolScore(b, '현대', trackMode) - getStudentSchoolScore(a, '현대', trackMode);
+                    return getStudentSchoolScore(b, '현대공업고', trackMode) - getStudentSchoolScore(a, '현대공업고', trackMode);
                 }
                 return 0;
             });
@@ -7322,16 +7324,18 @@ async function openMatrixModal(classNum = null) {
             let rowsHTML = '';
             filtered.forEach(s => {
                 const getBadge = (schoolItem) => {
+                    if (!s || !s.schoolResults) return '<span class="text-slate-600 font-mono text-xs">-</span>';
+                    const targetNorm = normalizeSchoolName(schoolItem.fullName);
                     let r = null;
                     if (trackMode === 'special') {
-                        r = s.schoolResults.find(x => x.schoolName.includes(schoolItem.key) && (x.trackName.includes('특별') || x.trackName.includes('취업')));
+                        r = s.schoolResults.find(x => normalizeSchoolName(x.schoolName) === targetNorm && (x.trackName.includes('특별') || x.trackName.includes('취업')));
                     }
                     if (!r) {
-                        r = s.schoolResults.find(x => x.schoolName.includes(schoolItem.key) && x.trackName.includes('일반'));
+                        r = s.schoolResults.find(x => normalizeSchoolName(x.schoolName) === targetNorm && x.trackName.includes('일반'));
                     }
                     if (!r) return '<span class="text-slate-600 font-mono text-xs">-</span>';
 
-                    const cutoffVal = getSchoolCutoffVal(schoolItem.key, trackMode, yearMode);
+                    const cutoffVal = getSchoolCutoffVal(schoolItem.fullName, trackMode, yearMode);
                     const score = Number(r.totalScore || 0);
                     const scoreStr = score.toFixed(2); // 소수 둘째자리 표기
 
@@ -7381,7 +7385,7 @@ async function openMatrixModal(classNum = null) {
             const trackText = trackMode === 'special' ? '<span class="text-amber-300 font-bold">[특별전형 · 취업희망자]</span>'
                                                       : '<span class="text-indigo-300 font-bold">[일반전형]</span>';
             
-            const meisterCutoff = getSchoolCutoffVal('마이스터', trackMode, yearMode);
+            const meisterCutoff = getSchoolCutoffVal('울산마이스터고', trackMode, yearMode);
             const meisterInfo = meisterCutoff > 0 ? ` · <span class="text-emerald-300">울산마이스터 기준선: ${meisterCutoff.toFixed(2)}점</span>` : '';
 
             return `${yearText} 기준 ${trackText} 학생 환산점수 및 합격선을 대조합니다.${meisterInfo}`;

@@ -63,8 +63,9 @@ type StudentFullData struct {
 	AllAverage           float64                     `json:"allAverage"`     // 전과목 평균 성취도
 	SemesterScores       map[string][]int            `json:"semesterScores"` // 학기별 성취도 목록
 	SubjectScores        map[string]map[string][]int `json:"subjectScores"`  // [과목][학기]별 성취도
-	NonArtSemesterScores map[string][]int            `json:"-"`
-	ArtPenaltyBySemester map[string]float64          `json:"-"`
+	NonArtSemesterScores map[string][]int   `json:"-"`
+	ArtPenaltyBySemester map[string]float64 `json:"-"`
+	ArtCountBySemester   map[string]int     `json:"-"`
 	AbsenceDays          int                         `json:"absenceDays"`         // 미인정 결석 환산 일수 (결석 + 지각조퇴결과/3)
 	RawAbsenceDays       int                         `json:"rawAbsenceDays"`      // 1학기 나이스 순수 결석일수
 	RawLateCount         int                         `json:"rawLateCount"`        // 1학기 나이스 지각횟수
@@ -318,6 +319,7 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		SemesterScores:       make(map[string][]int),
 		NonArtSemesterScores: make(map[string][]int),
 		ArtPenaltyBySemester: make(map[string]float64),
+		ArtCountBySemester:   make(map[string]int),
 		SubjectScores:        make(map[string]map[string][]int),
 		ExtraData:            make(map[string]bool),
 	}
@@ -401,7 +403,8 @@ func parseStudentFullData(s StudentExcelData) (*StudentFullData, error) {
 		key := cleanGrade + "_" + cleanSem
 		result.SemesterScores[key] = append(result.SemesterScores[key], score)
 		if isArtsSubject(subjectName) {
-			// 에너지고·현대공고: 예체능은 평균에서 제외, B/보통 0.1·C/미흡 0.2 감점.
+			result.ArtCountBySemester[key]++
+			// 에너지고·현대공고·특성화고: 예체능은 평균에서 제외, B/보통 0.1·C/미흡 0.2 감점.
 			if score == 4 {
 				result.ArtPenaltyBySemester[key] += 0.1
 			}
@@ -614,23 +617,43 @@ func calculateForSchool(student *StudentFullData, rule SchoolRule) SchoolCalcRes
 		}
 		result.AllSubjectScore = roundToTwoDecimals(sumTermScore)
 	} else if len(rule.SemesterWeights) > 0 {
-		// 학기별 차등 가중치 (현대공고 등)
-		var totalWeightedAvg float64
-		for _, sem := range rule.Semesters {
-			scores := ruleSemesterScores(student, rule, sem)
-			if len(scores) == 0 {
-				continue
+		if rule.FinalTermArtsPenaltyOnly {
+			// 울산공업고 및 특성화고 공식 입학요강 (2026학년도 졸업예정자):
+			// 1단계: 각 학기별 (비예체능 성취도합 ÷ 과목수) * 학기배점 (소수 셋째자리 반올림)
+			// 2단계: (1-2 + 2-1 + 2-2 + 3-1) - (3-1학기 예체능 감점합 ÷ 3-1학기 예체능 이수과목수) (소수 셋째자리 반올림)
+			var sumTermScore float64
+			for _, sem := range rule.Semesters {
+				scores := ruleSemesterScores(student, rule, sem)
+				if len(scores) == 0 {
+					continue
+				}
+				avg := calcAverage(scores) // 비예체능 과목 평균 성취도 (1~5)
+				termMax := rule.AllSubjectMax * rule.SemesterWeights[sem]
+				termScore := roundToTwoDecimals((avg / 5.0) * termMax)
+				sumTermScore += termScore
 			}
-			avg := calcAverage(scores)
-			weight := rule.SemesterWeights[sem]
-			totalWeightedAvg += (avg / 5.0) * weight
-			if rule.ExcludeArts && !rule.FinalTermArtsPenaltyOnly {
-				totalWeightedAvg -= student.ArtPenaltyBySemester[sem] / rule.AllSubjectMax
+			// 3-1학기 예체능 감점 적용 (3-1학기 예체능 이수과목수로 나눔)
+			artPenalty := 0.0
+			if artCount := student.ArtCountBySemester["3_1"]; artCount > 0 {
+				artPenalty = student.ArtPenaltyBySemester["3_1"] / float64(artCount)
 			}
-		}
-		result.AllSubjectScore = roundToTwoDecimals(totalWeightedAvg * rule.AllSubjectMax)
-		if rule.FinalTermArtsPenaltyOnly && len(student.SemesterScores["3_1"]) > 0 {
-			result.AllSubjectScore = roundToTwoDecimals(math.Max(0, result.AllSubjectScore-student.ArtPenaltyBySemester["3_1"]/float64(len(student.SemesterScores["3_1"]))))
+			result.AllSubjectScore = roundToTwoDecimals(math.Max(0, sumTermScore-artPenalty))
+		} else {
+			// 현대공고 등 학기별 차등 가중치
+			var totalWeightedAvg float64
+			for _, sem := range rule.Semesters {
+				scores := ruleSemesterScores(student, rule, sem)
+				if len(scores) == 0 {
+					continue
+				}
+				avg := calcAverage(scores)
+				weight := rule.SemesterWeights[sem]
+				totalWeightedAvg += (avg / 5.0) * weight
+				if rule.ExcludeArts {
+					totalWeightedAvg -= student.ArtPenaltyBySemester[sem] / rule.AllSubjectMax
+				}
+			}
+			result.AllSubjectScore = roundToTwoDecimals(totalWeightedAvg * rule.AllSubjectMax)
 		}
 	} else {
 		// 학기별 균등 (마이스터고, 에너지고, 상업고 등)
