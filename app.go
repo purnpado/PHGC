@@ -1252,10 +1252,22 @@ func (a *App) GetServerNotices() ([]NoticeItem, error) {
 
 // --- 엑셀 임포트 API ---
 
-// OpenExcelFile 파일 선택 다이얼로그 열기
+// OpenExcelFile 파일 선택 다이얼로그 열기 (단일 파일 호환용)
 func (a *App) OpenExcelFile() (string, error) {
-	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "나이스 성적 엑셀 파일 선택",
+	files, err := a.OpenMultipleExcelFiles("나이스 엑셀 파일 선택 (여러 반 파일을 Ctrl 또는 Shift 키로 동시 선택 가능)")
+	if err != nil || len(files) == 0 {
+		return "", err
+	}
+	return files[0], nil
+}
+
+// OpenMultipleExcelFiles 복수 학급 엑셀 파일 동시 선택 다이얼로그 열기
+func (a *App) OpenMultipleExcelFiles(title string) ([]string, error) {
+	if title == "" {
+		title = "나이스 엑셀 파일 선택 (여러 반 파일을 Ctrl 또는 Shift 키로 동시 선택 가능)"
+	}
+	filePaths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: title,
 		Filters: []runtime.FileFilter{
 			{
 				DisplayName: "Data Files (*.xlsx, *.xls, *.csv)",
@@ -1263,31 +1275,45 @@ func (a *App) OpenExcelFile() (string, error) {
 			},
 		},
 	})
-	return filePath, err
+	return filePaths, err
 }
 
-// ProcessExcel 엑셀 파일을 읽고 분할 저장 (반환값: 각 반별 업데이트된 학생 수 맵)
+// ProcessExcel 엑셀 파일을 읽고 분할 저장 (단일 파일 호환)
 func (a *App) ProcessExcel(filePath string) (map[int]int, error) {
-	if filePath == "" {
-		return nil, fmt.Errorf("파일이 선택되지 않았습니다")
-	}
+	return a.ProcessMultipleExcel([]string{filePath})
+}
 
-	classData, err := ParseExcel(filePath)
-	if err != nil {
-		return nil, err
+// ProcessMultipleExcel 복수 학급 성적 엑셀 파일을 일괄 처리 (전체 반 일괄 업로드 지원)
+func (a *App) ProcessMultipleExcel(filePaths []string) (map[int]int, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("선택된 파일이 없습니다")
 	}
 
 	result := make(map[int]int)
+	var errors []string
 
-	for classNum, students := range classData {
-		err := a.db.SaveClassStudents(classNum, students)
+	for _, filePath := range filePaths {
+		classData, err := ParseExcel(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("%d반 데이터 저장 실패: %w", classNum, err)
+			errors = append(errors, fmt.Sprintf("[%s] 파싱 실패: %v", filepath.Base(filePath), err))
+			continue
 		}
-		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
-			return nil, fmt.Errorf("%d반 학교별 점수 산출 실패: %w", classNum, err)
+
+		for classNum, students := range classData {
+			err := a.db.SaveClassStudents(classNum, students)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 저장 실패: %v", filepath.Base(filePath), classNum, err))
+				continue
+			}
+			if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 점수 산출 실패: %v", filepath.Base(filePath), classNum, err))
+			}
+			result[classNum] += len(students)
 		}
-		result[classNum] = len(students)
+	}
+
+	if len(result) == 0 && len(errors) > 0 {
+		return nil, fmt.Errorf("모든 파일 처리 실패:\n%s", strings.Join(errors, "\n"))
 	}
 
 	// 엑셀 성적 업로드 완료 후 전교생 기준 석차 및 백분율 스냅샷 자동 갱신
@@ -1296,27 +1322,42 @@ func (a *App) ProcessExcel(filePath string) (map[int]int, error) {
 	return result, nil
 }
 
-// ProcessAttendanceExcel 출결 엑셀 파싱 후 DB 병합
+// ProcessAttendanceExcel 출결 엑셀 파싱 후 DB 병합 (단일 파일 호환)
 func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
-	if filePath == "" {
-		return nil, fmt.Errorf("파일이 선택되지 않았습니다")
-	}
+	return a.ProcessMultipleAttendanceExcel([]string{filePath})
+}
 
-	classData, err := ParseAttendanceExcel(filePath)
-	if err != nil {
-		return nil, err
+// ProcessMultipleAttendanceExcel 복수 학급 출결 엑셀 파일을 일괄 처리
+func (a *App) ProcessMultipleAttendanceExcel(filePaths []string) (map[int]int, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("선택된 파일이 없습니다")
 	}
 
 	result := make(map[int]int)
-	for classNum, students := range classData {
-		updatedCount, err := a.db.UpdateStudentAttendance(classNum, students)
+	var errors []string
+
+	for _, filePath := range filePaths {
+		classData, err := ParseAttendanceExcel(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("%d반 출결 데이터 저장 실패: %w", classNum, err)
+			errors = append(errors, fmt.Sprintf("[%s] 파싱 실패: %v", filepath.Base(filePath), err))
+			continue
 		}
-		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
-			return nil, fmt.Errorf("%d반 학교별 점수 갱신 실패: %w", classNum, err)
+
+		for classNum, students := range classData {
+			updatedCount, err := a.db.UpdateStudentAttendance(classNum, students)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 출결 데이터 저장 실패: %v", filepath.Base(filePath), classNum, err))
+				continue
+			}
+			if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 점수 갱신 실패: %v", filepath.Base(filePath), classNum, err))
+			}
+			result[classNum] += updatedCount
 		}
-		result[classNum] = updatedCount
+	}
+
+	if len(result) == 0 && len(errors) > 0 {
+		return nil, fmt.Errorf("모든 파일 처리 실패:\n%s", strings.Join(errors, "\n"))
 	}
 
 	// 출결 변동 반영 전교생 성적 스냅샷 갱신
@@ -1325,27 +1366,42 @@ func (a *App) ProcessAttendanceExcel(filePath string) (map[int]int, error) {
 	return result, nil
 }
 
-// ProcessVolunteerExcel 봉사 엑셀 파싱 후 DB 병합
+// ProcessVolunteerExcel 봉사 엑셀 파싱 후 DB 병합 (단일 파일 호환)
 func (a *App) ProcessVolunteerExcel(filePath string) (map[int]int, error) {
-	if filePath == "" {
-		return nil, fmt.Errorf("파일이 선택되지 않았습니다")
-	}
+	return a.ProcessMultipleVolunteerExcel([]string{filePath})
+}
 
-	classData, err := ParseVolunteerExcel(filePath)
-	if err != nil {
-		return nil, err
+// ProcessMultipleVolunteerExcel 복수 학급 봉사 엑셀 파일을 일괄 처리
+func (a *App) ProcessMultipleVolunteerExcel(filePaths []string) (map[int]int, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("선택된 파일이 없습니다")
 	}
 
 	result := make(map[int]int)
-	for classNum, students := range classData {
-		updatedCount, err := a.db.UpdateStudentVolunteer(classNum, students)
+	var errors []string
+
+	for _, filePath := range filePaths {
+		classData, err := ParseVolunteerExcel(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("%d반 봉사 데이터 저장 실패: %w", classNum, err)
+			errors = append(errors, fmt.Sprintf("[%s] 파싱 실패: %v", filepath.Base(filePath), err))
+			continue
 		}
-		if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
-			return nil, fmt.Errorf("%d반 학교별 점수 갱신 실패: %w", classNum, err)
+
+		for classNum, students := range classData {
+			updatedCount, err := a.db.UpdateStudentVolunteer(classNum, students)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 봉사 데이터 저장 실패: %v", filepath.Base(filePath), classNum, err))
+				continue
+			}
+			if err := a.refreshClassSchoolScoreCache(classNum); err != nil {
+				errors = append(errors, fmt.Sprintf("[%s] %d반 점수 갱신 실패: %v", filepath.Base(filePath), classNum, err))
+			}
+			result[classNum] += updatedCount
 		}
-		result[classNum] = updatedCount
+	}
+
+	if len(result) == 0 && len(errors) > 0 {
+		return nil, fmt.Errorf("모든 파일 처리 실패:\n%s", strings.Join(errors, "\n"))
 	}
 
 	// 봉사시간 변동 반영 전교생 성적 스냅샷 갱신

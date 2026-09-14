@@ -371,6 +371,30 @@ func (dm *DBManager) InitConfigDB() error {
 		PRIMARY KEY (class_num, student_num, student_name)
 	)`)
 
+	// 자가 치유(Self-healing): school_config가 설정되어 있는데 users 계정이 누락된 경우 자동 복구
+	var userCount int
+	_ = db.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	if userCount == 0 {
+		var schoolName, adminPW string
+		var classCount int
+		err := db.QueryRow("SELECT school_name, class_count, admin_password FROM school_config WHERE id = 1").Scan(&schoolName, &classCount, &adminPW)
+		if err == nil && schoolName != "" {
+			if adminPW == "" {
+				adminPW = "admin1234"
+			}
+			hashedAdmin, _ := bcrypt.GenerateFromPassword([]byte(adminPW), bcrypt.DefaultCost)
+			_, _ = db.Exec("INSERT INTO users (username, password_hash, role, class_num, must_change_password) VALUES (?, ?, ?, ?, ?)", "admin", string(hashedAdmin), "master", 0, false)
+			_, _ = db.Exec("INSERT INTO users (username, password_hash, role, class_num, must_change_password) VALUES (?, ?, ?, ?, ?)", "jinro", "", "viewer", 0, true)
+			if classCount <= 0 {
+				classCount = 10
+			}
+			for i := 1; i <= classCount; i++ {
+				uname := fmt.Sprintf("3%02d", i)
+				_, _ = db.Exec("INSERT INTO users (username, password_hash, role, class_num, must_change_password) VALUES (?, ?, ?, ?, ?)", uname, "", "homeroom", i, true)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -2092,7 +2116,26 @@ func (dm *DBManager) VerifyUserLogin(username, password string) (*User, error) {
 	err = db.QueryRow("SELECT id, username, password_hash, role, COALESCE(class_num, 0), must_change_password FROM users WHERE username = ?", username).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.ClassNum, &u.MustChangePassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("계정을 찾을 수 없습니다")
+			var userList []string
+			if rows, qErr := db.Query("SELECT username, role, COALESCE(class_num, 0) FROM users"); qErr == nil {
+				for rows.Next() {
+					var un, r string
+					var cn int
+					rows.Scan(&un, &r, &cn)
+					label := un
+					if r == "master" {
+						label += "(학년부장)"
+					} else if r == "homeroom" {
+						label += fmt.Sprintf("(%d반 담임)", cn)
+					}
+					userList = append(userList, label)
+				}
+				rows.Close()
+			}
+			if len(userList) > 0 {
+				return nil, fmt.Errorf("계정 '%s'을(를) 찾을 수 없습니다.\n현재 등록된 계정: %s", username, strings.Join(userList, ", "))
+			}
+			return nil, fmt.Errorf("계정 '%s'을(를) 찾을 수 없습니다", username)
 		}
 		return nil, err
 	}

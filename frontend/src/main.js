@@ -1432,14 +1432,14 @@ async function renderAdminScreen(schoolName) {
                             <span>📥</span> 나이스 엑셀 데이터 연동
                         </h3>
                         <p class="text-xs text-text-muted mb-4 leading-relaxed">
-                            순서대로 1 ➡️ 2 ➡️ 3단계 파일을 업로드하세요. 프로그램이 자동으로 학급을 인식하여 분류 저장합니다.
+                            순서대로 1 ➡️ 2 ➡️ 3단계 파일을 업로드하세요. 파일 선택 창에서 <strong>모든 반 파일을 한 번에 다중 선택(Ctrl 또는 Shift 키)</strong>하시면 전 학급이 일괄 연동됩니다.
                         </p>
                         <div class="space-y-2.5">
                             <!-- 1단계: 교과 성적 -->
                             <button id="uploadExcelBtn" class="btn-primary w-full py-3 px-4 flex items-center justify-between text-xs font-bold shadow-md hover:brightness-110 transition-all rounded-xl border border-indigo-400/40 cursor-pointer">
                                 <div class="flex items-center gap-2.5">
                                     <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">1</span>
-                                    <span class="text-sm">📚 교과 성적 엑셀 불러오기</span>
+                                    <span class="text-sm">📚 교과 성적 엑셀 (모든 반 일괄 선택)</span>
                                 </div>
                                 <span class="text-[11px] font-semibold ${totalStd > 0 ? 'text-emerald-300' : 'text-indigo-200'}">${totalStd > 0 ? '✅ 연동됨' : '필수'}</span>
                             </button>
@@ -1449,7 +1449,7 @@ async function renderAdminScreen(schoolName) {
                                     style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
                                 <div class="flex items-center gap-2.5">
                                     <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">2</span>
-                                    <span class="text-sm">📅 출결 현황 엑셀 불러오기</span>
+                                    <span class="text-sm">📅 출결 현황 엑셀 (모든 반 일괄 선택)</span>
                                 </div>
                                 <span class="text-[11px] font-semibold ${attCount > 0 ? 'text-emerald-300' : 'text-sky-200'}">${attCount > 0 ? '✅ 연동됨' : '비교과'}</span>
                             </button>
@@ -1459,7 +1459,7 @@ async function renderAdminScreen(schoolName) {
                                     style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
                                 <div class="flex items-center gap-2.5">
                                     <span class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs font-black">3</span>
-                                    <span class="text-sm">🕒 봉사활동 엑셀 불러오기</span>
+                                    <span class="text-sm">🕒 봉사활동 엑셀 (모든 반 일괄 선택)</span>
                                 </div>
                                 <span class="text-[11px] font-semibold ${volCount > 0 ? 'text-emerald-300' : 'text-emerald-200'}">${volCount > 0 ? '✅ 연동됨' : '비교과'}</span>
                             </button>
@@ -1604,35 +1604,37 @@ async function renderAdminScreen(schoolName) {
         const statusDiv = document.getElementById('uploadStatus');
 
         try {
-            // 파일 선택 다이얼로그 호출
-            const filePath = await OpenExcelFile();
-            if (!filePath) return; // 취소한 경우
+            // 복수 엑셀 파일 동시 선택 다이얼로그 호출 (Ctrl / Shift 지원)
+            let filePaths = await window.go.main.App.OpenMultipleExcelFiles('나이스 교과 성적 엑셀 파일 선택 (Ctrl 또는 Shift 키로 모든 반 파일 동시 선택 가능)');
+            if (!filePaths || filePaths.length === 0) return;
 
             // UI 업데이트
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> <span>처리 중...</span>';
-            statusDiv.className = 'mt-3 text-xs text-center text-warning';
-            statusDiv.textContent = '데이터를 분석하고 저장하는 중입니다...';
+            btn.innerHTML = `<span class="spinner"></span> <span>${filePaths.length}개 반 분석 중...</span>`;
+            statusDiv.className = 'mt-3 text-xs text-center text-warning font-bold';
+            statusDiv.textContent = `선택된 ${filePaths.length}개 엑셀 파일의 성적 데이터를 분석하고 저장하는 중입니다...`;
             statusDiv.classList.remove('hidden');
 
             // 엑셀 파싱 및 분할 저장 호출
-            const result = await ProcessExcel(filePath);
+            const result = await window.go.main.App.ProcessMultipleExcel(filePaths);
 
             // 결과 메시지 구성
             let processedClasses = Object.keys(result).length;
             let totalStudents = Object.values(result).reduce((a, b) => a + b, 0);
 
-            statusDiv.className = 'mt-3 text-xs text-center text-success';
-            statusDiv.textContent = `성공! ${processedClasses}개 학급, 총 ${totalStudents}명의 데이터를 저장했습니다.`;
+            btn.disabled = false;
+            btn.innerHTML = '<span class="text-sm">📚 교과 성적 엑셀 (모든 반 일괄 선택)</span>';
+            statusDiv.className = 'mt-3 text-xs text-center text-success font-bold';
+            statusDiv.textContent = `🎉 성공! 총 ${filePaths.length}개 파일에서 ${processedClasses}개 학급, 총 ${totalStudents}명의 성적을 일괄 저장했습니다!`;
 
             // 화면 갱신을 위해 약간 대기 후 리렌더링
             setTimeout(() => {
                 renderAdminScreen(schoolName);
-            }, 1500);
+            }, 1200);
 
         } catch (err) {
             btn.disabled = false;
-            btn.innerHTML = '<span>엑셀 파일 불러오기</span>';
+            btn.innerHTML = '<span class="text-sm">📚 교과 성적 엑셀 (모든 반 일괄 선택)</span>';
             statusDiv.className = 'mt-3 text-xs text-center text-danger font-bold break-all';
             statusDiv.textContent = `오류 발생: ${err}`;
             statusDiv.classList.remove('hidden');
@@ -1644,29 +1646,29 @@ async function renderAdminScreen(schoolName) {
         const statusDiv = document.getElementById('uploadStatus');
 
         if (totalStd === 0) {
-            alert('⚠️ 1단계 [교과 성적 엑셀]을 먼저 불러와 학생 명단을 생성해 주세요.');
+            await showModalAlert('1단계 [교과 성적 엑셀]을 먼저 불러와 학생 명단을 생성해 주세요.', '사전 필수 작업', 'warning');
             return;
         }
 
         try {
-            const filePath = await window.go.main.App.OpenExcelFile();
-            if (!filePath) return;
+            let filePaths = await window.go.main.App.OpenMultipleExcelFiles('나이스 출결 현황 엑셀 파일 선택 (Ctrl 또는 Shift 키로 모든 반 파일 동시 선택 가능)');
+            if (!filePaths || filePaths.length === 0) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> <span>처리 중...</span>';
-            statusDiv.className = 'mt-3 text-xs text-center text-warning';
-            statusDiv.textContent = '출결 데이터를 분석하는 중입니다...';
+            btn.innerHTML = `<span class="spinner"></span> <span>${filePaths.length}개 반 분석 중...</span>`;
+            statusDiv.className = 'mt-3 text-xs text-center text-warning font-bold';
+            statusDiv.textContent = `선택된 ${filePaths.length}개 출결 데이터를 분석하고 연동하는 중입니다...`;
             statusDiv.classList.remove('hidden');
 
-            const result = await window.go.main.App.ProcessAttendanceExcel(filePath);
+            const result = await window.go.main.App.ProcessMultipleAttendanceExcel(filePaths);
 
             let processedClasses = Object.keys(result).length;
             let totalStudents = Object.values(result).reduce((a, b) => a + b, 0);
 
             btn.disabled = false;
-            btn.innerHTML = '<span>출결 불러오기</span>';
+            btn.innerHTML = '<span class="text-sm">📅 출결 현황 엑셀 (모든 반 일괄 선택)</span>';
             statusDiv.className = 'mt-3 text-xs text-center text-success font-bold';
-            statusDiv.textContent = `성공: ${processedClasses}개 학급, 총 ${totalStudents}명 출결 연동 완료!`;
+            statusDiv.textContent = `🎉 성공! 총 ${filePaths.length}개 파일에서 ${processedClasses}개 학급, 총 ${totalStudents}명 출결 연동 완료!`;
 
             // 상단 데이터 연동 현황판 갱신
             setTimeout(() => {
@@ -1674,7 +1676,7 @@ async function renderAdminScreen(schoolName) {
             }, 1200);
         } catch (err) {
             btn.disabled = false;
-            btn.innerHTML = '<span>출결 불러오기</span>';
+            btn.innerHTML = '<span class="text-sm">📅 출결 현황 엑셀 (모든 반 일괄 선택)</span>';
             statusDiv.className = 'mt-3 text-xs text-center text-danger font-bold break-all';
             statusDiv.textContent = `출결 오류: ${err}`;
             statusDiv.classList.remove('hidden');
@@ -1686,29 +1688,29 @@ async function renderAdminScreen(schoolName) {
         const statusDiv = document.getElementById('uploadStatus');
 
         if (totalStd === 0) {
-            alert('⚠️ 1단계 [교과 성적 엑셀]을 먼저 불러와 학생 명단을 생성해 주세요.');
+            await showModalAlert('1단계 [교과 성적 엑셀]을 먼저 불러와 학생 명단을 생성해 주세요.', '사전 필수 작업', 'warning');
             return;
         }
 
         try {
-            const filePath = await window.go.main.App.OpenExcelFile();
-            if (!filePath) return;
+            let filePaths = await window.go.main.App.OpenMultipleExcelFiles('나이스 봉사활동 엑셀 파일 선택 (Ctrl 또는 Shift 키로 모든 반 파일 동시 선택 가능)');
+            if (!filePaths || filePaths.length === 0) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<span class="spinner"></span> <span>처리 중...</span>';
-            statusDiv.className = 'mt-3 text-xs text-center text-warning';
-            statusDiv.textContent = '봉사 데이터를 분석하는 중입니다...';
+            btn.innerHTML = `<span class="spinner"></span> <span>${filePaths.length}개 반 분석 중...</span>`;
+            statusDiv.className = 'mt-3 text-xs text-center text-warning font-bold';
+            statusDiv.textContent = `선택된 ${filePaths.length}개 봉사활동 데이터를 분석하고 연동하는 중입니다...`;
             statusDiv.classList.remove('hidden');
 
-            const result = await window.go.main.App.ProcessVolunteerExcel(filePath);
+            const result = await window.go.main.App.ProcessMultipleVolunteerExcel(filePaths);
 
             let processedClasses = Object.keys(result).length;
             let totalStudents = Object.values(result).reduce((a, b) => a + b, 0);
 
             btn.disabled = false;
-            btn.innerHTML = '<span>봉사 불러오기</span>';
+            btn.innerHTML = '<span class="text-sm">🕒 봉사활동 엑셀 (모든 반 일괄 선택)</span>';
             statusDiv.className = 'mt-3 text-xs text-center text-success font-bold';
-            statusDiv.textContent = `성공: ${processedClasses}개 학급, 총 ${totalStudents}명 봉사 연동 완료!`;
+            statusDiv.textContent = `🎉 성공! 총 ${filePaths.length}개 파일에서 ${processedClasses}개 학급, 총 ${totalStudents}명 봉사 연동 완료!`;
 
             // 상단 데이터 연동 현황판 갱신
             setTimeout(() => {
@@ -1716,7 +1718,7 @@ async function renderAdminScreen(schoolName) {
             }, 1200);
         } catch (err) {
             btn.disabled = false;
-            btn.innerHTML = '<span>봉사 불러오기</span>';
+            btn.innerHTML = '<span class="text-sm">🕒 봉사활동 엑셀 (모든 반 일괄 선택)</span>';
             statusDiv.className = 'mt-3 text-xs text-center text-danger font-bold break-all';
             statusDiv.textContent = `봉사 오류: ${err}`;
             statusDiv.classList.remove('hidden');

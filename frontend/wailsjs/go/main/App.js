@@ -222,6 +222,10 @@ export function OpenFinalArchive() {
   return window['go']['main']['App']['OpenFinalArchive']();
 }
 
+export function OpenMultipleExcelFiles(arg1) {
+  return window['go']['main']['App']['OpenMultipleExcelFiles'](arg1);
+}
+
 export function OpenPasswordResetPackage() {
   return window['go']['main']['App']['OpenPasswordResetPackage']();
 }
@@ -240,6 +244,18 @@ export function ProcessAttendanceExcel(arg1) {
 
 export function ProcessExcel(arg1) {
   return window['go']['main']['App']['ProcessExcel'](arg1);
+}
+
+export function ProcessMultipleAttendanceExcel(arg1) {
+  return window['go']['main']['App']['ProcessMultipleAttendanceExcel'](arg1);
+}
+
+export function ProcessMultipleExcel(arg1) {
+  return window['go']['main']['App']['ProcessMultipleExcel'](arg1);
+}
+
+export function ProcessMultipleVolunteerExcel(arg1) {
+  return window['go']['main']['App']['ProcessMultipleVolunteerExcel'](arg1);
 }
 
 export function ProcessVolunteerExcel(arg1) {

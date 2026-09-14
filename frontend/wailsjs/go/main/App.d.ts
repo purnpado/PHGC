@@ -112,6 +112,8 @@ export function OpenExternalURL(arg1:string):Promise<void>;
 
 export function OpenFinalArchive():Promise<string>;
 
+export function OpenMultipleExcelFiles(arg1:string):Promise<Array<string>>;
+
 export function OpenPasswordResetPackage():Promise<string>;
 
 export function OpenTeacherPatch(arg1:string):Promise<Record<string, number>>;
@@ -121,6 +123,12 @@ export function OpenTeacherPatchPreview(arg1:string):Promise<main.PatchPreview>;
 export function ProcessAttendanceExcel(arg1:string):Promise<Record<number, number>>;
 
 export function ProcessExcel(arg1:string):Promise<Record<number, number>>;
+
+export function ProcessMultipleAttendanceExcel(arg1:Array<string>):Promise<Record<number, number>>;
+
+export function ProcessMultipleExcel(arg1:Array<string>):Promise<Record<number, number>>;
+
+export function ProcessMultipleVolunteerExcel(arg1:Array<string>):Promise<Record<number, number>>;
 
 export function ProcessVolunteerExcel(arg1:string):Promise<Record<number, number>>;
 
